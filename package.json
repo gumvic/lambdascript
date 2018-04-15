@@ -1,0 +1,30 @@
+{
+  "name": "muscript",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "bin": {
+    "mu": "./cli.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "pegjs -o src/parse/parser.js src/parse/grammar.pegjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gumvic/lambdascript.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gumvic/lambdascript/issues"
+  },
+  "homepage": "https://github.com/gumvic/lambdascript#readme",
+  "dependencies": {
+    "bluebird": "^3.5.1",
+    "commander": "^2.15.1",
+    "fs-extra": "^5.0.0",
+    "pegjs": "^0.10.0",
+    "replace-ext": "^1.0.0"
+  }
+}
