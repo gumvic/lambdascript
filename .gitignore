@@ -57,3 +57,5 @@ typings/
 # dotenv environment variables file
 .env
 
+# This is auto generated on postinstall
+src/parse/parser.js
