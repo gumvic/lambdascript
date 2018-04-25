@@ -1,14 +1,4 @@
-const Error = require("./error");
-
-class GenerationError {
-  constructor(message, location) {
-    this.message = message;
-    this.location = location || {
-      start: {},
-      end: {}
-    };
-  }
-}
+const GenerationError = require("./error");
 
 function genUndefined(ast) {
   return "undefined";
@@ -38,14 +28,32 @@ function genIdentifier({ name }) {
   return name;
 }
 
-function genMap(ast) {
-  // TODO
+function genMap({ items, location }) {
+  const items = items
+    .map(({ key, value }) => `[${generate(key)},${generate(value)}]`)
+    .join(",");
+  return generate({
+    type: "call",
+    fun: {
+      type: "identifier",
+      name: "mkMap",
+      location: location
+    },
+    args: items
+  });
 }
 
-function genVector(ast) {
-  //const items = ast.items.map(generate).join(",");
-  //return "[" + items + "]";
-  // TODO
+function genVector({ items, location }) {
+  const items = items.map(generate).join(",");
+  return generate({
+    type: "call",
+    fun: {
+      type: "identifier",
+      name: "mkVector",
+      location: location
+    },
+    args: items
+  });
 }
 
 function genLambda({ args, body }) {
@@ -84,7 +92,7 @@ function genCase({ branches, otherwise }) {
     const _condition = generate(condition);
     const ifTrue = generate(value);
     const ifFalse = generate(f(rest) || otherwise);
-    return `(${_condition} ? ${ifTrue} : ${ifFalse})`;
+    return `(${_condition}?${ifTrue}:${ifFalse})`;
   }
   return f(branches);
 }
@@ -149,15 +157,6 @@ function genImport({ globals, alias, module }) {
   return `const ${alias}=require("${module}");${globals}`;
 }
 
-const defaultImports = [
-  {
-    type: "import",
-    alias: "core",
-    module: "muscript-core",
-    globals: ["join"]
-  }
-];
-
 function genExport(_export) {
   if(_export) {
     return `module.exports=${generate(_export)};`;
@@ -168,12 +167,8 @@ function genExport(_export) {
 }
 
 function genModule(ast) {
-  const imports = defaultImports.concat(ast.imports)
-    .map(genImport)
-    .join("");
-  const definitions = ast.definitions
-    .map(genDefinition)
-    .join("");
+  const imports = ast.imports.map(genImport).join("");
+  const definitions = ast.definitions.map(genDefinition).join("");
   const _export = genExport(ast.export);
   return `${imports}${definitions}${_export}`;
 }

@@ -1,9 +1,31 @@
-1) import syntax sucks.
+- import (window, $) from _ -- _ means outside world
 
-2) import (window, $) from _ -- _ means outside world.
+- generate readable js
 
-3) Errors should take the file, too, so that they would say, "foo.mu:42:42 SyntaxError: Foo bar"
+- new name and global search and replace "mu"
 
-4) Separate out default imports.
+- template strings
 
-5) Change how imports work.
+- success messages like module foo compiled etc
+
+- access -- a.b.c
+
+- getter functions like .x, also chained, like .address.city; also, maybe they should use `get` if the data is immutable
+
+- setters like .!x, .!x.!y -- do chained setters make sense?
+
+- let Point x y -- generates mkPoint
+
+- let Point.distance otherPoint = ...
+
+- check arity on call?
+
+- multiarity
+
+- zero arity as a special case
+
+- source maps
+
+- CLI interface
+
+- REPL

@@ -1,14 +1,4 @@
-const Error = require("./error");
-
-class CheckError {
-  constructor(message, location) {
-    this.message = message;
-    this.location = location || {
-      start: {},
-      end: {}
-    };
-  }
-}
+const CheckError = require("./error");
 
 class Scope {
   constructor(parent) {
@@ -18,7 +8,7 @@ class Scope {
 
   define(name, location) {
     if (this.defined.indexOf(name) >= 0) {
-      throw new GenerationError(`Duplicate: ${name}`, location);
+      throw new CheckError(`Duplicate: ${name}`, location);
     }
     else {
       this.defined.push(name);
@@ -37,14 +27,21 @@ class Scope {
   }
 }
 
-function checkIdentifier({ name }, scope) {
+function checkIdentifier({ name, location }, scope) {
   if (!scope.isDefined(name)) {
-    throw new CheckError(`Identifier not defined: ${name}`, ast.location);
+    throw new CheckError(`Identifier not defined: ${name}`, location);
   }
 }
 
+function checkOperator(ast, scope) {
+
+}
+
 function checkMap(ast, scope) {
-  // TODO
+  for(let { key, value } of items) {
+    check(key, scope);
+    check(value, scope);
+  }
 }
 
 function checkVector({ items }, scope) {
@@ -53,7 +50,7 @@ function checkVector({ items }, scope) {
   }
 }
 
-function checkLambda({ args, location }, scope) {
+function checkLambda({ args, body, location }, scope) {
   scope = scope.child();
   for(let arg of args) {
     scope.define(arg, location);
@@ -61,8 +58,14 @@ function checkLambda({ args, location }, scope) {
   check(body, scope);
 }
 
-function checkJoin({ left, via, right, location }, scope) {
-  // TODO
+function checkJoin(join, scope) {
+  function f({ left, via, right, location }, scope) {
+    check(left, scope);
+    scope = scope.child();
+    scope.define(via, location);
+    check(right, scope);
+  }
+  f(join, scope);
 }
 
 function checkCase({ branches, otherwise }, scope) {
@@ -78,6 +81,9 @@ function checkLet({ definitions, body }, scope) {
   for(let { name, location } of definitions) {
     scope.define(name, location);
   }
+  for(let { value, location } of definitions) {
+    check(value, scope);
+  }
   check(body, scope);
 }
 
@@ -92,15 +98,6 @@ function checkAccess({ object }, scope) {
   check(object, scope);
 }
 
-const defaultImports = [
-  {
-    type: "import",
-    alias: "core",
-    module: "muscript-core",
-    globals: ["join"]
-  }
-];
-
 function checkImport({ alias, globals, location }, scope) {
   scope.define(alias, location);
   for(let name of globals) {
@@ -108,15 +105,20 @@ function checkImport({ alias, globals, location }, scope) {
   }
 }
 
-function checkModule({ imports, definitions }, scope) {
+// TODO throw on duplicate imports
+function checkModule(module, scope) {
   scope = new Scope();
-  imports = defaultImports.concat(imports);
+  const imports = module.imports;
   for(let _import of imports) {
     checkImport(_import, scope);
   }
-  for(let { name, location } of definitions) {
+  for(let { name, location } of module.definitions) {
     scope.define(name, location);
   }
+  for(let { value, location } of module.definitions) {
+    check(value, scope);
+  }
+  check(module.export, scope);
 }
 
 function check(ast, scope) {
@@ -124,7 +126,14 @@ function check(ast, scope) {
     scope = new Scope();
   }
   switch (ast.type) {
+    case "undefined":
+    case "null":
+    case "false":
+    case "true":
+    case "number":
+    case "string": return;
     case "identifier": return checkIdentifier(ast, scope);
+    case "operator": return checkOperator(ast, scope);
     case "map":  return checkMap(ast, scope);
     case "vector": return checkVector(ast, scope);
     case "lambda": return checkLambda(ast, scope);
