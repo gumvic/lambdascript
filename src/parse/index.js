@@ -1,12 +1,5 @@
-const Error = require("./error");
 const parser = require("./parser");
-
-class SyntaxError {
-  constructor(message, location) {
-    this.message = message;
-    this.location = location;
-  }
-}
+const SyntaxError = require("./error");
 
 function parse(src) {
   try {

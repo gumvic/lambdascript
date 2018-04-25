@@ -1,25 +1,17 @@
 #!/usr/bin/env node
 
-/*const promise = require("bluebird");
-
-const path = require("path");
-const fs = require("fs-extra");
-const replaceExt = require("replace-ext");
 const cli = require("commander");
 
-const compile = require("./src/compile");*/
-
-const cli = require("commander");
 const build = require("./src/build");
+const Error = require("./src/error");
 
 function formatError(error) {
-  // TODO
-  if (error && error.location) {
-    return `${error.message} at ${error.location.start.line}:${error.location.start.column}`;
+  if (!(error instanceof Error)) {
+    error = error ?
+      new Error(error.toString()) :
+      new Error("Unknown error");
   }
-  else {
-    return error;
-  }
+  return `${error.location.module}:${error.location.start.line}:${error.location.start.column}: ${error.message}`;
 }
 
 function outputError(error) {
@@ -34,9 +26,9 @@ function run() {
   cli.parse(process.argv);
   const src = cli.args[0];
   const distDir = cli.args[1];
-  build(src, distDir)
-    .then(() => outputSuccess("Done."))
-    .catch(e => outputError(e));
+  build(src, distDir).then(
+    () => outputSuccess("Done."), 
+    outputError);
 }
 
 run();
