@@ -25,6 +25,7 @@
     "commander": "^2.15.1",
     "fs-extra": "^5.0.0",
     "pegjs": "^0.10.0",
+    "readline-specific": "^1.0.4",
     "replace-ext": "^1.0.0",
     "walk-promise": "^0.2.0"
   }

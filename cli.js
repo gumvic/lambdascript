@@ -1,34 +1,50 @@
 #!/usr/bin/env node
 
+const { promisify } = require("util");
+
 const cli = require("commander");
+const { join: joinPath } = require("path");
+const readlineSpecific = promisify(require("readline-specific").oneline);
 
 const build = require("./src/build");
 const Error = require("./src/error");
 
-function formatError(error) {
+function formatError(error, { srcDir }) {
   if (!(error instanceof Error)) {
     error = error ?
       new Error(error.toString()) :
       new Error("Unknown error");
   }
-  return `${error.location.file}:${error.location.start.line}:${error.location.start.column}: ${error.message}`;
+  const { message, location: { file, start: { line, column } } } = error;
+  const description = `${file}:${line}:${column}: ${message}`;
+  if (file && line && column) {
+    return readlineSpecific(joinPath(srcDir, file), line).then(line => [
+      description,
+      line,
+      "^".padStart(column)
+    ].join("\n"));
+  }
+  else {
+    return description;
+  }
 }
 
-function outputError(error) {
-  console.log("\x1b[31m", formatError(error), "\x1b[0m");
+function outputError(error, context) {
+  return formatError(error, context).then(console.error);
 }
 
-function outputSuccess(message) {
-  console.log("\x1b[32m", message, "\x1b[0m");
+function outputSuccess(context) {
+  console.log("Done.");
 }
 
 function run() {
   cli.parse(process.argv);
-  const src = cli.args[0];
+  const srcDir = cli.args[0];
   const distDir = cli.args[1];
-  build(src, distDir).then(
-    () => outputSuccess("Done."),
-    outputError);
+  const context = { srcDir, distDir };
+  build(srcDir, distDir).then(
+    () => outputSuccess(context),
+    error => outputError(error, context));
 }
 
 run();
