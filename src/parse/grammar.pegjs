@@ -58,7 +58,7 @@ atom =
   / vector
   / map
   / case
-  / block
+  / let
   / monad
   / subExpression
 
@@ -267,12 +267,12 @@ functionDefinition =
   };
 }
 definition "definition" = functionDefinition / constantDefinition
-block "block" =
+let "let" =
   wordLet _
   definitions:(first:definition rest:(_ "," _ definition:definition { return definition; })* { return [first].concat(rest); })
   _ "," _ body:expression {
     return {
-      type: "block",
+      type: "let",
       definitions: definitions,
       body: body,
       location: location()
