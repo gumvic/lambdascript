@@ -56,12 +56,23 @@ function checkConstant({ name, value, location }, scope) {
   scope.define(name, location);
 }
 
-function checkFunctionBody({ args, body, location }, scope) {
-  scope = scope.child();
-  for(let arg of args) {
-    scope.define(arg, location);
+function checkFunctionBody({ name, variants }, scope) {
+  let definedVariants = {};
+  for(let variant of variants) {
+    const { args, body, location } = variant;
+    const arity = args.length;
+    if (definedVariants[arity]) {
+      throw new CheckError(`Duplicate definition: ${name} ${args.join(" ")}`, location);
+    }
+    else {
+      definedVariants[arity] = variant;
+      const _scope = scope.child();
+      for(let arg of args) {
+        _scope.define(arg, location);
+      }
+      check(body, _scope);
+    }
   }
-  check(body, scope);
 }
 
 function checkFunction(definition, scope) {

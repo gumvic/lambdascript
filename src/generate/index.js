@@ -59,12 +59,29 @@ function genConstant({ name, value }, context) {
   return `const ${name} = ${generate(value, context)};`;
 }
 
-function genFunction({ name, args, body }, context) {
-  args = args.join(", ");
-  body = generate(body, context);
+function genFunction({ name, variants }, context) {
+  variants = variants
+    .map(({ args, body }) => {
+      const arity = args.length;
+      args = `const [${args.join(", ")}] = arguments;`;
+      body = `return ${generate(body, context)};`;
+      return [
+        `if (arguments.length === ${arity}) {`,
+        __(args),
+        __(body),
+        "}"
+      ].join("\n");
+    })
+    .join("\nelse ");
+  const defaultVariant = [
+    "else {",
+    __("throw new TypeError('Arity not supported: ' + arguments.length.toString());"),
+    "}"
+  ].join("\n");
   return [
-    `function ${name || ""}(${args}) {`,
-    __(`return ${body};`),
+    `function ${name || ""}() {`,
+    __(variants),
+    __(defaultVariant),
     "}"
   ].join("\n");
 }

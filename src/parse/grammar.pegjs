@@ -1,3 +1,25 @@
+{
+  function groupFunctionDefinitions(definitions) {
+  	let functions = {};
+    for(let definition of definitions) {
+      const { type, name, args, body, location } = definition;
+      if (type === "function") {
+        if (!functions[name]) {
+          functions[name] = definition;
+          definition.variants = [{ args, body, location }];
+          delete definition.args;
+          delete definition.body;
+        }
+        else {
+          functions[name].variants.push({ args, body, location });
+          definition._skip = true;
+        }
+      }
+    }
+    return definitions.filter(({ _skip }) => !_skip);
+  }
+}
+
 ast = _ ast:(module / expression) _ {
   return ast;
 }
@@ -60,7 +82,7 @@ operator "operator" = !reservedOperator chars:operatorChar+ {
 
 atom =
   literal
-  / function
+  / lambda
   / identifier
   / vector
   / map
@@ -186,15 +208,18 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
   return expression;
 }
 
-function "function" =
+lambda "lambda" =
   "(" _
   args:(first:name rest:(_ arg:name { return arg; })* { return [first].concat(rest); })?
   _ "->" _
   body:expression _ ")" {
   return {
     type: "function",
-    args: args || [],
-    body: body,
+    variants: [{
+      args: args || [],
+      body: body,
+      location: location()
+    }],
     location: location()
   };
 }
@@ -248,7 +273,7 @@ case "case" =
     };
   }
 
-constantDefinition = name:name _ "=" _ value:expression {
+constant = name:name _ "=" _ value:expression {
   return {
     type: "constant",
     name: name,
@@ -256,7 +281,7 @@ constantDefinition = name:name _ "=" _ value:expression {
     location: location()
   };
 }
-functionDefinition =
+function =
   name:name _
   args:(first:name rest:(_ arg:name { return arg; })* { return [first].concat(rest); })
   _ "=" _
@@ -269,7 +294,7 @@ functionDefinition =
     location: location()
   };
 }
-definition "definition" = functionDefinition / constantDefinition
+definition "definition" = function / constant
 
 let "let" =
   wordLet _
@@ -277,7 +302,7 @@ let "let" =
   _ "," _ body:expression {
     return {
       type: "let",
-      definitions: definitions,
+      definitions: groupFunctionDefinitions(definitions),
       body: body,
       location: location()
     };
@@ -373,7 +398,7 @@ module "module" =
     type: "module",
     name: name,
     imports: imports || [],
-    definitions: definitions,
+    definitions: groupFunctionDefinitions(definitions),
     export: _export,
     location: location()
   };

@@ -1,13 +1,13 @@
-- multiarity
-
 - zero arity as a special case
 
-- check arity on call?
+
+- access -- a.b.c
 
 
 - let Point x y -- generates Point (using Object.create(Point.prototype)); make Point inherit an immutable map, too?
 
 - multiple arity:
+  let Point = ... -- should be an error
   let Point x = Point x 0
   let Point x y = { "x": x, "y": y }
 
@@ -19,8 +19,6 @@
 
 - new name and global search and replace "mu"
 
-
-- access -- a.b.c
 
 - getter functions like .x, also chained, like .address.city; also, maybe they should use `get`/`getIn` if the data is immutable
 
