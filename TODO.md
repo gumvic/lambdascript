@@ -1,13 +1,16 @@
+- function definitions should be in form of f x -> x, f -> 42 for zero arity
+
+
 - zero arity as a special case
 
 
 - access -- a.b.c
+- getter functions like .x, also chained, like .address.city; also, maybe they should use `get`/`getIn` if the data is immutable
 
 
 - let Point x y -- generates Point (using Object.create(Point.prototype)); make Point inherit an immutable map, too?
 
 - multiple arity:
-  let Point = ... -- should be an error
   let Point x = Point x 0
   let Point x y = { "x": x, "y": y }
 
@@ -19,8 +22,6 @@
 
 - new name and global search and replace "mu"
 
-
-- getter functions like .x, also chained, like .address.city; also, maybe they should use `get`/`getIn` if the data is immutable
 
 - setters like .!x, .!x.!y -- do chained setters make sense?
 

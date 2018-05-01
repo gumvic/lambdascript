@@ -11,8 +11,8 @@ function __(str) {
 }
 
 let _oneOffIdentifier = 0;
-function oneOffIdentifier() {
-  return `$$__${_oneOffIdentifier++}`;
+function oneOffIdentifier(name) {
+  return `$${name}_${_oneOffIdentifier++}`;
 }
 
 function genUndefined(ast, context) {
@@ -40,6 +40,7 @@ function genString({ value }, context) {
 }
 
 function genIdentifier({ name }, context) {
+  // TODO js reserved words
   return name;
 }
 
@@ -175,7 +176,7 @@ function genAccess({ object, property }, context) {
 }
 
 function genImport({ names, alias, module }, context) {
-  alias = alias || oneOffIdentifier();
+  alias = alias || oneOffIdentifier(module);
   module = `const ${alias} = require("${module}");`;
   names = `const { ${names.join(", ")} } = ${alias};`;
   return [module, names].join("\n");

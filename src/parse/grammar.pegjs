@@ -208,15 +208,15 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
   return expression;
 }
 
-lambda "lambda" =
-  "(" _
-  args:(first:name rest:(_ arg:name { return arg; })* { return [first].concat(rest); })?
-  _ "->" _
-  body:expression _ ")" {
+argsList = args:(first:name rest:(_ arg:name { return arg; })* { return [first].concat(rest); })? {
+  return args || [];
+}
+
+lambda "lambda" = "(" _ args:argsList _ "->" _ body:expression _ ")" {
   return {
     type: "function",
     variants: [{
-      args: args || [],
+      args: args,
       body: body,
       location: location()
     }],
@@ -281,11 +281,7 @@ constant = name:name _ "=" _ value:expression {
     location: location()
   };
 }
-function =
-  name:name _
-  args:(first:name rest:(_ arg:name { return arg; })* { return [first].concat(rest); })
-  _ "=" _
-  body:expression {
+function = name:name _ args:argsList _ "->" _ body:expression {
   return {
     type: "function",
     name: name,
