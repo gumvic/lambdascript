@@ -3,15 +3,9 @@ class Error {
     this.message = message;
     location = location || {};
     this.location = {
-      file: location.file || "<unknown>",
-      start: location.start || {
-        line: "<unknown>",
-        column: "<unknown>"
-      },
-      end: location.end || {
-        line: "<unknown>",
-        column: "<unknown>"
-      }
+      file: location.file,
+      start: location.start || {},
+      end: location.end || {}
     };
   }
 }

@@ -1,4 +1,4 @@
-const { map: mapPromise } = require("bluebird");
+const { try: tryPromise, map: mapPromise } = require("bluebird");
 
 const { parse: parsePath, relative: relativePath, join: joinPath } = require("path");
 const { readFile, writeFile, ensureFile, copy } = require("fs-extra");
@@ -53,43 +53,40 @@ function readUnknownModule(file, context) {
 }
 
 function readModule(file, context) {
-  const { ext } = parsePath(file);
-  switch(ext) {
-    case ".mu": return readMuModule(file, context);
-    case ".js": return readJSModule(file, context);
-    default: return readUnknownModule(file, context);
-  }
+  return tryPromise(() => {
+    const { ext } = parsePath(file);
+    switch(ext) {
+      case ".mu": return readMuModule(file, context);
+      case ".js": return readJSModule(file, context);
+      default: return readUnknownModule(file, context);
+    }
+  }).catch(e => {
+    e.location.file = file;
+    throw e;
+  });
 }
 
 function checkMuModule(module, { modules }) {
   const { name, ast, file } = module;
 
   if (ast.type !== "module") {
-    throw new BuildError(`Not a module`, { file: file });
+    throw new BuildError("Not a module");
   }
-  try {
-    check(ast);
-  }
-  catch(e) {
-    e.location.file = file;
-    throw e;
-  }
+  check(ast);
 
   const duplicate = modules
     .filter(_module => _module !== module && _module.name === name)[0];
   if (duplicate) {
-    throw new BuildError(`Module ${name} is already defined in ${duplicate.file}`, { file: file });
+    throw new BuildError(`Module ${name} is already defined in ${duplicate.file}`);
   }
 
   let imports = {};
   for(let { module, location } of ast.imports) {
-    if (imports[module]) {
-      location.file = file;
-      throw new BuildError(`Duplicate import: ${module}`, location);
-    }
-    else if (module === name) {
-      location.file = file;
+    if (module === name) {
       throw new BuildError(`Module ${name} imports itself`, location);
+    }
+    else if (imports[module]) {
+      throw new BuildError(`Duplicate import: ${module}`, location);
     }
     else {
       imports[module] = true;
@@ -107,11 +104,16 @@ function checkUnknownModule(module, context) {
 }
 
 function checkModule(module, context) {
-  switch(module.type) {
-    case "mu": return checkMuModule(module, context);
-    case "js": return checkJSModule(module, context);
-    default: return checkUnknownModule(module, context);
-  }
+  return tryPromise(() => {
+    switch(module.type) {
+      case "mu": return checkMuModule(module, context);
+      case "js": return checkJSModule(module, context);
+      default: return checkUnknownModule(module, context);
+    }
+  }).catch(e => {
+    e.location.file = module.file;
+    throw e;
+  });
 }
 
 function resolveImportPath({ file }, { file: importFile }) {
@@ -154,11 +156,16 @@ function buildUnknownModule({ file }, { srcDir, distDir }) {
 }
 
 function buildModule(module, context) {
-  switch(module.type) {
-    case "mu": return buildMuModule(module, context);
-    case "js": return buildJSModule(module, context);
-    default: return buildUnknownModule(module, context);
-  }
+  return tryPromise(() => {
+    switch(module.type) {
+      case "mu": return buildMuModule(module, context);
+      case "js": return buildJSModule(module, context);
+      default: return buildUnknownModule(module, context);
+    }
+  }).catch(e => {
+    e.location.file = module.file;
+    throw e;
+  });
 }
 
 function build(srcDir, distDir) {

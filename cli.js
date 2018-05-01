@@ -2,6 +2,8 @@
 
 const { promisify } = require("util");
 
+const { resolve: resolvePromise } = require("bluebird");
+
 const cli = require("commander");
 const { join: joinPath } = require("path");
 const readlineSpecific = promisify(require("readline-specific").oneline);
@@ -16,7 +18,7 @@ function formatError(error, { srcDir }) {
       new Error("Unknown error");
   }
   const { message, location: { file, start: { line, column } } } = error;
-  const description = `${file}:${line}:${column}: ${message}`;
+  const description = `${file || "?"}:${line || "?"}:${column || "?"}: ${message || "?"}`;
   if (file && line && column) {
     return readlineSpecific(joinPath(srcDir, file), line).then(line => [
       description,
@@ -25,7 +27,7 @@ function formatError(error, { srcDir }) {
     ].join("\n"));
   }
   else {
-    return description;
+    return resolvePromise(description);
   }
 }
 

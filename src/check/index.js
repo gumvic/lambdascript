@@ -120,7 +120,9 @@ function checkModule(module, scope) {
   for(let { value, location } of module.definitions) {
     check(value, scope);
   }
-  check(module.export, scope);
+  if (module.export) {
+    check(module.export, scope);
+  }
 }
 
 function check(ast, scope) {

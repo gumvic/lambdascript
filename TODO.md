@@ -1,6 +1,15 @@
-- generate readable js
-
 - interdependent lets shouldn't be allowed
+
+- no export breaks building
+
+- AST should differentiate between constants, functions and constructors
+
+- use functions instead of arrow functions?
+
+
+- let Point x y -- generates Point (using Object.create(Point.prototype)), isPoint; allow user to redefine those helpers?
+
+- let Point.distance otherPoint = ...
 
 
 - multiarity
@@ -14,11 +23,6 @@
 
 
 - js module should be able to both declare its name and require modules
-
-
-- let Point x y -- generates Point (using Object.create(Point.prototype)), isPoint; allow user to redefine those helpers?
-
-- let Point.distance otherPoint = ...
 
 
 - new name and global search and replace "mu"
