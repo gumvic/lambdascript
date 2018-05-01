@@ -50,12 +50,25 @@ function checkVector({ items }, scope) {
   }
 }
 
-function checkLambda({ args, body, location }, scope) {
+function checkConstant({ name, value, location }, scope) {
+  check(value, scope);
+  scope.define(name, location);
+}
+
+function checkFunctionBody({ args, body, location }, scope) {
   scope = scope.child();
   for(let arg of args) {
     scope.define(arg, location);
   }
   check(body, scope);
+}
+
+function checkFunction(definition, scope) {
+  const { name } = definition;
+  if (name) {
+    scope.define(name, location);
+  }
+  checkFunctionBody(definition, scope);
 }
 
 function checkJoin(join, scope) {
@@ -68,6 +81,24 @@ function checkJoin(join, scope) {
   f(join, scope);
 }
 
+function checkDefinitions(definitions, scope) {
+  for(let definition of definitions) {
+    const { type, name, location } = definition;
+    if(type === "function" && name) {
+      scope.define(name, location);
+    }
+    else {
+      check(definition, scope);
+    }
+  }
+  for(let definition of definitions) {
+    const { type } = definition;
+    if(type === "function") {
+      checkFunctionBody(definition, scope);
+    }
+  }
+}
+
 function checkCase({ branches, otherwise }, scope) {
   for(let { condition, value } of branches) {
     check(condition, scope);
@@ -78,12 +109,7 @@ function checkCase({ branches, otherwise }, scope) {
 
 function checkLet({ definitions, body }, scope) {
   scope = scope.child();
-  for(let { name, location } of definitions) {
-    scope.define(name, location);
-  }
-  for(let { value, location } of definitions) {
-    check(value, scope);
-  }
+  checkDefinitions(definitions, scope);
   check(body, scope);
 }
 
@@ -107,19 +133,13 @@ function checkImport({ alias, globals, location }, scope) {
   }
 }
 
-// TODO throw on duplicate imports
 function checkModule(module, scope) {
   scope = new Scope();
   const imports = module.imports;
   for(let _import of imports) {
     checkImport(_import, scope);
   }
-  for(let { name, location } of module.definitions) {
-    scope.define(name, location);
-  }
-  for(let { value, location } of module.definitions) {
-    check(value, scope);
-  }
+  checkDefinitions(module.definitions, scope);
   if (module.export) {
     check(module.export, scope);
   }
@@ -140,7 +160,8 @@ function check(ast, scope) {
     case "operator": return checkOperator(ast, scope);
     case "map":  return checkMap(ast, scope);
     case "vector": return checkVector(ast, scope);
-    case "lambda": return checkLambda(ast, scope);
+    case "constant": return checkConstant(ast, scope);
+    case "function": return checkFunction(ast, scope);
     case "join": return checkJoin(ast, scope);
     case "case": return checkCase(ast, scope);
     case "let": return checkLet(ast, scope);

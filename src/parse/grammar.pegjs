@@ -53,7 +53,7 @@ operator "operator" = !reservedOperator chars:operatorChar+ {
 
 atom =
   literal
-  / lambda
+  / function
   / identifier
   / vector
   / map
@@ -179,13 +179,13 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
   return expression;
 }
 
-lambda "lambda" =
+function "function" =
   "(" _
   args:(first:name rest:(_ arg:name { return arg; })* { return [first].concat(rest); })?
   _ "->" _
   body:expression _ ")" {
   return {
-    type: "lambda",
+    type: "function",
     args: args || [],
     body: body,
     location: location()
@@ -243,7 +243,7 @@ case "case" =
 
 constantDefinition = name:name _ "=" _ value:expression {
   return {
-    type: "definition",
+    type: "constant",
     name: name,
     value: value,
     location: location()
@@ -255,18 +255,15 @@ functionDefinition =
   _ "=" _
   body:expression {
   return {
-    type: "definition",
+    type: "function",
     name: name,
-    value: {
-      type: "lambda",
-      args: args,
-      body: body,
-      location: location()
-    },
+    args: args,
+    body: body,
     location: location()
   };
 }
 definition "definition" = functionDefinition / constantDefinition
+
 let "let" =
   wordLet _
   definitions:(first:definition rest:(_ "," _ definition:definition { return definition; })* { return [first].concat(rest); })

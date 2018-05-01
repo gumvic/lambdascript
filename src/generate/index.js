@@ -2,12 +2,11 @@ const GenerationError = require("./error");
 
 class Context {}
 
-function indent(str, indentation) {
-  indentation = indentation || 1;
+function __(str) {
   const indentationLength = 2;
   return str
     .split("\n")
-    .map(line => line.padStart(line.length + (indentation * indentationLength)))
+    .map(line => line.padStart(line.length + indentationLength))
     .join("\n");
 }
 
@@ -56,24 +55,32 @@ function genVector({ items, location }, context) {
   return `Vector(${items})`;
 }
 
-function genLambda({ args, body }, context) {
+function genConstant({ name, value }, context) {
+  return `const ${name} = ${generate(value, context)};`;
+}
+
+function genFunction({ name, args, body }, context) {
   args = args.join(", ");
   body = generate(body, context);
-  return `(${args}) => ${body}`;
+  return [
+    `function ${name || ""}(${args}) {`,
+    __(`return ${body};`),
+    "}"
+  ].join("\n");
 }
 
 function genJoin({ left, via, right, location }, context) {
   left = generate(left, context);
   right = generate({
-    type: "lambda",
+    type: "function",
     args: [via],
     body: right,
     location: right.location
   }, context);
   return [
     "Join(",
-    indent(`${left},`),
-    indent(`${right})`)
+    __(`${left},`),
+    __(`${right})`)
   ].join("\n");
 }
 
@@ -89,26 +96,22 @@ function genCase({ branches, otherwise }, context) {
     const ifFalse = f(rest, context);
     return [
       `(${_condition} ?`,
-      indent(`${ifTrue} :`),
-      indent(`${ifFalse})`)
+      __(`${ifTrue} :`),
+      __(`${ifFalse})`)
     ].join("\n");
   }
   return f(branches, context);
 }
 
-function genDefinition({ name, value }, context) {
-  return `const ${name} = ${generate(value, context)};`;
-}
-
 function genLet({ definitions, body }, context) {
   definitions = definitions
-    .map(definition => genDefinition(definition, context))
+    .map(definition => generate(definition, context))
     .join("\n");
   body = generate(body, context);
   return [
     "((() => {",
-    indent(definitions),
-    indent(`return ${body};`),
+    __(definitions),
+    __(`return ${body};`),
     "})())"
   ].join("\n");
 }
@@ -177,7 +180,7 @@ function genModule(ast, context) {
     .map(_import => genImport(_import, context))
     .join("\n\n");
   const definitions = ast.definitions
-    .map(definition => genDefinition(definition, context))
+    .map(definition => generate(definition, context))
     .join("\n\n");
   const _export = genExport(ast.export, context);
   return [imports, definitions, _export].filter(x => x !== "").join("\n\n");
@@ -195,7 +198,8 @@ function generate(ast, context) {
     case "identifier": return genIdentifier(ast, context);
     case "map":  return genMap(ast, context);
     case "vector": return genVector(ast, context);
-    case "lambda": return genLambda(ast, context);
+    case "constant": return genConstant(ast, context);
+    case "function": return genFunction(ast, context);
     case "join": return genJoin(ast, context);
     case "case": return genCase(ast, context);
     case "let": return genLet(ast, context);
