@@ -21,7 +21,7 @@ function readMuModule(file, context) {
         type: "import",
         alias: "core",
         module: "core",
-        globals: ["join", "isJoin", "bind"],
+        names: ["join", "isJoin", "bind"],
         location: {}
       }
     ];
@@ -80,18 +80,6 @@ function checkMuModule(module, { modules }) {
     throw new BuildError(`Module ${name} is already defined in ${duplicate.file}`);
   }
 
-  let imports = {};
-  for(let { module, location } of ast.imports) {
-    if (module === name) {
-      throw new BuildError(`Module ${name} imports itself`, location);
-    }
-    else if (imports[module]) {
-      throw new BuildError(`Duplicate import: ${module}`, location);
-    }
-    else {
-      imports[module] = true;
-    }
-  }
   return module;
 }
 

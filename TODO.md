@@ -1,17 +1,8 @@
-- move self importing and duplicate imports checks to check
-
-
-- export should only accept either an identifier or { identifiers }
-
-
 - multiarity
 
 - zero arity as a special case
 
 - check arity on call?
-
-
-- AST for module sucks -- module, alias, globals, all that should be renamed
 
 
 - let Point x y -- generates Point (using Object.create(Point.prototype)); make Point inherit an immutable map, too?

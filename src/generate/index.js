@@ -145,11 +145,11 @@ function genOperatorCall({ fun, args, location }, context) {
     const right = generate(args[1], context);
     return `${left} ${operator} ${right}`;
   }
-  else throw new GenerationError(`Internal compiler error: wrong number of arguments: ${args.length}.`, location);
+  else throw new GenerationError(`Internal error: wrong number of arguments: ${args.length}.`, location);
 }
 
 function genOperator({ location }, context) {
-  throw new GenerationError(`Internal compiler error: not implemented.`, location);
+  throw new GenerationError(`Internal error: not implemented.`, location);
 }
 
 function genAccess({ object, property }, context) {
@@ -157,32 +157,41 @@ function genAccess({ object, property }, context) {
   return `${object}.${property}`;
 }
 
-function genImport({ globals, alias, module }, context) {
+function genImport({ names, alias, module }, context) {
   alias = alias || oneOffIdentifier();
   module = `const ${alias} = require("${module}");`;
-  globals = globals
-    .map(global => `const ${global} = ${alias}.${global};`)
-    .join("\n");
-  return [module, globals].join("\n");
+  names = `const { ${names.join(", ")} } = ${alias};`;
+  return [module, names].join("\n");
 }
 
-function genExport(_export, context) {
-  if(_export) {
-    return `module.exports = ${generate(_export, context)};`;
-  }
-  else {
-    return "";
+function genModuleImports({ imports }, context) {
+  return imports
+    .map(_import => generate(_import, context))
+    .join("\n\n");
+}
+
+function genModuleDefinitions({ definitions }, context) {
+  return definitions
+    .map(definition => generate(definition, context))
+    .join("\n\n");
+}
+
+function genModuleExport({ export: _export }, context) {
+  if (_export) {
+    const { type, name, names, location } = _export;
+    if (name) {
+      return `module.exports = ${name};`;
+    }
+    else if (names) {
+      return `module.exports = { ${names.join(", ")} };`;
+    }
   }
 }
 
 function genModule(ast, context) {
-  const imports = ast.imports
-    .map(_import => genImport(_import, context))
-    .join("\n\n");
-  const definitions = ast.definitions
-    .map(definition => generate(definition, context))
-    .join("\n\n");
-  const _export = genExport(ast.export, context);
+  const imports = genModuleImports(ast);
+  const definitions = genModuleDefinitions(ast);
+  const _export = genModuleExport(ast);
   return [imports, definitions, _export].filter(x => x !== "").join("\n\n");
 }
 
@@ -205,8 +214,10 @@ function generate(ast, context) {
     case "let": return genLet(ast, context);
     case "call": return genCall(ast, context);
     case "access": return genAccess(ast, context);
+    case "import": return genImport(ast, context);
+    case "export": return genExport(ast, context);
     case "module": return genModule(ast, context);
-    default: throw new GenerationError(`Internal compiler error: unknown AST type ${ast.type}.`, ast.location);
+    default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }
 

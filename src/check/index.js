@@ -15,11 +15,14 @@ class Scope {
     }
   }
 
-  isDefined(name) {
-    return (
-      this.defined.indexOf(name) >= 0 ||
-      (this.parent && this.parent.isDefined(name))
-    );
+  get(name, location) {
+    if (this.defined.indexOf(name) >= 0) {}
+    else if (this.parent) {
+      return this.parent.get(name, location);
+    }
+    else {
+      throw new CheckError(`Identifier not defined: ${name}`, location);
+    }
   }
 
   child() {
@@ -28,9 +31,7 @@ class Scope {
 }
 
 function checkIdentifier({ name, location }, scope) {
-  if (!scope.isDefined(name)) {
-    throw new CheckError(`Identifier not defined: ${name}`, location);
-  }
+  scope.get(name, location);
 }
 
 function checkOperator(ast, scope) {
@@ -87,8 +88,11 @@ function checkDefinitions(definitions, scope) {
     if(type === "function" && name) {
       scope.define(name, location);
     }
-    else {
+    else if (type === "constant") {
       check(definition, scope);
+    }
+    else {
+      throw new CheckError(`Internal error: unknown AST type ${type}.`, location);
     }
   }
   for(let definition of definitions) {
@@ -124,25 +128,54 @@ function checkAccess({ object }, scope) {
   check(object, scope);
 }
 
-function checkImport({ alias, globals, location }, scope) {
+function checkImport({ alias, names, location }, scope) {
   if (alias) {
     scope.define(alias, location);
   }
-  for(let name of globals) {
+  for(let name of names) {
     scope.define(name, location);
   }
 }
 
-function checkModule(module, scope) {
-  scope = new Scope();
-  const imports = module.imports;
+function checkModuleImports({ name, imports }, scope) {
+  let imported = {};
   for(let _import of imports) {
-    checkImport(_import, scope);
+    const { module, location } = _import;
+    if (module === name) {
+      throw new CheckError(`Module ${name} imports itself`, location);
+    }
+    if (imported[module]) {
+      throw new CheckError(`Duplicate import: ${module}`, location);
+    }
+    check(_import, scope);
+    imported[module] = true;
   }
-  checkDefinitions(module.definitions, scope);
-  if (module.export) {
-    check(module.export, scope);
+}
+
+function checkModuleDefinitions({ definitions }, scope) {
+  checkDefinitions(definitions, scope);
+}
+
+function checkModuleExport({ export: _export }, scope) {
+  if (_export) {
+    const { name, names, location } = _export;
+    if (name) {
+      scope.get(name, location);
+    }
+    else if (names) {
+      for(let name of names) {
+        scope.get(name, location);
+      }
+    }
   }
+}
+
+function checkModule(ast, scope) {
+  scope = new Scope();
+  const { definitions } = ast;
+  checkModuleImports(ast, scope);
+  checkModuleDefinitions(ast, scope);
+  checkModuleExport(ast, scope);
 }
 
 function check(ast, scope) {
@@ -167,8 +200,10 @@ function check(ast, scope) {
     case "let": return checkLet(ast, scope);
     case "call": return checkCall(ast, scope);
     case "access": return checkAccess(ast, scope);
+    case "import": return checkImport(ast, scope);
+    case "export": return checkExport(ast, scope);
     case "module": return checkModule(ast, scope);
-    default: throw new CheckError(`Internal compiler error: unknown AST type ${ast.type}.`, ast.location);
+    default: throw new CheckError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }
 

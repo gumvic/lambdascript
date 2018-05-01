@@ -40,6 +40,13 @@ name "identifier" = identifier:identifier {
   return identifier.name;
 }
 
+names "names" =
+  "{" _
+  names:(first:name rest:(_ "," _ name:name { return name; })* { return [first].concat(rest); })
+  _ "}" {
+  return names;
+}
+
 reservedOperator = ("=" / "<-" / "->") !operatorChar
 
 operatorChar = [\+\-\*\/\>\<\=\$\%\!\|\&]
@@ -330,23 +337,29 @@ moduleIdentifier "module name" =
 moduleName "module name" = name:(string / moduleIdentifier) {
   return name.value || name.name;
 }
-importGlobals "globals" =
-  "{" _
-  names:(first:name rest:(_ "," _ name:name { return name; })* { return [first].concat(rest); })
-  _ "}" {
-  return names;
-}
-import "import" = wordImport _ alias:name? _ globals:importGlobals? _ wordFrom _ module:moduleName {
+import "import" = wordImport _ alias:name? _ names:names? _ wordFrom _ module:moduleName {
   return {
     type: "import",
     module: module,
     alias: alias,
-    globals: globals || [],
+    names: names || [],
     location: location()
   };
 }
-export "export" = wordExport _ value:expression {
-  return value;
+exportName = name:name {
+  return {
+    type: "export",
+    name: name
+  };
+}
+exportNames = names:names {
+  return {
+    type: "export",
+    names: names
+  };
+}
+export "export" = wordExport _ _export:(exportName / exportNames) {
+  return _export;
 }
 moduleDefinition "module level definition" = wordLet _ definition:definition {
   return definition;
