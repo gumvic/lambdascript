@@ -1,22 +1,61 @@
 {
-  function groupFunctionDefinitions(definitions) {
-  	let functions = {};
+  function groupDefinitions(definitions) {
+    let groupedDefinitions = [];
+    let functions = {};
+    let methods = {};
     for(let definition of definitions) {
       const { type, name, args, body, location } = definition;
-      if (type === "function") {
-        if (!functions[name]) {
-          functions[name] = definition;
-          definition.variants = [{ args, body, location }];
-          delete definition.args;
-          delete definition.body;
-        }
-        else {
-          functions[name].variants.push({ args, body, location });
-          definition._skip = true;
-        }
+      switch(type) {
+        case "function":
+        case "constructor":
+          if(!functions[name]) {
+            definition = {
+              type: type,
+              name: name,
+              variants: [{ args, body, location }],
+              location: location
+            };
+            functions[name] = definition;
+            groupedDefinitions.push(definition);
+          }
+          else {
+            functions[name].variants.push({ args, body, location });
+          }
+        break;
+        case "method":
+          const { constructor } = definition;
+          if (!methods[constructor]) {
+            definition = {
+              type: type,
+              name: name,
+              constructor: constructor,
+              variants: [{ args, body, location }],
+              location: location
+            };
+            methods[constructor] = {
+              [name]: definition
+            };
+            groupedDefinitions.push(definition);
+          }
+          else if (!methods[constructor][name]) {
+            definition = {
+              type: type,
+              name: name,
+              constructor: constructor,
+              variants: [{ args, body, location }],
+              location: location
+            };
+            methods[constructor][name] = definition;
+            groupedDefinitions.push(definition);
+          }
+          else {
+            methods[constructor][name].variants.push({ args, body, location });
+          }
+        break;
+        default: groupedDefinitions.push(definition);
       }
     }
-    return definitions.filter(({ _skip }) => !_skip);
+    return groupedDefinitions;
   }
 }
 
@@ -50,6 +89,16 @@ name "name" =
   !reservedWord
   first:beginNameChar
   rest:(nameChar+)?
+  {
+    return [first].concat(rest || []).join("");
+  }
+
+beginConstructorNameChar = [A-Z]
+constructorNameChar = [0-9a-zA-Z_]
+constructorName "constructor name" =
+  !reservedWord
+  first:beginConstructorNameChar
+  rest:(constructorNameChar+)?
   {
     return [first].concat(rest || []).join("");
   }
@@ -224,12 +273,9 @@ argsList = args:(first:name rest:(_ arg:name { return arg; })* { return [first].
 
 lambda "lambda" = "(" _ args:argsList _ "->" _ body:expression _ ")" {
   return {
-    type: "function",
-    variants: [{
-      args: args,
-      body: body,
-      location: location()
-    }],
+    type: "lambda",
+    args: args,
+    body: body,
     location: location()
   };
 }
@@ -283,7 +329,7 @@ case "case" =
     };
   }
 
-constant = name:name _ "=" _ value:expression {
+constant "constant" = name:name _ "=" _ value:expression {
   return {
     type: "constant",
     name: name,
@@ -291,7 +337,8 @@ constant = name:name _ "=" _ value:expression {
     location: location()
   };
 }
-function = name:name _ args:argsList _ "->" _ body:expression {
+
+function "function" = name:name _ args:argsList _ "->" _ body:expression {
   return {
     type: "function",
     name: name,
@@ -300,7 +347,29 @@ function = name:name _ args:argsList _ "->" _ body:expression {
     location: location()
   };
 }
-definition "definition" = function / constant
+
+constructor "constructor" = name:constructorName _ args:argsList _ "->" _ body:expression {
+  return {
+    type: "constructor",
+    name: name,
+    args: args,
+    body: body,
+    location: location()
+  };
+}
+
+method "method" = constructor:constructorName "." name:name _ args:argsList _ "->" _ body:expression {
+  return {
+    type: "method",
+    name: name,
+    constructor: constructor,
+    args: args,
+    body: body,
+    location: location()
+  };
+}
+
+definition "definition" = constant / constructor / function / method
 
 let "let" =
   wordLet _
@@ -308,7 +377,7 @@ let "let" =
   _ "," _ body:expression {
     return {
       type: "let",
-      definitions: groupFunctionDefinitions(definitions),
+      definitions: groupDefinitions(definitions),
       body: body,
       location: location()
     };
@@ -392,7 +461,7 @@ module "module" =
     type: "module",
     name: name,
     imports: imports || [],
-    definitions: groupFunctionDefinitions(definitions),
+    definitions: groupDefinitions(definitions),
     export: _export,
     location: location()
   };

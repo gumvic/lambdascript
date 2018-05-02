@@ -56,6 +56,14 @@ function genVector({ items, location }, context) {
   return `Vector(${items})`;
 }
 
+function genLambda({ args, body, location }, context) {
+  return genFunction({
+    type: "funcion",
+    variants: [{ args, body, location }],
+    location: location
+  }, context);
+}
+
 function genConstant({ name, value }, context) {
   return `const ${name} = ${generate(value, context)};`;
 }
@@ -227,6 +235,7 @@ function generate(ast, context) {
     case "identifier": return genIdentifier(ast, context);
     case "map":  return genMap(ast, context);
     case "vector": return genVector(ast, context);
+    case "lambda": return genLambda(ast, context);
     case "constant": return genConstant(ast, context);
     case "function": return genFunction(ast, context);
     case "join": return genJoin(ast, context);

@@ -51,6 +51,14 @@ function checkVector({ items }, context) {
   }
 }
 
+function checkLambda({ args, body, location }, context) {
+  checkFunctionBody({
+    type: "funcion",
+    variants: [{ args, body, location }],
+    location: location
+  }, context);
+}
+
 function checkConstant({ name, value, location }, context) {
   check(value, context);
   context.define(name, location);
@@ -204,6 +212,7 @@ function check(ast, context) {
     case "operator": return checkOperator(ast, context);
     case "map":  return checkMap(ast, context);
     case "vector": return checkVector(ast, context);
+    case "lambda": return checkLambda(ast, context);
     case "constant": return checkConstant(ast, context);
     case "function": return checkFunction(ast, context);
     case "join": return checkJoin(ast, context);

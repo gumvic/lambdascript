@@ -1,18 +1,26 @@
 - A.f and f shouldn't lead to duplicates, see groupFunctionDefinitions and how it groups using only name now
 
+- A.f generates f function? (like in clojure)
 
 - let Point x y -- generates Point (using Object.create(Point.prototype)); make Point inherit an immutable map, too?
 
-- let Point.distance otherPoint = ...
+- method duplicates
+
+- constructors get the "new" function as their first argument?
+Point -> Point 0 0
+Point mk x y -> mk { x, y }
+
+
+- maybe replace <- with = in monads?
+
+
+- parse: AST "number" should have a string value, not the actual number
 
 
 - js module should be able to both declare its name and require modules
 
 
 - js keywords as identifiers
-
-
-- maybe replace <- with = in monads?
 
 
 - zero arity as a special case when calling
