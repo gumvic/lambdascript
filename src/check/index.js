@@ -1,6 +1,6 @@
 const CheckError = require("./error");
 
-class Scope {
+class Context {
   constructor(parent) {
     this.parent = parent;
     this.defined = [];
@@ -25,38 +25,38 @@ class Scope {
     }
   }
 
-  child() {
-    return new Scope(this);
+  spawn() {
+    return new Context(this);
   }
 }
 
-function checkIdentifier({ name, location }, scope) {
-  scope.get(name, location);
+function checkIdentifier({ name, location }, context) {
+  context.get(name, location);
 }
 
-function checkOperator(ast, scope) {
+function checkOperator(ast, context) {
 
 }
 
-function checkMap(ast, scope) {
+function checkMap(ast, context) {
   for(let { key, value } of items) {
-    check(key, scope);
-    check(value, scope);
+    check(key, context);
+    check(value, context);
   }
 }
 
-function checkVector({ items }, scope) {
+function checkVector({ items }, context) {
   for(let item of items) {
-    check(item, scope);
+    check(item, context);
   }
 }
 
-function checkConstant({ name, value, location }, scope) {
-  check(value, scope);
-  scope.define(name, location);
+function checkConstant({ name, value, location }, context) {
+  check(value, context);
+  context.define(name, location);
 }
 
-function checkFunctionBody({ name, variants }, scope) {
+function checkFunctionBody({ name, variants }, context) {
   let definedVariants = {};
   for(let variant of variants) {
     const { args, body, location } = variant;
@@ -66,41 +66,41 @@ function checkFunctionBody({ name, variants }, scope) {
     }
     else {
       definedVariants[arity] = variant;
-      const _scope = scope.child();
+      const _context = context.spawn();
       for(let arg of args) {
-        _scope.define(arg, location);
+        _context.define(arg, location);
       }
-      check(body, _scope);
+      check(body, _context);
     }
   }
 }
 
-function checkFunction(definition, scope) {
+function checkFunction(definition, context) {
   const { name } = definition;
   if (name) {
-    scope.define(name, location);
+    context.define(name, location);
   }
-  checkFunctionBody(definition, scope);
+  checkFunctionBody(definition, context);
 }
 
-function checkJoin(join, scope) {
-  function f({ left, via, right, location }, scope) {
-    check(left, scope);
-    scope = scope.child();
-    scope.define(via, location);
-    check(right, scope);
+function checkJoin(join, context) {
+  function f({ left, via, right, location }, context) {
+    check(left, context);
+    context = context.spawn();
+    context.define(via, location);
+    check(right, context);
   }
-  f(join, scope);
+  f(join, context);
 }
 
-function checkDefinitions(definitions, scope) {
+function checkDefinitions(definitions, context) {
   for(let definition of definitions) {
     const { type, name, location } = definition;
     if(type === "function" && name) {
-      scope.define(name, location);
+      context.define(name, location);
     }
     else if (type === "constant") {
-      check(definition, scope);
+      check(definition, context);
     }
     else {
       throw new CheckError(`Internal error: unknown AST type ${type}.`, location);
@@ -109,46 +109,46 @@ function checkDefinitions(definitions, scope) {
   for(let definition of definitions) {
     const { type } = definition;
     if(type === "function") {
-      checkFunctionBody(definition, scope);
+      checkFunctionBody(definition, context);
     }
   }
 }
 
-function checkCase({ branches, otherwise }, scope) {
+function checkCase({ branches, otherwise }, context) {
   for(let { condition, value } of branches) {
-    check(condition, scope);
-    check(value, scope);
+    check(condition, context);
+    check(value, context);
   }
-  check(otherwise, scope);
+  check(otherwise, context);
 }
 
-function checkLet({ definitions, body }, scope) {
-  scope = scope.child();
-  checkDefinitions(definitions, scope);
-  check(body, scope);
+function checkLet({ definitions, body }, context) {
+  context = context.spawn();
+  checkDefinitions(definitions, context);
+  check(body, context);
 }
 
-function checkCall({ fun, args }, scope) {
-  check(fun, scope);
+function checkCall({ fun, args }, context) {
+  check(fun, context);
   for(let arg of args) {
-    check(arg, scope);
+    check(arg, context);
   }
 }
 
-function checkAccess({ object }, scope) {
-  check(object, scope);
+function checkAccess({ object }, context) {
+  check(object, context);
 }
 
-function checkImport({ alias, names, location }, scope) {
+function checkImport({ alias, names, location }, context) {
   if (alias) {
-    scope.define(alias, location);
+    context.define(alias, location);
   }
   for(let name of names) {
-    scope.define(name, location);
+    context.define(name, location);
   }
 }
 
-function checkModuleImports({ name, imports }, scope) {
+function checkModuleImports({ name, imports }, context) {
   let imported = {};
   for(let _import of imports) {
     const { module, location } = _import;
@@ -158,40 +158,40 @@ function checkModuleImports({ name, imports }, scope) {
     if (imported[module]) {
       throw new CheckError(`Duplicate import: ${module}`, location);
     }
-    check(_import, scope);
+    check(_import, context);
     imported[module] = true;
   }
 }
 
-function checkModuleDefinitions({ definitions }, scope) {
-  checkDefinitions(definitions, scope);
+function checkModuleDefinitions({ definitions }, context) {
+  checkDefinitions(definitions, context);
 }
 
-function checkModuleExport({ export: _export }, scope) {
+function checkModuleExport({ export: _export }, context) {
   if (_export) {
     const { name, names, location } = _export;
     if (name) {
-      scope.get(name, location);
+      context.get(name, location);
     }
     else if (names) {
       for(let name of names) {
-        scope.get(name, location);
+        context.get(name, location);
       }
     }
   }
 }
 
-function checkModule(ast, scope) {
-  scope = new Scope();
+function checkModule(ast, context) {
+  context = new Context();
   const { definitions } = ast;
-  checkModuleImports(ast, scope);
-  checkModuleDefinitions(ast, scope);
-  checkModuleExport(ast, scope);
+  checkModuleImports(ast, context);
+  checkModuleDefinitions(ast, context);
+  checkModuleExport(ast, context);
 }
 
-function check(ast, scope) {
-  if(!scope) {
-    scope = new Scope();
+function check(ast, context) {
+  if(!context) {
+    context = new Context();
   }
   switch (ast.type) {
     case "undefined":
@@ -200,20 +200,20 @@ function check(ast, scope) {
     case "true":
     case "number":
     case "string": return;
-    case "identifier": return checkIdentifier(ast, scope);
-    case "operator": return checkOperator(ast, scope);
-    case "map":  return checkMap(ast, scope);
-    case "vector": return checkVector(ast, scope);
-    case "constant": return checkConstant(ast, scope);
-    case "function": return checkFunction(ast, scope);
-    case "join": return checkJoin(ast, scope);
-    case "case": return checkCase(ast, scope);
-    case "let": return checkLet(ast, scope);
-    case "call": return checkCall(ast, scope);
-    case "access": return checkAccess(ast, scope);
-    case "import": return checkImport(ast, scope);
-    case "export": return checkExport(ast, scope);
-    case "module": return checkModule(ast, scope);
+    case "identifier": return checkIdentifier(ast, context);
+    case "operator": return checkOperator(ast, context);
+    case "map":  return checkMap(ast, context);
+    case "vector": return checkVector(ast, context);
+    case "constant": return checkConstant(ast, context);
+    case "function": return checkFunction(ast, context);
+    case "join": return checkJoin(ast, context);
+    case "case": return checkCase(ast, context);
+    case "let": return checkLet(ast, context);
+    case "call": return checkCall(ast, context);
+    case "access": return checkAccess(ast, context);
+    case "import": return checkImport(ast, context);
+    case "export": return checkExport(ast, context);
+    case "module": return checkModule(ast, context);
     default: throw new CheckError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }

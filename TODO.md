@@ -1,6 +1,3 @@
-- module names like "foo bar"
-
-
 - A.f and f shouldn't lead to duplicates, see groupFunctionDefinitions and how it groups using only name now
 
 
@@ -29,18 +26,11 @@
 
 
 - setters like .!x, .!x.!y -- do chained setters make sense?
-
-
+- module names like "foo bar"
 - asserts for args and returns? like f:isNumber x:isNumber y:isNumber = x + y
-
 - template strings
-
 - import (window, $) from .. -- .. means outside world
-
 - operators
-
 - source maps
-
 - CLI interface
-
 - REPL
