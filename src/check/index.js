@@ -21,7 +21,7 @@ class Scope {
       return this.parent.get(name, location);
     }
     else {
-      throw new CheckError(`Identifier not defined: ${name}`, location);
+      throw new CheckError(`Name not defined: ${name}`, location);
     }
   }
 

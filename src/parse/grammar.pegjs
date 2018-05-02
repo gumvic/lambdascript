@@ -36,31 +36,33 @@ reservedWord =
   / wordFrom
   / wordExport
 
-wordCase = "case" !beginIdentifierChar
-wordLet = "let" !beginIdentifierChar
-wordDo = "do" !beginIdentifierChar
-wordModule = "module" !beginIdentifierChar
-wordImport = "import" !beginIdentifierChar
-wordFrom = "from" !beginIdentifierChar
-wordExport = "export" !beginIdentifierChar
+wordCase = "case" !beginNameChar
+wordLet = "let" !beginNameChar
+wordDo = "do" !beginNameChar
+wordModule = "module" !beginNameChar
+wordImport = "import" !beginNameChar
+wordFrom = "from" !beginNameChar
+wordExport = "export" !beginNameChar
 
-beginIdentifierChar = [a-zA-Z_]
-identifierChar = [0-9a-zA-Z_]
-identifier "identifier" =
+beginNameChar = [a-zA-Z_]
+nameChar = [0-9a-zA-Z_]
+name "name" =
   !reservedWord
-  first:beginIdentifierChar
-  rest:(identifierChar+)?
+  first:beginNameChar
+  rest:(nameChar+)?
   {
-    return {
-      type: "identifier",
-      name: [first].concat(rest || []).join(""),
-      location: location()
-    };
+    return [first].concat(rest || []).join("");
   }
 
-name "identifier" = identifier:identifier {
-  return identifier.name;
-}
+beginModuleNameChar = [a-zA-Z_]
+moduleNameChar = [0-9a-zA-Z_\.\/\-\*\+]
+moduleName "module name" =
+  !reservedWord
+  first:beginModuleNameChar
+  rest:(moduleNameChar+)?
+  {
+    return [first].concat(rest || []).join("");
+  }
 
 names "names" =
   "{" _
@@ -82,8 +84,8 @@ operator "operator" = !reservedOperator chars:operatorChar+ {
 
 atom =
   literal
-  / lambda
   / identifier
+  / lambda
   / vector
   / map
   / case
@@ -170,6 +172,14 @@ literal "literal" =
   / true
   / number
   / string
+
+identifier "identifier" = name:name {
+  return {
+    type: "identifier",
+    name: name,
+    location: location()
+  };
+}
 
 unary = operator:operator _ operand:(atom / unary) {
   return {
@@ -344,20 +354,6 @@ monad "monad" =
     return f(items);
   }
 
-moduleIdentifierChar = [0-9a-zA-Z_\.\/\-\*\+]
-moduleIdentifier "module name" =
-  !reservedWord
-  name:moduleIdentifierChar+
-  {
-    return {
-      type: "moduleIdentifier",
-      name: name.join(""),
-      location: location()
-    };
-  }
-moduleName "module name" = name:(string / moduleIdentifier) {
-  return name.value || name.name;
-}
 import "import" = wordImport _ alias:name? _ names:names? _ wordFrom _ module:moduleName {
   return {
     type: "import",
@@ -370,13 +366,15 @@ import "import" = wordImport _ alias:name? _ names:names? _ wordFrom _ module:mo
 exportName = name:name {
   return {
     type: "export",
-    name: name
+    name: name,
+    location: location()
   };
 }
 exportNames = names:names {
   return {
     type: "export",
-    names: names
+    names: names,
+    location: location()
   };
 }
 export "export" = wordExport _ _export:(exportName / exportNames) {

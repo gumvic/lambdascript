@@ -10,9 +10,9 @@ function __(str) {
     .join("\n");
 }
 
-let _oneOffIdentifier = 0;
-function oneOffIdentifier(name) {
-  return `$${name}_${_oneOffIdentifier++}`;
+let _oneOffName = 0;
+function oneOffName(name) {
+  return `$${name}_${_oneOffName++}`;
 }
 
 function genUndefined(ast, context) {
@@ -176,10 +176,12 @@ function genAccess({ object, property }, context) {
 }
 
 function genImport({ names, alias, module }, context) {
-  alias = alias || oneOffIdentifier(module);
+  alias = alias || oneOffName(module);
   module = `const ${alias} = require("${module}");`;
-  names = `const { ${names.join(", ")} } = ${alias};`;
-  return [module, names].join("\n");
+  names = names.length ?
+    `const { ${names.join(", ")} } = ${alias};` :
+    "";
+  return [module, names].filter(str => str !== "").join("\n");
 }
 
 function genModuleImports({ imports }, context) {

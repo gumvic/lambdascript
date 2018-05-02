@@ -12,19 +12,20 @@ const generate = require("../generate");
 const Error = require("../error");
 const BuildError = require("./error");
 
+const defaultImports = [
+  {
+    type: "import",
+    alias: "core",
+    module: "core",
+    names: ["join", "isJoin", "bind"],
+    location: {}
+  }
+];
+
 function readMuModule(file, context) {
   const { srcDir, modules } = context;
   const srcFile = joinPath(srcDir, file);
   return readFile(srcFile, "utf8").then(src => {
-    const defaultImports = [
-      {
-        type: "import",
-        alias: "core",
-        module: "core",
-        names: ["join", "isJoin", "bind"],
-        location: {}
-      }
-    ];
     const ast = parse(src);
     ast.imports = defaultImports.concat(ast.imports);
     const module = {
