@@ -4,55 +4,28 @@
     let functions = {};
     let methods = {};
     for(let definition of definitions) {
-      const { type, name, args, body, location } = definition;
-      switch(type) {
-        case "function":
-        case "constructor":
-          if(!functions[name]) {
-            definition = {
-              type: type,
-              name: name,
-              variants: [{ args, body, location }],
-              location: location
-            };
-            functions[name] = definition;
-            groupedDefinitions.push(definition);
-          }
-          else {
-            functions[name].variants.push({ args, body, location });
-          }
-        break;
-        case "method":
-          const { constructor } = definition;
-          if (!methods[constructor]) {
-            definition = {
-              type: type,
-              name: name,
-              constructor: constructor,
-              variants: [{ args, body, location }],
-              location: location
-            };
-            methods[constructor] = {
-              [name]: definition
-            };
-            groupedDefinitions.push(definition);
-          }
-          else if (!methods[constructor][name]) {
-            definition = {
-              type: type,
-              name: name,
-              constructor: constructor,
-              variants: [{ args, body, location }],
-              location: location
-            };
-            methods[constructor][name] = definition;
-            groupedDefinitions.push(definition);
-          }
-          else {
-            methods[constructor][name].variants.push({ args, body, location });
-          }
-        break;
-        default: groupedDefinitions.push(definition);
+      const { type, name, constructor, args, body, location } = definition;
+      if (type === "function" ||
+          type === "constructor" ||
+          type === "method") {
+        const id = `${constructor || ""}.${name}`;
+        if (!functions[id]) {
+          definition = {
+            type: type,
+            name: name,
+            constructor: constructor,
+            variants: [{ args, body, location }],
+            location: location
+          };
+          functions[id] = definition;
+          groupedDefinitions.push(definition);
+        }
+        else {
+          functions[id].variants.push({ args, body, location });
+        }
+      }
+      else {
+        groupedDefinitions.push(definition);
       }
     }
     return groupedDefinitions;
@@ -139,7 +112,7 @@ atom =
   / map
   / case
   / let
-  / monad
+  / do
   / subExpression
 
 undefined "undefined" = "undefined" {
@@ -179,7 +152,7 @@ zero          = "0"
 number "number" = int frac? exp? {
   return {
     type: "number",
-    value: parseFloat(text()),
+    value: text(),
     location: location()
   };
 }
@@ -383,24 +356,24 @@ let "let" =
     };
   }
 
-monadPoint = body:expression {
+doPoint = body:expression {
   return {
     via: "_",
     body: body,
     location: location()
   };
 }
-monadJoin = via:name _ "<-" _ body:expression {
+doJoin = via:name _ "=" _ body:expression {
   return {
     via: via,
     body: body,
     location: location()
   };
 }
-monadItem = monadJoin / monadPoint
-monad "monad" =
+doItem = doJoin / doPoint
+do "do" =
   wordDo _
-  items:(first:monadItem rest:(_ "," _ item:monadItem { return item; })* { return [first].concat(rest); }) {
+  items:(first:doItem rest:(_ "," _ item:doItem { return item; })* { return [first].concat(rest); }) {
     function f(items) {
       if (!items.length) {
         return null;
