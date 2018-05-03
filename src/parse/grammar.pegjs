@@ -111,7 +111,7 @@ atom =
   / setter
   / getter
   / lambda
-  / vector
+  / list
   / map
   / case
   / let
@@ -225,14 +225,14 @@ call "call" = fun:atom args:(_ arg:atom _ { return arg })+ {
 }
 
 access "access" =
-  collection:(literal / identifier / vector / map / subExpression)
-  keys:("." key:identifier { return key; })+ {
-  return keys.reduce((collection, key) => ({
+  collection:(literal / identifier / list / map / subExpression)
+  keys:("." key:key { return key; })+ {
+  return {
     type: "access",
     collection: collection,
-    key: key,
-    location: key.location
-  }), collection);
+    keys: keys,
+    location: location()
+  };
 }
 
 term = call / unary / atom
@@ -283,12 +283,12 @@ lambda "lambda" = "(" _ args:argsList _ "->" _ body:expression _ ")" {
   };
 }
 
-vector "vector" =
+list "list" =
   "[" _
   items:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })?
   _ "]" {
     return {
-      type: "vector",
+      type: "list",
       items: items || [],
       location: location()
     };

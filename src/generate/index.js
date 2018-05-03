@@ -51,7 +51,7 @@ function genMap({ items, location }, context) {
   return `Map([${items}])`;
 }
 
-function genVector({ items, location }, context) {
+function genList({ items, location }, context) {
   const items = items.map(item => generate(item, context)).join(", ");
   return `List([${items}])`;
 }
@@ -246,8 +246,8 @@ function generate(ast, context) {
     case "number": return genNumber(ast, context);
     case "string": return genString(ast, context);
     case "identifier": return genIdentifier(ast, context);
+    case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
-    case "vector": return genVector(ast, context);
     case "lambda": return genLambda(ast, context);
     case "getter": return genGetter(ast, context);
     case "setter": return genSetter(ast, context);

@@ -45,7 +45,7 @@ function checkMap(ast, context) {
   }
 }
 
-function checkVector({ items }, context) {
+function checkList({ items }, context) {
   for(let item of items) {
     check(item, context);
   }
@@ -223,7 +223,7 @@ function check(ast, context) {
     case "identifier": return checkIdentifier(ast, context);
     case "operator": return checkOperator(ast, context);
     case "map":  return checkMap(ast, context);
-    case "vector": return checkVector(ast, context);
+    case "list": return checkList(ast, context);
     case "lambda": return checkLambda(ast, context);
     case "getter": return checkGetter(ast, context);
     case "setter": return checkSetter(ast, context);
