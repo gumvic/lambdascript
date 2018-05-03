@@ -4,16 +4,16 @@
     let functions = {};
     let methods = {};
     for(let definition of definitions) {
-      const { type, name, constructor, args, body, location } = definition;
+      const { type, name, record, args, body, location } = definition;
       if (type === "function" ||
-          type === "constructor" ||
+          type === "record" ||
           type === "method") {
-        const id = `${constructor || ""}.${name}`;
+        const id = `${record || ""}.${name}`;
         if (!functions[id]) {
           definition = {
             type: type,
             name: name,
-            constructor: constructor,
+            record: record,
             variants: [{ args, body, location }],
             location: location
           };
@@ -66,12 +66,12 @@ name "name" =
     return [first].concat(rest || []).join("");
   }
 
-beginConstructorNameChar = [A-Z]
-constructorNameChar = [0-9a-zA-Z_]
-constructorName "constructor name" =
+beginRecordNameChar = [A-Z]
+recordNameChar = [0-9a-zA-Z_]
+recordName "record name" =
   !reservedWord
-  first:beginConstructorNameChar
-  rest:(constructorNameChar+)?
+  first:beginRecordNameChar
+  rest:(recordNameChar+)?
   {
     return [first].concat(rest || []).join("");
   }
@@ -354,9 +354,9 @@ function "function" = name:name _ args:argsList _ "->" _ body:expression {
   };
 }
 
-constructor "constructor" = name:constructorName _ args:argsList _ "->" _ body:expression {
+record "record" = name:recordName _ args:argsList _ "->" _ body:expression {
   return {
-    type: "constructor",
+    type: "record",
     name: name,
     args: args,
     body: body,
@@ -364,18 +364,18 @@ constructor "constructor" = name:constructorName _ args:argsList _ "->" _ body:e
   };
 }
 
-method "method" = constructor:constructorName "." name:name _ args:argsList _ "->" _ body:expression {
+method "method" = record:recordName "." name:name _ args:argsList _ "->" _ body:expression {
   return {
     type: "method",
     name: name,
-    constructor: constructor,
+    record: record,
     args: args,
     body: body,
     location: location()
   };
 }
 
-definition "definition" = constant / constructor / function / method
+definition "definition" = constant / record / function / method
 
 let "let" =
   wordLet _
