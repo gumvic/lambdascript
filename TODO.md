@@ -1,15 +1,19 @@
+- `.x.0.(z)` => `($coll_0) => getIn(coll_0, ["x", 0, z])`
+- `.x.0.(z)!` => `($coll_0, $val_0) => setIn(coll_0, ["x", 0, z], $val_0)`
+
 - js module should be able to both declare its name
+
 - new name and global search and replace "mu"
 
 
 - core
-- nil to represent undefined, ditch null?
-- isNil/isFalsey?
-- not as a function?
-- ordered colls
-- transients
-- immutable.js uses undefined as nil
+- functions must check arity (at least)
+- transducers
+- map/filter/etc
 - map/filter/etc with indexes
+- core.data, core.monad, core.io
+- core.monad.toIterable?
+- `==` means core.data.is
 
 
 - syntax sugar for transducing?
@@ -19,7 +23,8 @@
 `let ! x -> ...` => `bang__`
 `let ! x y -> ...` => `__bang__`
 `let => x y -> y x` => `__equals_more__`
-All the JS operators must be defined this way in the core
+All the JS operators must be defined this way in the core.
+But how to import them? `import { ++ } from extra-math` -- what's the arity?
 
 
 - multiple arguments like `f x y ...more`?

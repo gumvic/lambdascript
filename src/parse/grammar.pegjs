@@ -108,6 +108,7 @@ atom =
   access
   / literal
   / identifier
+  / setter
   / getter
   / lambda
   / vector
@@ -253,22 +254,18 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
   return expression;
 }
 
-getter "getter" = keys:("." key:identifier { return key; })+ {
-  const arg = {
-    type: "identifier",
-    name: "coll",
+getter "getter" = keys:("." key:key { return key; })+ {
+  return {
+    type: "getter",
+    keys: keys,
     location: location()
   };
-  const body = keys.reduce((collection, key) => ({
-    type: "access",
-    collection: collection,
-    key: key,
-    location: key.location
-  }), arg);
+}
+
+setter "setter" = keys:("." key:key { return key; })+ "!" {
   return {
-    type: "lambda",
-    args: ["coll"],
-    body: body,
+    type: "setter",
+    keys: keys,
     location: location()
   };
 }
@@ -297,7 +294,16 @@ vector "vector" =
     };
   }
 
-mapItem = key:expression _ ":" _ value:expression {
+namedKey = key:name {
+  return {
+    type: "string",
+    value: key,
+    location: location()
+  };
+}
+key = namedKey / atom
+
+mapItem = key:key _ ":" _ value:expression {
   return {
     key: key,
     value: value,

@@ -48,12 +48,12 @@ function genMap({ items, location }, context) {
   const items = items
     .map(({ key, value }) => `[${generate(key, context)}, ${generate(value, context)}]`)
     .join(", ");
-  return `Map(${items})`;
+  return `Map([${items}])`;
 }
 
 function genVector({ items, location }, context) {
   const items = items.map(item => generate(item, context)).join(", ");
-  return `Vector(${items})`;
+  return `List([${items}])`;
 }
 
 function genLambda({ args, body, location }, context) {
@@ -62,6 +62,19 @@ function genLambda({ args, body, location }, context) {
     variants: [{ args, body, location }],
     location: location
   }, context);
+}
+
+function genGetter({ keys }, context) {
+  const coll = oneOffName("coll");
+  keys = keys.map(key => generate(key, context)).join(", ");
+  return `(${coll}) => core.data.getIn(${coll}, [${keys}])`;
+}
+
+function genSetter({ keys }, context) {
+  const coll = oneOffName("coll");
+  const value = oneOffName("value");
+  keys = keys.map(key => generate(key, context)).join(", ");
+  return `(${coll}, ${value}) => core.data.setIn(${coll}, [${keys}], ${value})`;
 }
 
 function genConstant({ name, value }, context) {
@@ -236,6 +249,8 @@ function generate(ast, context) {
     case "map":  return genMap(ast, context);
     case "vector": return genVector(ast, context);
     case "lambda": return genLambda(ast, context);
+    case "getter": return genGetter(ast, context);
+    case "setter": return genSetter(ast, context);
     case "constant": return genConstant(ast, context);
     case "function": return genFunction(ast, context);
     case "join": return genJoin(ast, context);

@@ -59,6 +59,18 @@ function checkLambda({ args, body, location }, context) {
   }, context);
 }
 
+function checkGetter({ keys }, context) {
+  for(let key of keys) {
+    check(key, context);
+  }
+}
+
+function checkSetter({ keys }, context) {
+  for(let key of keys) {
+    check(key, context);
+  }
+}
+
 function checkConstant({ name, value, location }, context) {
   check(value, context);
   context.define(name, location);
@@ -213,6 +225,8 @@ function check(ast, context) {
     case "map":  return checkMap(ast, context);
     case "vector": return checkVector(ast, context);
     case "lambda": return checkLambda(ast, context);
+    case "getter": return checkGetter(ast, context);
+    case "setter": return checkSetter(ast, context);
     case "constant": return checkConstant(ast, context);
     case "function": return checkFunction(ast, context);
     case "join": return checkJoin(ast, context);
