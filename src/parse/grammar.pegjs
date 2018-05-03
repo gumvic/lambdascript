@@ -105,8 +105,10 @@ operator "operator" = !reservedOperator chars:operatorChar+ {
 }
 
 atom =
-  literal
+  access
+  / literal
   / identifier
+  / getter
   / lambda
   / vector
   / map
@@ -203,7 +205,7 @@ identifier "identifier" = name:name {
   };
 }
 
-unary = operator:operator _ operand:(atom / unary) {
+unary "unary operation" = operator:operator _ operand:(atom / unary) {
   return {
   	type: "call",
     fun: operator,
@@ -212,7 +214,7 @@ unary = operator:operator _ operand:(atom / unary) {
   };
 }
 
-call = fun:atom args:(_ arg:atom _ { return arg })+ {
+call "call" = fun:atom args:(_ arg:atom _ { return arg })+ {
   return {
     type: "call",
     fun: fun,
@@ -221,9 +223,20 @@ call = fun:atom args:(_ arg:atom _ { return arg })+ {
   };
 }
 
+access "access" =
+  collection:(literal / identifier / vector / map / subExpression)
+  keys:("." key:identifier { return key; })+ {
+  return keys.reduce((collection, key) => ({
+    type: "access",
+    collection: collection,
+    key: key,
+    location: key.location
+  }), collection);
+}
+
 term = call / unary / atom
 
-expression =
+expression "expression" =
   first:term
   rest:(_ operator:operator _ right:term { return { operator, right }; })* {
   return rest.reduce(
@@ -238,6 +251,26 @@ expression =
 
 subExpression "sub-expression" = "(" _ expression:expression _ ")" {
   return expression;
+}
+
+getter "getter" = keys:("." key:identifier { return key; })+ {
+  const arg = {
+    type: "identifier",
+    name: "coll",
+    location: location()
+  };
+  const body = keys.reduce((collection, key) => ({
+    type: "access",
+    collection: collection,
+    key: key,
+    location: key.location
+  }), arg);
+  return {
+    type: "lambda",
+    args: ["coll"],
+    body: body,
+    location: location()
+  };
 }
 
 argsList = args:(first:name rest:(_ arg:name { return arg; })* { return [first].concat(rest); })? {
