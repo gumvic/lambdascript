@@ -39,6 +39,10 @@ function genString({ value }, context) {
   return `"${value}"`;
 }
 
+function genKey({ value }, context) {
+  return `"${value}"`;
+}
+
 function genIdentifier({ name }, context) {
   // TODO js reserved words
   return name;
@@ -66,15 +70,27 @@ function genLambda({ args, body, location }, context) {
 
 function genGetter({ keys }, context) {
   const coll = oneOffName("coll");
-  keys = keys.map(key => generate(key, context)).join(", ");
-  return `(${coll}) => core.data.getIn(${coll}, [${keys}])`;
+  if (keys.length === 1) {
+    const key = generate(keys[0], context);
+    return `(${coll}) => core.data.get(${coll}, ${key})`;
+  }
+  else {
+    keys = keys.map(key => generate(key, context)).join(", ");
+    return `(${coll}) => core.data.setIn(${coll}, [${keys}])`;
+  }
 }
 
 function genSetter({ keys }, context) {
   const coll = oneOffName("coll");
   const value = oneOffName("value");
-  keys = keys.map(key => generate(key, context)).join(", ");
-  return `(${coll}, ${value}) => core.data.setIn(${coll}, [${keys}], ${value})`;
+  if (keys.length === 1) {
+    const key = generate(keys[0], context);
+    return `(${coll}, ${value}) => core.data.set(${coll}, ${key}, ${value})`;
+  }
+  else {
+    keys = keys.map(key => generate(key, context)).join(", ");
+    return `(${coll}, ${value}) => core.data.setIn(${coll}, [${keys}], ${value})`;
+  }
 }
 
 function genConstant({ name, value }, context) {
@@ -97,7 +113,7 @@ function genFunction({ name, variants }, context) {
     .join("\nelse ");
   const defaultVariant = [
     "else {",
-    __("throw new TypeError('Arity not supported: ' + arguments.length.toString());"),
+    __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
     "}"
   ].join("\n");
   return [
@@ -159,18 +175,12 @@ function genCall(ast, context) {
   if (ast.fun.type === "operator") {
     return genOperatorCall(ast, context);
   }
+  else if (ast.fun.type === "get") {
+    return genMethodCall(ast, context);
+  }
   else {
     return genFunctionCall(ast, context);
   }
-}
-
-function genFunctionCall({ fun, args }, context) {
-  // TODO wrap in braces values that js won't call
-  fun = generate(fun, context);
-  args = args
-    .map((arg) => generate(arg, context))
-    .join(", ");
-  return `${fun}(${args})`;
 }
 
 function genOperatorCall({ fun, args, location }, context) {
@@ -187,13 +197,40 @@ function genOperatorCall({ fun, args, location }, context) {
   else throw new GenerationError(`Internal error: wrong number of arguments: ${args.length}.`, location);
 }
 
+function genMethodCall({ fun: { collection, keys }, args }, context) {
+  args = args.map((arg) => generate(arg, context)).join(", ");
+  collection = generate(collection, context);
+  if (keys.length === 1) {
+    const key = generate(keys[0], context);
+    return `core.data.invoke(${collection}, ${key}, [${args}])`;
+  }
+  else {
+    keys = keys.map(key => generate(key, context)).join(", ");
+    return `core.data.invokeIn(${collection}, [${keys}], [${args}])`;
+  }
+}
+
+function genFunctionCall({ fun, args }, context) {
+  // TODO wrap in braces values that js won't call
+  fun = generate(fun, context);
+  args = args.map((arg) => generate(arg, context)).join(", ");
+  return `${fun}(${args})`;
+}
+
 function genOperator({ location }, context) {
   throw new GenerationError(`Internal error: not implemented.`, location);
 }
 
-function genAccess({ object, property }, context) {
-  object = generate(object, context);
-  return `${object}.${property}`;
+function genGet({ collection, keys }, context) {
+  collection = generate(collection, context);
+  if (keys.length === 1) {
+    const key = generate(keys[0], context);
+    return `core.data.get(${collection}, ${key})`;
+  }
+  else {
+    keys = keys.map(key => generate(key, context)).join(", ");
+    return `core.data.getIn(${collection}, [${keys}])`;
+  }
 }
 
 function genImport({ names, alias, module }, context) {
@@ -245,6 +282,7 @@ function generate(ast, context) {
     case "true": return genTrue(ast, context);
     case "number": return genNumber(ast, context);
     case "string": return genString(ast, context);
+    case "key": return genKey(ast, context);
     case "identifier": return genIdentifier(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
@@ -257,7 +295,7 @@ function generate(ast, context) {
     case "case": return genCase(ast, context);
     case "let": return genLet(ast, context);
     case "call": return genCall(ast, context);
-    case "access": return genAccess(ast, context);
+    case "get": return genGet(ast, context);
     case "import": return genImport(ast, context);
     case "export": return genExport(ast, context);
     case "module": return genModule(ast, context);

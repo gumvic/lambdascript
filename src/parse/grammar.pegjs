@@ -105,10 +105,9 @@ operator "operator" = !reservedOperator chars:operatorChar+ {
 }
 
 atom =
-  access
+  get
   / literal
   / identifier
-  / setter
   / getter
   / lambda
   / list
@@ -224,11 +223,11 @@ call "call" = fun:atom args:(_ arg:atom _ { return arg })+ {
   };
 }
 
-access "access" =
+get "get" =
   collection:(literal / identifier / list / map / subExpression)
   keys:("." key:key { return key; })+ {
   return {
-    type: "access",
+    type: "get",
     collection: collection,
     keys: keys,
     location: location()
@@ -262,13 +261,13 @@ getter "getter" = keys:("." key:key { return key; })+ {
   };
 }
 
-setter "setter" = keys:("." key:key { return key; })+ "!" {
+/*setter "setter" = keys:("." key:key { return key; })+ "=" {
   return {
     type: "setter",
     keys: keys,
     location: location()
   };
-}
+}*/
 
 argsList = args:(first:name rest:(_ arg:name { return arg; })* { return [first].concat(rest); })? {
   return args || [];
@@ -296,7 +295,7 @@ list "list" =
 
 namedKey = key:name {
   return {
-    type: "string",
+    type: "key",
     value: key,
     location: location()
   };
