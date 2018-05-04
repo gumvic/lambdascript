@@ -17,7 +17,28 @@ const defaultImports = [
     type: "import",
     alias: "core",
     module: "core",
-    names: ["join", "isJoin", "bind"],
+    names: [
+      "==",
+      "+",
+      "-",
+      "*",
+      "/",
+      "%",
+      ">",
+      "<",
+      ">=",
+      "<=",
+      "~",
+      "|",
+      "&",
+      "^",
+      ">>",
+      "<<",
+      ">>>",
+      "!",
+      "||",
+      "&&"
+    ],
     location: {}
   }
 ];

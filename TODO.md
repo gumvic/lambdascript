@@ -2,24 +2,21 @@
 
 
 - core
+- `core.native` has a small JS for transducers and such
 - transducers
 - map/filter/etc
 - map/filter/etc with indexes
 - `core.data`, `core.monad`, `core.io`
 - `==` means `core.data.is`
+- js operators
+- `invoke`/`invokeIn`
 - `core.monad.toIterable`?
 
 
 - syntax sugar for transducing?
 
 
-- operators:
-`let ! x -> ...` => `__bang__`
-`let ! x y -> ...` => `__bang__`
-`let => x y -> y x` => `__equals_more__`
-Note that the arity doesn't affect the name.
-All the JS operators must be defined this way in the core.
-The binary ones should have a one argument variant.
+- name clashes with auto generated names
 
 
 - js module should be able to declare its name
@@ -39,7 +36,7 @@ Point mk x y -> mk { x, y }
 ```
 
 
-- method call getters, like `.toString()`
+- method call getters, like `.toString()`/`.join(", ")`
 - setters like `.x=`
 - syntax sugar for setting, like `coll.x.0 = 42`
 

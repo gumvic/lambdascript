@@ -15,6 +15,67 @@ function oneOffName(name) {
   return `$${name}_${_oneOffName++}`;
 }
 
+function namify(name) {
+  // TODO js reserved words
+  return name.replace(
+    /[\+\-\*\/\>\<\=\%\!\|\&\^\~]/g,
+    function(match) {
+      switch(match) {
+        case "+": return "_plus_";
+        case "-": return "_dash_";
+        case "*": return "_star_";
+        case "/": return "_slash_";
+        case ">": return "_right_";
+        case "<": return "_left_";
+        case "=": return "_equals_";
+        case "%": return "_percent_";
+        case "!": return "_bang_";
+        case "|": return "_pipe_";
+        case "&": return "_and_";
+        case "^": return "_caret_";
+        case "~": return "_tilda_";
+      }
+    });
+}
+
+function isBuiltInOperator(name, arity) {
+  switch(arity) {
+    case 1:
+    switch(name) {
+      case "+", 1:
+      case "-", 1:
+      case "~", 1:
+      case "!", 1:
+      return true;
+      default:
+      return false;
+    }
+    case 2:
+    switch(name) {
+      case "+":
+      case "-":
+      case "*":
+      case "/":
+      case "%":
+      case ">":
+      case "<":
+      case ">=":
+      case "<=":
+      case "|":
+      case "&":
+      case "^":
+      case ">>":
+      case "<<":
+      case ">>>":
+      case "||":
+      case "&&":
+      return true;
+      default:
+      return false;
+    }
+  }
+}
+
 function genUndefined(ast, context) {
   return "undefined";
 }
@@ -40,12 +101,11 @@ function genString({ value }, context) {
 }
 
 function genKey({ value }, context) {
-  return `"${value}"`;
+  return `"${namify(value)}"`;
 }
 
 function genIdentifier({ name }, context) {
-  // TODO js reserved words
-  return name;
+  return namify(name);
 }
 
 function genMap({ items, location }, context) {
@@ -94,14 +154,14 @@ function genSetter({ keys }, context) {
 }
 
 function genConstant({ name, value }, context) {
-  return `const ${name} = ${generate(value, context)};`;
+  return `const ${namify(name)} = ${generate(value, context)};`;
 }
 
 function genFunction({ name, variants }, context) {
   variants = variants
     .map(({ args, body }) => {
       const arity = args.length;
-      args = `const [${args.join(", ")}] = arguments;`;
+      args = `const [${args.map(namify).join(", ")}] = arguments;`;
       body = `return ${generate(body, context)};`;
       return [
         `if (arguments.length === ${arity}) {`,
@@ -117,7 +177,7 @@ function genFunction({ name, variants }, context) {
     "}"
   ].join("\n");
   return [
-    `function ${name || ""}() {`,
+    `function ${name ? namify(name) : ""}() {`,
     __(variants),
     __(defaultVariant),
     "}"
@@ -172,10 +232,12 @@ function genLet({ definitions, body }, context) {
 }
 
 function genCall(ast, context) {
-  if (ast.fun.type === "operator") {
+  const { fun, args } = ast;
+  if (fun.type === "identifier" &&
+      isBuiltInOperator(fun.name, args.length)) {
     return genOperatorCall(ast, context);
   }
-  else if (ast.fun.type === "get") {
+  else if (fun.type === "get") {
     return genMethodCall(ast, context);
   }
   else {
@@ -183,18 +245,16 @@ function genCall(ast, context) {
   }
 }
 
-function genOperatorCall({ fun, args, location }, context) {
-  const operator = fun.name;
+function genOperatorCall({ fun: { name }, args }, context) {
   if (args.length === 1) {
     const left = generate(args[0], context);
-    return `${operator}${left}`;
+    return `${name}${left}`;
   }
   else if (args.length === 2) {
     const left = generate(args[0], context);
     const right = generate(args[1], context);
-    return `${left} ${operator} ${right}`;
+    return `${left} ${name} ${right}`;
   }
-  else throw new GenerationError(`Internal error: wrong number of arguments: ${args.length}.`, location);
 }
 
 function genMethodCall({ fun: { collection, keys }, args }, context) {
@@ -217,10 +277,6 @@ function genFunctionCall({ fun, args }, context) {
   return `${fun}(${args})`;
 }
 
-function genOperator({ location }, context) {
-  throw new GenerationError(`Internal error: not implemented.`, location);
-}
-
 function genGet({ collection, keys }, context) {
   collection = generate(collection, context);
   if (keys.length === 1) {
@@ -234,10 +290,10 @@ function genGet({ collection, keys }, context) {
 }
 
 function genImport({ names, alias, module }, context) {
-  alias = alias || oneOffName(module);
+  alias = alias ? namify(alias) : oneOffName();
   module = `const ${alias} = require("${module}");`;
   names = names.length ?
-    `const { ${names.join(", ")} } = ${alias};` :
+    `const { ${names.map(namify).join(", ")} } = ${alias};` :
     "";
   return [module, names].filter(str => str !== "").join("\n");
 }
@@ -258,10 +314,10 @@ function genModuleExport({ export: _export }, context) {
   if (_export) {
     const { type, name, names, location } = _export;
     if (name) {
-      return `module.exports = ${name};`;
+      return `module.exports = ${namify(name)};`;
     }
     else if (names) {
-      return `module.exports = { ${names.join(", ")} };`;
+      return `module.exports = { ${names.map(namify).join(", ")} };`;
     }
   }
 }

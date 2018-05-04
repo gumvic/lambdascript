@@ -48,23 +48,17 @@ reservedWord =
   / wordFrom
   / wordExport
 
-wordCase = "case" !beginNameChar
-wordLet = "let" !beginNameChar
-wordDo = "do" !beginNameChar
-wordModule = "module" !beginNameChar
-wordImport = "import" !beginNameChar
-wordFrom = "from" !beginNameChar
-wordExport = "export" !beginNameChar
+wordCase = "case" !beginIdentifierChar
+wordLet = "let" !beginIdentifierChar
+wordDo = "do" !beginIdentifierChar
+wordModule = "module" !beginIdentifierChar
+wordImport = "import" !beginIdentifierChar
+wordFrom = "from" !beginIdentifierChar
+wordExport = "export" !beginIdentifierChar
 
-beginNameChar = [a-zA-Z_]
-nameChar = [0-9a-zA-Z_]
-name "name" =
-  !reservedWord
-  first:beginNameChar
-  rest:(nameChar+)?
-  {
-    return [first].concat(rest || []).join("");
-  }
+name "name" = name:(identifier / operator) {
+  return name.name;
+}
 
 beginRecordNameChar = [A-Z]
 recordNameChar = [0-9a-zA-Z_]
@@ -77,7 +71,7 @@ recordName "record name" =
   }
 
 beginModuleNameChar = [a-zA-Z_]
-moduleNameChar = [0-9a-zA-Z_\.\/\-\*\+]
+moduleNameChar = [0-9a-zA-Z_\.\/\-]
 moduleName "module name" =
   !reservedWord
   first:beginModuleNameChar
@@ -93,16 +87,29 @@ names "names" =
   return names;
 }
 
-reservedOperator = ("=" / "<-" / "->") !operatorChar
+reservedOperator = ("=" / "->") !operatorChar
 
-operatorChar = [\+\-\*\/\>\<\=\$\%\!\|\&]
+operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
 operator "operator" = !reservedOperator chars:operatorChar+ {
   return {
-    type: "operator",
+    type: "identifier",
     name: chars.join(""),
     location: location()
   };
 }
+
+beginIdentifierChar = [a-zA-Z_]
+identifierChar = [0-9a-zA-Z_]
+identifier "identifier" =
+  !reservedWord
+  first:beginIdentifierChar
+  rest:(identifierChar+)? {
+  return {
+      type: "identifier",
+      name: [first].concat(rest || []).join(""),
+      location: location()
+    };
+  }
 
 atom =
   get
@@ -110,8 +117,6 @@ atom =
   / identifier
   / getter
   / lambda
-  / list
-  / map
   / case
   / let
   / do
@@ -196,14 +201,8 @@ literal "literal" =
   / true
   / number
   / string
-
-identifier "identifier" = name:name {
-  return {
-    type: "identifier",
-    name: name,
-    location: location()
-  };
-}
+  / list
+  / map
 
 unary "unary operation" = operator:operator _ operand:(atom / unary) {
   return {
@@ -224,7 +223,7 @@ call "call" = fun:atom args:(_ arg:atom _ { return arg })+ {
 }
 
 get "get" =
-  collection:(literal / identifier / list / map / subExpression)
+  collection:(literal / identifier / subExpression)
   keys:("." key:key { return key; })+ {
   return {
     type: "get",
@@ -234,7 +233,7 @@ get "get" =
   };
 }
 
-term = call / unary / atom
+term = call / unary / atom / operator
 
 expression "expression" =
   first:term
@@ -260,14 +259,6 @@ getter "getter" = keys:("." key:key { return key; })+ {
     location: location()
   };
 }
-
-/*setter "setter" = keys:("." key:key { return key; })+ "=" {
-  return {
-    type: "setter",
-    keys: keys,
-    location: location()
-  };
-}*/
 
 argsList = args:(first:name rest:(_ arg:name { return arg; })* { return [first].concat(rest); })? {
   return args || [];
@@ -300,7 +291,7 @@ namedKey = key:name {
     location: location()
   };
 }
-key = namedKey / atom
+key = namedKey / literal / subExpression
 
 mapItem = key:key _ ":" _ value:expression {
   return {

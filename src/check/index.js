@@ -34,10 +34,6 @@ function checkIdentifier({ name, location }, context) {
   context.get(name, location);
 }
 
-function checkOperator(ast, context) {
-
-}
-
 function checkMap(ast, context) {
   for(let { key, value } of items) {
     check(key, context);
@@ -225,7 +221,6 @@ function check(ast, context) {
     case "string":
     case "key": return;
     case "identifier": return checkIdentifier(ast, context);
-    case "operator": return checkOperator(ast, context);
     case "map":  return checkMap(ast, context);
     case "list": return checkList(ast, context);
     case "lambda": return checkLambda(ast, context);
