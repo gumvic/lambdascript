@@ -89,7 +89,7 @@ names "names" =
 
 reservedOperator = ("=" / "->") !operatorChar
 
-operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
+operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
 operator "operator" = !reservedOperator chars:operatorChar+ {
   return {
     type: "identifier",
@@ -110,17 +110,6 @@ identifier "identifier" =
       location: location()
     };
   }
-
-atom =
-  get
-  / literal
-  / identifier
-  / getter
-  / lambda
-  / case
-  / let
-  / do
-  / subExpression
 
 undefined "undefined" = "undefined" {
   return {
@@ -194,73 +183,11 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-literal "literal" =
-  undefined
-  / null
-  / false
-  / true
-  / number
-  / string
-  / list
-  / map
-
-unary "unary operation" = operator:operator _ operand:(atom / unary) {
-  return {
-  	type: "call",
-    fun: operator,
-    args: [operand],
-    location: location()
-  };
+argName = name:identifier {
+  return name.name;
 }
 
-call "call" = fun:atom args:(_ arg:atom _ { return arg })+ {
-  return {
-    type: "call",
-    fun: fun,
-    args: args,
-    location: location()
-  };
-}
-
-get "get" =
-  collection:(literal / identifier / subExpression)
-  keys:("." key:key { return key; })+ {
-  return {
-    type: "get",
-    collection: collection,
-    keys: keys,
-    location: location()
-  };
-}
-
-term = call / unary / atom / operator
-
-expression "expression" =
-  first:term
-  rest:(_ operator:operator _ right:term { return { operator, right }; })* {
-  return rest.reduce(
-    (left, { operator, right }) => ({
-      type: "call",
-      fun: operator,
-      args: [left, right],
-      location: location()
-    }),
-    first);
-}
-
-subExpression "sub-expression" = "(" _ expression:expression _ ")" {
-  return expression;
-}
-
-getter "getter" = keys:("." key:key { return key; })+ {
-  return {
-    type: "getter",
-    keys: keys,
-    location: location()
-  };
-}
-
-argsList = args:(first:name rest:(_ arg:name { return arg; })* { return [first].concat(rest); })? {
+argsList = args:(first:argName rest:(_ arg:argName { return arg; })* { return [first].concat(rest); })? {
   return args || [];
 }
 
@@ -291,6 +218,7 @@ namedKey = key:name {
     location: location()
   };
 }
+
 key = namedKey / literal / subExpression
 
 mapItem = key:key _ ":" _ value:expression {
@@ -311,6 +239,25 @@ map "map" =
     };
   }
 
+literal "literal" =
+  undefined
+  / null
+  / false
+  / true
+  / number
+  / string
+  / list
+  / map
+  / lambda
+
+getter "getter" = keys:("." key:key { return key; })+ {
+  return {
+    type: "getter",
+    keys: keys,
+    location: location()
+  };
+}
+
 caseBranch = condition:expression _ "->" _ value:expression {
   return {
     condition: condition,
@@ -318,6 +265,7 @@ caseBranch = condition:expression _ "->" _ value:expression {
     location: location()
   };
 }
+
 case "case" =
   wordCase _
   branches:(first:caseBranch rest:(_ "," _ branch:caseBranch { return branch; })* { return [first].concat(rest); })
@@ -330,6 +278,111 @@ case "case" =
       location: location()
     };
   }
+
+let "let" =
+  wordLet _
+  definitions:(first:definition rest:(_ "," _ definition:definition { return definition; })* { return [first].concat(rest); })
+  _ "," _ body:expression {
+    return {
+      type: "let",
+      definitions: groupDefinitions(definitions),
+      body: body,
+      location: location()
+    };
+  }
+
+doPoint = body:expression {
+  return {
+    via: "_",
+    body: body,
+    location: location()
+  };
+}
+
+doJoin = via:name _ "=" _ body:expression {
+  return {
+    via: via,
+    body: body,
+    location: location()
+  };
+}
+
+doItem = doJoin / doPoint
+
+do "do" =
+  wordDo _
+  items:(first:doItem rest:(_ "," _ item:doItem { return item; })* { return [first].concat(rest); }) {
+    function f(items) {
+      if (!items.length) {
+        return null;
+      }
+      var item = items[0];
+      var right = f(items.slice(1));
+      if (!right) {
+        return item.body;
+      }
+      else {
+        return {
+          type: "join",
+          via: item.via,
+          left: item.body,
+          right: right,
+          location: item.location
+        };
+      }
+    }
+    return f(items);
+  }
+
+subExpression "sub-expression" = "(" _ expression:expression _ ")" {
+  return expression;
+}
+
+atom =
+  literal
+  / getter
+  / identifier
+  / case
+  / let
+  / do
+  / subExpression
+
+get "get" =
+  collection:atom
+  keys:("." key:key { return key; })+ {
+  return {
+    type: "get",
+    collection: collection,
+    keys: keys,
+    location: location()
+  };
+}
+
+term = get / atom
+
+call "call" = fun:(term / operator) args:(_ arg:term _ { return arg; })+ {
+  return {
+    type: "call",
+    fun: fun,
+    args: args,
+    location: location()
+  };
+}
+
+operand = call / term / operator
+
+expression "expression" =
+  first:operand
+  rest:(_ operator:operator _ right:operand { return { operator, right }; })* {
+  return rest.reduce(
+    (left, { operator, right }) => ({
+      type: "call",
+      fun: operator,
+      args: [left, right],
+      location: location()
+    }),
+    first);
+}
 
 constant "constant" = name:name _ "=" _ value:expression {
   return {
@@ -372,58 +425,6 @@ method "method" = record:recordName "." name:name _ args:argsList _ "->" _ body:
 }
 
 definition "definition" = constant / record / function / method
-
-let "let" =
-  wordLet _
-  definitions:(first:definition rest:(_ "," _ definition:definition { return definition; })* { return [first].concat(rest); })
-  _ "," _ body:expression {
-    return {
-      type: "let",
-      definitions: groupDefinitions(definitions),
-      body: body,
-      location: location()
-    };
-  }
-
-doPoint = body:expression {
-  return {
-    via: "_",
-    body: body,
-    location: location()
-  };
-}
-doJoin = via:name _ "=" _ body:expression {
-  return {
-    via: via,
-    body: body,
-    location: location()
-  };
-}
-doItem = doJoin / doPoint
-do "do" =
-  wordDo _
-  items:(first:doItem rest:(_ "," _ item:doItem { return item; })* { return [first].concat(rest); }) {
-    function f(items) {
-      if (!items.length) {
-        return null;
-      }
-      var item = items[0];
-      var right = f(items.slice(1));
-      if (!right) {
-        return item.body;
-      }
-      else {
-        return {
-          type: "join",
-          via: item.via,
-          left: item.body,
-          right: right,
-          location: item.location
-        };
-      }
-    }
-    return f(items);
-  }
 
 import "import" = wordImport _ alias:name? _ names:names? _ wordFrom _ module:moduleName {
   return {

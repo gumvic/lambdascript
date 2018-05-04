@@ -2,20 +2,19 @@
 
 
 - `core.native`:
+- iimutable functions
 - transducers
 - monads
 - `toJS`,
 - `invoke`/`invokeIn`
 - `typeof`
 - `instanceof`
-- `core.monad.toIterable`?
+- js operators and `==`
+- ?
 
 `core`
 - map/filter/etc
 - map/filter/etc with indexes
-- `core.data`, `core.monad`, `core.io`
-- `==` means `core.data.is`
-- js operators
 
 
 - syntax sugar for transducing?
@@ -25,6 +24,9 @@
 
 
 - js module should be able to declare its name
+
+
+- `core.monad.toIterable` for lazy sequences?
 
 
 - zero arity as a special case when calling, like `f()`

@@ -22,7 +22,7 @@ function oneOffName(name) {
 function namify(name) {
   // TODO js reserved words
   name = name.replace(
-    /[\+\-\*\/\>\<\=\%\!\|\&\^\~]/g,
+    /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?]/g,
     function(match) {
       switch(match) {
         case "+": return "_plus_";
@@ -38,6 +38,7 @@ function namify(name) {
         case "&": return "_and_";
         case "^": return "_caret_";
         case "~": return "_tilda_";
+        case "?": return "_question_";
       }
     });
   if (name !== name) {
@@ -52,10 +53,10 @@ function isBuiltInOperator(name, arity) {
   switch(arity) {
     case 1:
     switch(name) {
-      case "+", 1:
-      case "-", 1:
-      case "~", 1:
-      case "!", 1:
+      case "+":
+      case "-":
+      case "~":
+      case "!":
       return true;
       default:
       return false;
