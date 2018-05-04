@@ -1,6 +1,10 @@
 const GenerationError = require("./error");
 
-class Context {}
+class Context {
+  constructor(core) {
+    this.core = core;
+  }
+}
 
 function __(str) {
   const indentationLength = 2;
@@ -17,7 +21,7 @@ function oneOffName(name) {
 
 function namify(name) {
   // TODO js reserved words
-  return name.replace(
+  name = name.replace(
     /[\+\-\*\/\>\<\=\%\!\|\&\^\~]/g,
     function(match) {
       switch(match) {
@@ -36,6 +40,12 @@ function namify(name) {
         case "~": return "_tilda_";
       }
     });
+  if (name !== name) {
+    return `$${name}`;
+  }
+  else {
+    return name;
+  }
 }
 
 function isBuiltInOperator(name, arity) {
@@ -289,6 +299,15 @@ function genGet({ collection, keys }, context) {
   }
 }
 
+function genCoreImport({ names, alias, module }, context) {
+  alias = alias ? namify(alias) : oneOffName();
+  module = `const ${alias} = require("${module}");`;
+  names = names.length ?
+    `const { ${names.map(namify).join(", ")} } = ${alias};` :
+    "";
+  return [module, names].filter(str => str !== "").join("\n");
+}
+
 function genImport({ names, alias, module }, context) {
   alias = alias ? namify(alias) : oneOffName();
   module = `const ${alias} = require("${module}");`;
@@ -323,14 +342,20 @@ function genModuleExport({ export: _export }, context) {
 }
 
 function genModule(ast, context) {
-  const imports = genModuleImports(ast);
-  const definitions = genModuleDefinitions(ast);
-  const _export = genModuleExport(ast);
-  return [imports, definitions, _export].filter(x => x !== "").join("\n\n");
+  const coreImport = genCoreImport(context.core, context);
+  const imports = genModuleImports(ast, context);
+  const definitions = genModuleDefinitions(ast, context);
+  const _export = genModuleExport(ast, context);
+  return [coreImport, imports, definitions, _export]
+    .filter(x => x !== "")
+    .join("\n\n");
+}
+
+function initContext({ core }) {
+  return new Context(core);
 }
 
 function generate(ast, context) {
-  context = context || new Context();
   switch (ast.type) {
     case "undefined": return genUndefined(ast, context);
     case "null": return genNull(ast, context);
@@ -359,4 +384,6 @@ function generate(ast, context) {
   }
 }
 
-module.exports = generate;
+module.exports = function(ast, options) {
+  return generate(ast, initContext(options));
+};

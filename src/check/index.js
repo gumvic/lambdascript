@@ -201,17 +201,19 @@ function checkModuleExport({ export: _export }, context) {
 }
 
 function checkModule(ast, context) {
-  context = new Context();
   const { definitions } = ast;
   checkModuleImports(ast, context);
   checkModuleDefinitions(ast, context);
   checkModuleExport(ast, context);
 }
 
+function initContext({ core }) {
+  const context = new Context();
+  checkImport(core, context);
+  return context;
+}
+
 function check(ast, context) {
-  if(!context) {
-    context = new Context();
-  }
   switch (ast.type) {
     case "undefined":
     case "null":
@@ -240,4 +242,6 @@ function check(ast, context) {
   }
 }
 
-module.exports = check;
+module.exports = function(ast, options) {
+  return check(ast, initContext(options));
+};

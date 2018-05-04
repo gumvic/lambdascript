@@ -12,8 +12,8 @@ const generate = require("../generate");
 const Error = require("../error");
 const BuildError = require("./error");
 
-const defaultImports = [
-  {
+const options = {
+  core: {
     type: "import",
     alias: "core",
     module: "core",
@@ -41,14 +41,13 @@ const defaultImports = [
     ],
     location: {}
   }
-];
+};
 
 function readMuModule(file, context) {
   const { srcDir, modules } = context;
   const srcFile = joinPath(srcDir, file);
   return readFile(srcFile, "utf8").then(src => {
     const ast = parse(src);
-    ast.imports = defaultImports.concat(ast.imports);
     const module = {
       type: "mu",
       file: file,
@@ -94,7 +93,7 @@ function checkMuModule(module, { modules }) {
   if (ast.type !== "module") {
     throw new BuildError("Not a module");
   }
-  check(ast);
+  check(ast, options);
 
   const duplicate = modules
     .filter(_module => _module !== module && _module.name === name)[0];
@@ -144,7 +143,7 @@ function buildMuModule(module, { distDir, modules }) {
           _import.module = resolveImportPath(module, importedModule);
         }
       }
-      return generate(ast);
+      return generate(ast, options);
     })
     .then(js => writeFile(distFile, js));
 }
