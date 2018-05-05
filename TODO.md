@@ -1,5 +1,9 @@
 - new name and global search and replace "mu"
 
+- move `oneOffName` to context
+
+- use a third party js generator
+
 
 - `core.native`:
 - Immutable functions
