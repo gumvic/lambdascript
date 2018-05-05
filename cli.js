@@ -13,9 +13,8 @@ const Error = require("./src/error");
 
 function formatError(error, { srcDir }) {
   if (!(error instanceof Error)) {
-    error = error ?
-      new Error(error.toString()) :
-      new Error("Unknown error");
+    // Just crash
+    throw error;
   }
   const { message, location: { file, start: { line, column } } } = error;
   const description = `${file || "?"}:${line || "?"}:${column || "?"}: ${message || "?"}`;

@@ -3,6 +3,11 @@ const GenerationError = require("./error");
 class Context {
   constructor(core) {
     this.core = core;
+    this._oneOffName = 0;
+  }
+
+  oneOffName(name) {
+    return `$${name || ""}_${this._oneOffName++}`;
   }
 }
 
@@ -12,11 +17,6 @@ function __(str) {
     .split("\n")
     .map(line => line.padStart(line.length + indentationLength))
     .join("\n");
-}
-
-let _oneOffName = 0;
-function oneOffName(name) {
-  return `$${name}_${_oneOffName++}`;
 }
 
 function namify(name) {
@@ -140,7 +140,7 @@ function genLambda({ args, body, location }, context) {
 }
 
 function genGetter({ keys }, context) {
-  const coll = oneOffName("coll");
+  const coll = context.oneOffName("coll");
   if (keys.length === 1) {
     const key = generate(keys[0], context);
     return `(${coll}) => core.data.get(${coll}, ${key})`;
@@ -152,8 +152,8 @@ function genGetter({ keys }, context) {
 }
 
 function genSetter({ keys }, context) {
-  const coll = oneOffName("coll");
-  const value = oneOffName("value");
+  const coll = context.oneOffName("coll");
+  const value = context.oneOffName("value");
   if (keys.length === 1) {
     const key = generate(keys[0], context);
     return `(${coll}, ${value}) => core.data.set(${coll}, ${key}, ${value})`;
@@ -346,7 +346,7 @@ function genGet({ collection, keys }, context) {
 }
 
 function genCoreImport({ names, alias, module }, context) {
-  alias = alias ? namify(alias) : oneOffName();
+  alias = alias ? namify(alias) : context.oneOffName();
   module = `const ${alias} = require("${module}");`;
   names = names.length ?
     `const { ${names.map(namify).join(", ")} } = ${alias};` :
@@ -355,7 +355,7 @@ function genCoreImport({ names, alias, module }, context) {
 }
 
 function genImport({ names, alias, module }, context) {
-  alias = alias ? namify(alias) : oneOffName();
+  alias = alias ? namify(alias) : context.oneOffName();
   module = `const ${alias} = require("${module}");`;
   names = names.length ?
     `const { ${names.map(namify).join(", ")} } = ${alias};` :

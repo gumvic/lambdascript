@@ -82,7 +82,9 @@ function readModule(file, context) {
       default: return readUnknownModule(file, context);
     }
   }).catch(e => {
-    e.location.file = file;
+    if (e instanceof Error) {
+      e.location.file = file;
+    }
     throw e;
   });
 }
@@ -120,7 +122,9 @@ function checkModule(module, context) {
       default: return checkUnknownModule(module, context);
     }
   }).catch(e => {
-    e.location.file = module.file;
+    if (e instanceof Error) {
+      e.location.file = module.file;
+    }
     throw e;
   });
 }
@@ -172,7 +176,9 @@ function buildModule(module, context) {
       default: return buildUnknownModule(module, context);
     }
   }).catch(e => {
-    e.location.file = module.file;
+    if (e instanceof Error) {
+      e.location.file = module.file;
+    }
     throw e;
   });
 }
