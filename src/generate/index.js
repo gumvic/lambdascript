@@ -168,31 +168,51 @@ function genConstant({ name, value }, context) {
   return `const ${namify(name)} = ${generate(value, context)};`;
 }
 
-function genFunction({ name, variants }, context) {
-  variants = variants
-    .map(({ args, body }) => {
-      const arity = args.length;
-      args = `const [${args.map(namify).join(", ")}] = arguments;`;
-      body = `return ${generate(body, context)};`;
-      return [
-        `if (arguments.length === ${arity}) {`,
-        __(args),
-        __(body),
-        "}"
-      ].join("\n");
-    })
-    .join("\nelse ");
-  const defaultVariant = [
-    "else {",
-    __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
-    "}"
-  ].join("\n");
+function genFunctionVariant({ args, body }, context) {
+  const arity = args.length;
+  args = `const [${args.map(namify).join(", ")}] = arguments;`;
+  body = `return ${generate(body, context)};`;
   return [
-    `function ${name ? namify(name) : ""}() {`,
-    __(variants),
-    __(defaultVariant),
+    `if (arguments.length === ${arity}) {`,
+    __(args),
+    __(body),
     "}"
   ].join("\n");
+}
+
+function genFunction({ name, variants }, context) {
+  const badArity = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
+  if (variants.length === 1) {
+    const { args, body } = variants[0];
+    const arity = args.length;
+    const checkArity = [
+      `if (arguments.length !== ${arity}) {`,
+      __(badArity),
+      "}"
+    ].join("\n");
+    return [
+      `function ${name ? namify(name) : ""}(${args.map(namify).join(", ")}) {`,
+      __(checkArity),
+      __(`return ${generate(body, context)};`),
+      "}"
+    ].join("\n");
+  }
+  else {
+    variants = variants
+      .map(variant => genFunctionVariant(variant, context))
+      .join("\nelse ");
+    const defaultVariant = [
+      "else {",
+      __(badArity),
+      "}"
+    ].join("\n");
+    return [
+      `function ${name ? namify(name) : ""}() {`,
+      __(variants),
+      __(defaultVariant),
+      "}"
+    ].join("\n");
+  }
 }
 
 function genDo({ items }, context) {
