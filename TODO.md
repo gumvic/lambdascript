@@ -2,8 +2,6 @@
 
 - move `oneOffName` to context
 
-- use a third party js generator
-
 
 - `core.native`:
 - Immutable functions
@@ -68,6 +66,7 @@ Point mk x y -> mk { x, y }
 - template strings
 - auto import standard JS things like `Object`, `String` etc? (Note that `Map` will be a name conflict)
 - `import (window, $) from ..` -- `..` means outside world
+- use a third party js generator
 - source maps
 - CLI interface
 - REPL

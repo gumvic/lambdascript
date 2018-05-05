@@ -317,9 +317,6 @@ atom =
   literal
   / getter
   / identifier
-  / case
-  / let
-  / do
   / subExpression
 
 get "get" =
@@ -346,7 +343,7 @@ call "call" = fun:(term / operator) args:(_ arg:term _ { return arg; })+ {
 
 operand = call / term / operator
 
-expression "expression" =
+operation =
   first:operand
   rest:(_ operator:operator _ right:operand { return { operator, right }; })* {
   return rest.reduce(
@@ -357,7 +354,9 @@ expression "expression" =
       location: location()
     }),
     first);
-}
+  }
+
+expression "expression" = case / let / do / operation
 
 constant "constant" = name:name _ "=" _ value:expression {
   return {
