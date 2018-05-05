@@ -291,47 +291,22 @@ let "let" =
     };
   }
 
-doPoint = body:expression {
-  return {
-    via: "_",
-    body: body,
-    location: location()
-  };
-}
-
-doJoin = via:name _ "=" _ body:expression {
+doItem = via:(name:name _ "=" _ { return name; })? value:expression {
   return {
     via: via,
-    body: body,
+    value: value,
     location: location()
   };
 }
-
-doItem = doJoin / doPoint
 
 do "do" =
   wordDo _
   items:(first:doItem rest:(_ "," _ item:doItem { return item; })* { return [first].concat(rest); }) {
-    function f(items) {
-      if (!items.length) {
-        return null;
-      }
-      var item = items[0];
-      var right = f(items.slice(1));
-      if (!right) {
-        return item.body;
-      }
-      else {
-        return {
-          type: "join",
-          via: item.via,
-          left: item.body,
-          right: right,
-          location: item.location
-        };
-      }
-    }
-    return f(items);
+    return {
+      type: "do",
+      items: items,
+      location: location()
+    };
   }
 
 subExpression "sub-expression" = "(" _ expression:expression _ ")" {

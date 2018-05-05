@@ -99,14 +99,19 @@ function checkFunction(definition, context) {
   checkFunctionBody(definition, context);
 }
 
-function checkJoin(join, context) {
-  function f({ left, via, right, location }, context) {
-    check(left, context);
-    context = context.spawn();
-    context.define(via, location);
-    check(right, context);
+function checkDo({ items }, context) {
+  function _check(items, context) {
+    if (items.length) {
+      const { via, value, location } = items[0];
+      check(value, context);
+      if (via) {
+        context = context.spawn();
+        context.define(via, location);
+      }
+      _check(items.slice(1), context);
+    }
   }
-  f(join, context);
+  _check(items, context);
 }
 
 function checkDefinitions(definitions, context) {
@@ -230,7 +235,7 @@ function check(ast, context) {
     case "setter": return checkSetter(ast, context);
     case "constant": return checkConstant(ast, context);
     case "function": return checkFunction(ast, context);
-    case "join": return checkJoin(ast, context);
+    case "do": return checkDo(ast, context);
     case "case": return checkCase(ast, context);
     case "let": return checkLet(ast, context);
     case "call": return checkCall(ast, context);

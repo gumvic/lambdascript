@@ -2,9 +2,13 @@
 
 
 - `core.native`:
-- iimutable functions
-- transducers
-- monads
+- Immutable functions
+- transducers -- `transduceColl :: xf coll, xf coll f`, `into :: coll -> (coll item -> coll)`
+- transducers -- `~> coll xf -> transduceColl xf coll`
+- map/filter/etc
+- map/filter/etc with indexes
+- monads -- `Join`, `Point`, `monad`, `parse`
+- function composition -- `=>`/`<=`
 - `toJS`,
 - `invoke`/`invokeIn`
 - `typeof`
@@ -12,12 +16,13 @@
 - js operators and `==`
 - ?
 
-`core`
-- map/filter/etc
-- map/filter/etc with indexes
-
-
 - syntax sugar for transducing?
+```
+for [1, 2, 3]
+  filter isEven,
+  map inc,
+  into []
+```
 
 
 - name clashes with auto generated names

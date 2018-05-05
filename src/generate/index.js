@@ -195,19 +195,44 @@ function genFunction({ name, variants }, context) {
   ].join("\n");
 }
 
-function genJoin({ left, via, right, location }, context) {
-  left = generate(left, context);
-  right = generate({
-    type: "function",
-    args: [via],
-    body: right,
-    location: right.location
-  }, context);
-  return [
-    "Join(",
-    __(`${left},`),
-    __(`${right})`)
-  ].join("\n");
+function genDo({ items }, context) {
+  function _generate(items) {
+    if (!items.length) {
+      return null;
+    }
+    else {
+      const left = items[0];
+      const right = _generate(items.slice(1));
+      if (!right) {
+        return {
+          type: "call",
+          fun: {
+            type: "identifier",
+            name: "monad"
+          },
+          args: [left.value]
+        };
+      }
+      else {
+        return {
+          type: "call",
+          fun: {
+            type: "identifier",
+            name: "monad"
+          },
+          args: [
+            left.value,
+            {
+              type: "lambda",
+              args: [left.via || "_"],
+              body: right
+            }
+          ]
+        };
+      }
+    }
+  }
+  return generate(_generate(items), context);
 }
 
 function genCase({ branches, otherwise }, context) {
@@ -373,7 +398,7 @@ function generate(ast, context) {
     case "setter": return genSetter(ast, context);
     case "constant": return genConstant(ast, context);
     case "function": return genFunction(ast, context);
-    case "join": return genJoin(ast, context);
+    case "do": return genDo(ast, context);
     case "case": return genCase(ast, context);
     case "let": return genLet(ast, context);
     case "call": return genCall(ast, context);
