@@ -1,10 +1,10 @@
 {
-  "name": "muscript",
+  "name": "monada",
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
   "bin": {
-    "mu": "./cli.js"
+    "monada": "./cli.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -12,14 +12,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gumvic/lambdascript.git"
+    "url": "git+https://github.com/gumvic/monada.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/gumvic/lambdascript/issues"
+    "url": "https://github.com/gumvic/monada/issues"
   },
-  "homepage": "https://github.com/gumvic/lambdascript#readme",
+  "homepage": "https://github.com/gumvic/monada#readme",
   "dependencies": {
     "bluebird": "^3.5.1",
     "commander": "^2.15.1",

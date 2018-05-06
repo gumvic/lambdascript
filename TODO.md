@@ -1,5 +1,3 @@
-- new name and global search and replace "mu"
-
 - `core.native`:
 - Immutable functions
 - transducers -- `transduceColl :: xf coll`, `into :: coll -> (coll item -> coll)`

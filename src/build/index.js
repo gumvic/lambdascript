@@ -28,7 +28,7 @@ class Context {
       throw new BuildError(`Module ${name} is already defined in ${duplicate.file}`);
     }
 
-    if (type === "mu") {
+    if (type === "monada") {
       if (ast.type !== "module") {
         throw new BuildError("Not a module");
       }
@@ -46,13 +46,13 @@ class Context {
   }
 }
 
-function readMuModule(file, context) {
+function readMonadaModule(file, context) {
   const { srcDir } = context;
   const srcFile = joinPath(srcDir, file);
   return readFile(srcFile, "utf8").then(src => {
     const ast = parse(src);
     const module = {
-      type: "mu",
+      type: "monada",
       file: file,
       name: ast.name,
       ast: ast
@@ -80,7 +80,7 @@ function readModule(file, context) {
   return tryPromise(() => {
     const { ext } = parsePath(file);
     switch(ext) {
-      case ".mu": return readMuModule(file, context);
+      case ".monada": return readMonadaModule(file, context);
       case ".js": return readJSModule(file, context);
       default: return readUnknownModule(file, context);
     }
@@ -109,7 +109,7 @@ function normalizeModuleImports(module, context) {
   return module;
 }
 
-function buildMuModule(module, context) {
+function buildMonadaModule(module, context) {
   const { distDir, options } = context;
   const { name, file, ast } = module;
   const distFile = replaceExt(joinPath(distDir, file), ".js");
@@ -147,7 +147,7 @@ function buildUnknownModule({ file }, { srcDir, distDir }) {
 function buildModule(module, context) {
   return tryPromise(() => {
     switch(module.type) {
-      case "mu": return buildMuModule(module, context);
+      case "monada": return buildMonadaModule(module, context);
       case "js": return buildJSModule(module, context);
       default: return buildUnknownModule(module, context);
     }
