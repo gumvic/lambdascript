@@ -1,5 +1,7 @@
 const CheckError = require("./error");
 
+const defaultOptions = require("../defaultOptions");
+
 class Context {
   constructor(parent) {
     this.parent = parent;
@@ -213,7 +215,7 @@ function checkModule(ast, context) {
 }
 
 function initContext({ core }) {
-  const context = new Context();
+  const context = new Context()
   checkImport(core, context);
   return context;
 }
@@ -248,5 +250,6 @@ function check(ast, context) {
 }
 
 module.exports = function(ast, options) {
+  options = options || defaultOptions;
   return check(ast, initContext(options));
 };

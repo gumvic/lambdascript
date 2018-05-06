@@ -12,39 +12,42 @@ const generate = require("../generate");
 const Error = require("../error");
 const BuildError = require("./error");
 
-const options = {
-  core: {
-    type: "import",
-    alias: "core",
-    module: "core",
-    names: [
-      "==",
-      "+",
-      "-",
-      "*",
-      "/",
-      "%",
-      ">",
-      "<",
-      ">=",
-      "<=",
-      "~",
-      "|",
-      "&",
-      "^",
-      ">>",
-      "<<",
-      ">>>",
-      "!",
-      "||",
-      "&&"
-    ],
-    location: {}
+const defaultOptions = require("../defaultOptions");
+
+class Context {
+  constructor(srcDir, distDir, options) {
+    this.srcDir = srcDir;
+    this.distDir = distDir;
+    this.options = options;
+    this.modules = [];
   }
-};
+
+  checkModule({ type, name, ast }) {
+    const duplicate = this.modules[name];
+    if (duplicate) {
+      throw new BuildError(`Module ${name} is already defined in ${duplicate.file}`);
+    }
+
+    if (type === "mu") {
+      if (ast.type !== "module") {
+        throw new BuildError("Not a module");
+      }
+      check(ast, this.options);
+    }
+  }
+
+  addModule(module) {
+    this.checkModule(module);
+    this.modules[module.name] = module;
+  }
+
+  getModule(name) {
+    return this.modules[name];
+  }
+}
 
 function readMuModule(file, context) {
-  const { srcDir, modules } = context;
+  const { srcDir } = context;
   const srcFile = joinPath(srcDir, file);
   return readFile(srcFile, "utf8").then(src => {
     const ast = parse(src);
@@ -54,7 +57,7 @@ function readMuModule(file, context) {
       name: ast.name,
       ast: ast
     };
-    modules.push(module);
+    context.addModule(module);
     return module;
   });
 }
@@ -89,67 +92,40 @@ function readModule(file, context) {
   });
 }
 
-function checkMuModule(module, { modules }) {
-  const { name, ast, file } = module;
-
-  if (ast.type !== "module") {
-    throw new BuildError("Not a module");
-  }
-  check(ast, options);
-
-  const duplicate = modules
-    .filter(_module => _module !== module && _module.name === name)[0];
-  if (duplicate) {
-    throw new BuildError(`Module ${name} is already defined in ${duplicate.file}`);
-  }
-
-  return module;
-}
-
-function checkJSModule(module, context) {
-  return module;
-}
-
-function checkUnknownModule(module, context) {
-  return module;
-}
-
-function checkModule(module, context) {
-  return tryPromise(() => {
-    switch(module.type) {
-      case "mu": return checkMuModule(module, context);
-      case "js": return checkJSModule(module, context);
-      default: return checkUnknownModule(module, context);
-    }
-  }).catch(e => {
-    if (e instanceof Error) {
-      e.location.file = module.file;
-    }
-    throw e;
-  });
-}
-
 function resolveImportPath({ file }, { file: importFile }) {
   const { dir } = parsePath(file);
   const { dir: importDir, base: importBase } = parsePath(importFile);
   return replaceExt(joinPath(relativePath(dir, importDir), importBase), ".js");
 }
 
-function buildMuModule(module, { distDir, modules }) {
+function normalizeModuleImports(module, context) {
+  const { ast: { imports } } = module;
+  for(let _import of imports) {
+    const importedModule = context.getModule(_import.module);
+    if (importedModule) {
+      _import.module = resolveImportPath(module, importedModule);
+    }
+  }
+  return module;
+}
+
+function buildMuModule(module, context) {
+  const { distDir, options } = context;
   const { name, file, ast } = module;
   const distFile = replaceExt(joinPath(distDir, file), ".js");
-  return ensureFile(distFile)
+  return ensureFile(distFile).then(() => {
+    const { ast } = normalizeModuleImports(module, context);
+    const js = generate(ast, options);
+    return writeFile(distFile, js);
+  });
+    //.then(() => normalizeModuleImports(module, context))
+    //.then(({ ast }) => generate())
+  /*return ensureFile(distFile)
     .then(() => {
-      for(let _import of ast.imports) {
-        const importedModule = modules
-          .filter(({ name }) => _import.module === name)[0];
-        if (importedModule) {
-          _import.module = resolveImportPath(module, importedModule);
-        }
-      }
-      return generate(ast, options);
+      normalizeModuleImports(module, context);
+      return generate(module.ast, options);
     })
-    .then(js => writeFile(distFile, js));
+    .then(js => writeFile(distFile, js));*/
 }
 
 function buildJSModule({ file }, { srcDir, distDir }) {
@@ -183,16 +159,16 @@ function buildModule(module, context) {
   });
 }
 
-function build(srcDir, distDir) {
-  const context = {
-    srcDir: srcDir,
-    distDir: distDir,
-    modules: []
-  };
+function initContext(srcDir, distDir, options) {
+  return new Context (srcDir, distDir, options);
+}
+
+function build(srcDir, distDir, options) {
+  options = options || defaultOptions;
+  const context = initContext(srcDir, distDir, options);
   return walk(srcDir)
     .then(files => files.map(({ root, name }) => relativePath(srcDir, `${root}/${name}`)))
     .then(files => mapPromise(files, file => readModule(file, context)))
-    .then(modules => mapPromise(modules, module => checkModule(module, context)))
     .then(modules => mapPromise(modules, module => buildModule(module, context)));
 }
 

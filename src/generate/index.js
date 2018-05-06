@@ -1,5 +1,7 @@
 const GenerationError = require("./error");
 
+const defaultOptions = require("../defaultOptions");
+
 class Context {
   constructor(core) {
     this.core = core;
@@ -419,5 +421,6 @@ function generate(ast, context) {
 }
 
 module.exports = function(ast, options) {
+  options = options || defaultOptions;
   return generate(ast, initContext(options));
 };
