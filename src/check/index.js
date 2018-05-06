@@ -34,7 +34,7 @@ function checkIdentifier({ name, location }, context) {
   context.get(name, location);
 }
 
-function checkMap(ast, context) {
+function checkMap({ items }, context) {
   for(let { key, value } of items) {
     check(key, context);
     check(value, context);

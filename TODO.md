@@ -9,7 +9,6 @@
 - monads -- `Join`, `Point`, `monad`, `parse`, `>==`
 - function composition -- `=>`/`<=`
 - `toJS`,
-- `invoke`/`invokeIn`
 - `typeof`
 - `instanceof`
 - js operators and `==`
@@ -60,6 +59,7 @@ Point mk x y -> mk { x, y }
 - template strings
 - auto import standard JS things like `Object`, `String` etc? (Note that `Map` will be a name conflict)
 - `import (window, $) from ..` -- `..` means outside world
+- optimize `get` AST with `getIn`
 - multiple arguments like `f x y ...more`?
 - use a third party js generator
 - source maps

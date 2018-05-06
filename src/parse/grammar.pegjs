@@ -82,7 +82,7 @@ moduleName "module name" =
     return [first].concat(rest || []).join("");
   }
 
-names "names" =
+namesList =
   "{" _
   names:(first:name rest:(_ "," _ name:name { return name; })* { return [first].concat(rest); })
   _ "}" {
@@ -249,7 +249,7 @@ literal "literal" =
   / map
   / lambda
 
-getter "getter" = keys:("." key:key { return key; })+ {
+getter "getter" = keys:keyAccess+ {
   return {
     type: "getter",
     keys: keys,
@@ -318,9 +318,19 @@ atom =
   / identifier
   / subExpression
 
-get "get" =
-  collection:atom
-  keys:("." key:key { return key; })+ {
+directKeyAccess = ".." key:key {
+  key.isDirect = true;
+  return key;
+}
+
+indirectKeyAccess = "." key:key {
+  key.isDirect = false;
+  return key;
+}
+
+keyAccess = directKeyAccess / indirectKeyAccess
+
+get "get" = collection:atom keys:keyAccess+ {
   return {
     type: "get",
     collection: collection,
@@ -407,7 +417,7 @@ method "method" = record:recordName "." name:name _ args:argsList _ "=" _ body:e
 
 definition "definition" = constant / record / function / method
 
-import "import" = wordImport _ alias:name? _ names:names? _ wordFrom _ module:moduleName {
+import "import" = wordImport _ alias:name? _ names:namesList? _ wordFrom _ module:moduleName {
   return {
     type: "import",
     module: module,
@@ -423,7 +433,7 @@ exportName = name:name {
     location: location()
   };
 }
-exportNames = names:names {
+exportNames = names:namesList {
   return {
     type: "export",
     names: names,

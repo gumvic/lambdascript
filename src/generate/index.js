@@ -120,14 +120,14 @@ function genIdentifier({ name }, context) {
 }
 
 function genMap({ items, location }, context) {
-  const items = items
+  items = items
     .map(({ key, value }) => `[${generate(key, context)}, ${generate(value, context)}]`)
     .join(", ");
   return `Map([${items}])`;
 }
 
 function genList({ items, location }, context) {
-  const items = items.map(item => generate(item, context)).join(", ");
+  items = items.map(item => generate(item, context)).join(", ");
   return `List([${items}])`;
 }
 
@@ -141,17 +141,15 @@ function genLambda({ args, body, location }, context) {
 
 function genGetter({ keys }, context) {
   const coll = context.oneOffName("coll");
-  if (keys.length === 1) {
-    const key = generate(keys[0], context);
-    return `(${coll}) => core.data.get(${coll}, ${key})`;
-  }
-  else {
-    keys = keys.map(key => generate(key, context)).join(", ");
-    return `(${coll}) => core.data.setIn(${coll}, [${keys}])`;
-  }
+  keys = keys.reduce((coll, key) => {
+    const { isDirect } = key;
+    key = generate(key, context);
+    return isDirect ? `${coll}[${key}]` : `get(${coll}, ${key})`;
+  }, coll);
+  return `(${coll}) => ${keys}`;
 }
 
-function genSetter({ keys }, context) {
+/*function genSetter({ keys }, context) {
   const coll = context.oneOffName("coll");
   const value = context.oneOffName("value");
   if (keys.length === 1) {
@@ -162,7 +160,7 @@ function genSetter({ keys }, context) {
     keys = keys.map(key => generate(key, context)).join(", ");
     return `(${coll}, ${value}) => core.data.setIn(${coll}, [${keys}], ${value})`;
   }
-}
+}*/
 
 function genConstant({ name, value }, context) {
   return `const ${namify(name)} = ${generate(value, context)};`;
@@ -302,9 +300,6 @@ function genCall(ast, context) {
       isBuiltInOperator(fun.name, args.length)) {
     return genOperatorCall(ast, context);
   }
-  else if (fun.type === "get") {
-    return genMethodCall(ast, context);
-  }
   else {
     return genFunctionCall(ast, context);
   }
@@ -322,19 +317,6 @@ function genOperatorCall({ fun: { name }, args }, context) {
   }
 }
 
-function genMethodCall({ fun: { collection, keys }, args }, context) {
-  args = args.map((arg) => generate(arg, context)).join(", ");
-  collection = generate(collection, context);
-  if (keys.length === 1) {
-    const key = generate(keys[0], context);
-    return `core.data.invoke(${collection}, ${key}, [${args}])`;
-  }
-  else {
-    keys = keys.map(key => generate(key, context)).join(", ");
-    return `core.data.invokeIn(${collection}, [${keys}], [${args}])`;
-  }
-}
-
 function genFunctionCall({ fun, args }, context) {
   // TODO wrap in braces values that js won't call
   fun = generate(fun, context);
@@ -343,15 +325,12 @@ function genFunctionCall({ fun, args }, context) {
 }
 
 function genGet({ collection, keys }, context) {
-  collection = generate(collection, context);
-  if (keys.length === 1) {
-    const key = generate(keys[0], context);
-    return `core.data.get(${collection}, ${key})`;
-  }
-  else {
-    keys = keys.map(key => generate(key, context)).join(", ");
-    return `core.data.getIn(${collection}, [${keys}])`;
-  }
+  const coll = generate(collection, context);
+  return keys.reduce((coll, key) => {
+    const { isDirect } = key;
+    key = generate(key, context);
+    return isDirect ? `${coll}[${key}]` : `get(${coll}, ${key})`;
+  }, coll);
 }
 
 function genCoreImport({ names, alias, module }, context) {
@@ -424,7 +403,7 @@ function generate(ast, context) {
     case "map":  return genMap(ast, context);
     case "lambda": return genLambda(ast, context);
     case "getter": return genGetter(ast, context);
-    case "setter": return genSetter(ast, context);
+    /*case "setter": return genSetter(ast, context);*/
     case "constant": return genConstant(ast, context);
     case "function": return genFunction(ast, context);
     case "do": return genDo(ast, context);
