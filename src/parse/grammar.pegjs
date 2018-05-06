@@ -44,6 +44,7 @@ reservedWord =
   / wordLet
   / wordDo
   / wordModule
+  / wordDef
   / wordImport
   / wordFrom
   / wordExport
@@ -52,6 +53,7 @@ wordCase = "case" !beginIdentifierChar
 wordLet = "let" !beginIdentifierChar
 wordDo = "do" !beginIdentifierChar
 wordModule = "module" !beginIdentifierChar
+wordDef = "def" !beginIdentifierChar
 wordImport = "import" !beginIdentifierChar
 wordFrom = "from" !beginIdentifierChar
 wordExport = "export" !beginIdentifierChar
@@ -87,9 +89,9 @@ names "names" =
   return names;
 }
 
-reservedOperator = ("=" / "->") !operatorChar
+reservedOperator = ("=" / "->" / "<-") !operatorChar
 
-operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
+operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
 operator "operator" = !reservedOperator chars:operatorChar+ {
   return {
     type: "identifier",
@@ -103,10 +105,11 @@ identifierChar = [0-9a-zA-Z_]
 identifier "identifier" =
   !reservedWord
   first:beginIdentifierChar
-  rest:(identifierChar+)? {
+  rest:(identifierChar+)?
+  question:"?"? {
   return {
       type: "identifier",
-      name: [first].concat(rest || []).join(""),
+      name: [first].concat(rest || []).join("") + (question || ""),
       location: location()
     };
   }
@@ -183,12 +186,8 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-argName = name:identifier {
-  return name.name;
-}
-
-argsList = args:(first:argName rest:(_ arg:argName { return arg; })* { return [first].concat(rest); })? {
-  return args || [];
+argsList = args:(noArgs / (arg:name _ { return arg; })+) {
+  return args;
 }
 
 lambda "lambda" = "(" _ args:argsList _ "->" _ body:expression _ ")" {
@@ -258,7 +257,7 @@ getter "getter" = keys:("." key:key { return key; })+ {
   };
 }
 
-caseBranch = condition:expression _ "->" _ value:expression {
+caseBranch = condition:expression _ ":" _ value:expression {
   return {
     condition: condition,
     value: value,
@@ -291,7 +290,7 @@ let "let" =
     };
   }
 
-doItem = via:(name:name _ "=" _ { return name; })? value:expression {
+doItem = via:(name:name _ "<-" _ { return name; })? value:expression {
   return {
     via: via,
     value: value,
@@ -332,7 +331,15 @@ get "get" =
 
 term = get / atom
 
-call "call" = fun:(term / operator) args:(_ arg:term _ { return arg; })+ {
+noArgs = "(" _ ")" {
+  return [];
+}
+
+args = args:(noArgs / (arg:term _ { return arg; })+) {
+  return args;
+}
+
+call "call" = fun:(term / operator) _ args:(args / noArgs) {
   return {
     type: "call",
     fun: fun,
@@ -367,7 +374,7 @@ constant "constant" = name:name _ "=" _ value:expression {
   };
 }
 
-function "function" = name:name _ args:argsList _ "->" _ body:expression {
+function "function" = name:name _ args:argsList _ "=" _ body:expression {
   return {
     type: "function",
     name: name,
@@ -377,7 +384,7 @@ function "function" = name:name _ args:argsList _ "->" _ body:expression {
   };
 }
 
-record "record" = name:recordName _ args:argsList _ "->" _ body:expression {
+record "record" = name:recordName _ args:argsList _ "=" _ body:expression {
   return {
     type: "record",
     name: name,
@@ -387,7 +394,7 @@ record "record" = name:recordName _ args:argsList _ "->" _ body:expression {
   };
 }
 
-method "method" = record:recordName "." name:name _ args:argsList _ "->" _ body:expression {
+method "method" = record:recordName "." name:name _ args:argsList _ "=" _ body:expression {
   return {
     type: "method",
     name: name,
@@ -426,7 +433,7 @@ exportNames = names:names {
 export "export" = wordExport _ _export:(exportName / exportNames) {
   return _export;
 }
-moduleDefinition "module level definition" = wordLet _ definition:definition {
+moduleDefinition "module level definition" = wordDef _ definition:definition {
   return definition;
 }
 module "module" =

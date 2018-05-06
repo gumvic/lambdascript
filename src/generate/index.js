@@ -21,32 +21,32 @@ function __(str) {
 
 function namify(name) {
   // TODO js reserved words
-  name = name.replace(
-    /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?]/g,
-    function(match) {
-      switch(match) {
-        case "+": return "_plus_";
-        case "-": return "_dash_";
-        case "*": return "_star_";
-        case "/": return "_slash_";
-        case ">": return "_right_";
-        case "<": return "_left_";
-        case "=": return "_equals_";
-        case "%": return "_percent_";
-        case "!": return "_bang_";
-        case "|": return "_pipe_";
-        case "&": return "_and_";
-        case "^": return "_caret_";
-        case "~": return "_tilda_";
-        case "?": return "_question_";
-      }
-    });
-  if (name !== name) {
-    return `$${name}`;
-  }
-  else {
-    return name;
-  }
+  return name
+    .replace(
+      /^([A-Za-z0-9_]+)\?$/,
+      function(_, match) {
+        match = match[0].toUpperCase() + match.slice(1);
+        return `is${match}`;
+      })
+    .replace(
+      /[\+\-\*\/\>\<\=\%\!\|\&\^\~]/g,
+      function(match) {
+        switch(match) {
+          case "+": return "_plus_";
+          case "-": return "_dash_";
+          case "*": return "_star_";
+          case "/": return "_slash_";
+          case ">": return "_right_";
+          case "<": return "_left_";
+          case "=": return "_equals_";
+          case "%": return "_percent_";
+          case "!": return "_bang_";
+          case "|": return "_pipe_";
+          case "&": return "_and_";
+          case "^": return "_caret_";
+          case "~": return "_tilda_";
+        }
+      });
 }
 
 function isBuiltInOperator(name, arity) {
@@ -170,14 +170,23 @@ function genConstant({ name, value }, context) {
 
 function genFunctionVariant({ args, body }, context) {
   const arity = args.length;
-  args = `const [${args.map(namify).join(", ")}] = arguments;`;
   body = `return ${generate(body, context)};`;
-  return [
-    `if (arguments.length === ${arity}) {`,
-    __(args),
-    __(body),
-    "}"
-  ].join("\n");
+  if (arity === 0) {
+    return [
+      `if (arguments.length === ${arity}) {`,
+      __(body),
+      "}"
+    ].join("\n");
+  }
+  else {
+    args = `const [${args.map(namify).join(", ")}] = arguments;`
+    return [
+      `if (arguments.length === ${arity}) {`,
+      __(args),
+      __(body),
+      "}"
+    ].join("\n");
+  }
 }
 
 function genFunction({ name, variants }, context) {
