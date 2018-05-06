@@ -1,18 +1,9 @@
 - `core.native`:
-- Immutable functions
-- transducers -- `transduceColl :: xf coll`, `into :: coll -> (coll item -> coll)`
-- transducers -- `def ~> coll xf = transduceColl xf coll`
-- transducers -- `done`, `done?`
+- transducers -- `done`, `done?`, `doneVal` or `terminate`, `terminated?` and `terminator`
+
+- `core`
 - map/filter/etc
 - map/filter/etc with indexes
-- monads -- `Join`, `Point`, `monad`, `parse`, `>==`
-- function composition -- `=>`/`<=`
-- `toJS`,
-- `typeof`
-- `instanceof`
-- js operators and `==`
-- unary versions of some operators like `!==`, `&&` etc
-- ?
 
 - syntax sugar for transducing?
 ```

@@ -24,14 +24,14 @@ function __(str) {
 function namify(name) {
   // TODO js reserved words
   return name
-    .replace(
+    /*.replace(
       /^([A-Za-z0-9_]+)\?$/,
       function(_, match) {
         match = match[0].toUpperCase() + match.slice(1);
         return `is${match}`;
-      })
+      })*/
     .replace(
-      /[\+\-\*\/\>\<\=\%\!\|\&\^\~]/g,
+      /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?]/g,
       function(match) {
         switch(match) {
           case "+": return "_plus_";
@@ -47,6 +47,7 @@ function namify(name) {
           case "&": return "_and_";
           case "^": return "_caret_";
           case "~": return "_tilda_";
+          case "?": return "_question_";
         }
       });
 }
