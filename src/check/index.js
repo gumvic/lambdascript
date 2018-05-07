@@ -17,10 +17,10 @@ class Context {
     }
   }
 
-  get(name, location) {
+  assertDefined(name, location) {
     if (this.defined.indexOf(name) >= 0) {}
     else if (this.parent) {
-      return this.parent.get(name, location);
+      this.parent.assertDefined(name, location);
     }
     else {
       throw new CheckError(`Name not defined: ${name}`, location);
@@ -33,7 +33,7 @@ class Context {
 }
 
 function checkIdentifier({ name, location }, context) {
-  context.get(name, location);
+  context.assertDefined(name, location);
 }
 
 function checkMap({ items }, context) {
@@ -101,7 +101,7 @@ function checkFunction(definition, context) {
   checkFunctionBody(definition, context);
 }
 
-function checkDo({ items }, context) {
+function checkMonad({ items }, context) {
   function _check(items, context) {
     if (items.length) {
       const { via, value, location } = items[0];
@@ -145,7 +145,7 @@ function checkCase({ branches, otherwise }, context) {
   check(otherwise, context);
 }
 
-function checkLet({ definitions, body }, context) {
+function checkScope({ definitions, body }, context) {
   context = context.spawn();
   checkDefinitions(definitions, context);
   check(body, context);
@@ -197,11 +197,11 @@ function checkModuleExport({ export: _export }, context) {
   if (_export) {
     const { name, names, location } = _export;
     if (name) {
-      context.get(name, location);
+      context.assertDefined(name, location);
     }
     else if (names) {
       for(let name of names) {
-        context.get(name, location);
+        context.assertDefined(name, location);
       }
     }
   }
@@ -237,9 +237,9 @@ function check(ast, context) {
     case "setter": return checkSetter(ast, context);
     case "constant": return checkConstant(ast, context);
     case "function": return checkFunction(ast, context);
-    case "do": return checkDo(ast, context);
+    case "monad": return checkMonad(ast, context);
     case "case": return checkCase(ast, context);
-    case "let": return checkLet(ast, context);
+    case "scope": return checkScope(ast, context);
     case "call": return checkCall(ast, context);
     case "get": return checkGet(ast, context);
     case "import": return checkImport(ast, context);

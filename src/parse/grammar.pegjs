@@ -32,35 +32,57 @@
   }
 }
 
-ast = _ ast:(module / expression) _ {
+ast = __ ast:(module / expression) __ {
   return ast;
 }
 
-_ "whitespace"
-  = [ \t\n\r]*
+_ = [ \t]*
+__ = [ \t\n\r]*
+
+beginWordChar = [a-zA-Z_]
 
 reservedWord =
   wordCase
+  / wordElse
   / wordLet
+  / wordIn
   / wordDo
+  / wordEnd
   / wordModule
-  / wordDef
   / wordImport
   / wordFrom
   / wordExport
 
-wordCase = "case" !beginIdentifierChar
-wordLet = "let" !beginIdentifierChar
-wordDo = "do" !beginIdentifierChar
-wordModule = "module" !beginIdentifierChar
-wordDef = "def" !beginIdentifierChar
-wordImport = "import" !beginIdentifierChar
-wordFrom = "from" !beginIdentifierChar
-wordExport = "export" !beginIdentifierChar
+wordCase = "case" !beginWordChar
+wordElse = "else" !beginWordChar
+wordLet = "let" !beginWordChar
+wordIn = "in" !beginWordChar
+wordDo = "do" !beginWordChar
+wordEnd = "end" !beginWordChar
+wordModule = "module" !beginWordChar
+wordImport = "import" !beginWordChar
+wordFrom = "from" !beginWordChar
+wordExport = "export" !beginWordChar
 
-name "name" = name:(identifier / operator) {
-  return name.name;
-}
+beginConstantNameChar = [a-z_]
+constantNameChar = [0-9a-zA-Z_]
+constantName =
+  !reservedWord
+  first:beginConstantNameChar
+  rest:(constantNameChar+)?
+  {
+    return [first].concat(rest || []).join("");
+  }
+
+beginFunctionNameChar = [a-z_]
+functionNameChar = [0-9a-zA-Z_]
+functionName =
+  !reservedWord
+  first:beginFunctionNameChar
+  rest:(functionNameChar+)?
+  {
+    return [first].concat(rest || []).join("");
+  }
 
 beginRecordNameChar = [A-Z]
 recordNameChar = [0-9a-zA-Z_]
@@ -74,7 +96,7 @@ recordName "record name" =
 
 beginModuleNameChar = [a-zA-Z_]
 moduleNameChar = [0-9a-zA-Z_\.\/\-]
-moduleName "module name" =
+moduleName =
   !reservedWord
   first:beginModuleNameChar
   rest:(moduleNameChar+)?
@@ -82,37 +104,34 @@ moduleName "module name" =
     return [first].concat(rest || []).join("");
   }
 
-namesList =
-  "{" _
-  names:(first:name rest:(_ "," _ name:name { return name; })* { return [first].concat(rest); })
-  _ "}" {
-  return names;
-}
+identifierName = constantName / functionName / recordName
+
+name = identifierName / operatorName
 
 reservedOperator = ("=" / "->" / "<-") !operatorChar
 
 operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
-operator "operator" = !reservedOperator chars:operatorChar+ {
+operatorName =
+  !reservedOperator
+  chars:operatorChar+ {
+  return chars.join("");
+}
+
+identifier "identifier" = name:identifierName {
   return {
     type: "identifier",
-    name: chars.join(""),
+    name: name,
     location: location()
   };
 }
 
-beginIdentifierChar = [a-zA-Z_]
-identifierChar = [0-9a-zA-Z_]
-identifier "identifier" =
-  !reservedWord
-  first:beginIdentifierChar
-  rest:(identifierChar+)?
-  question:"?"? {
+operator "operator" = name:operatorName {
   return {
-      type: "identifier",
-      name: [first].concat(rest || []).join("") + (question || ""),
-      location: location()
-    };
-  }
+    type: "identifier",
+    name: name,
+    location: location()
+  };
+}
 
 undefined "undefined" = "undefined" {
   return {
@@ -120,18 +139,21 @@ undefined "undefined" = "undefined" {
     location: location()
   };
 }
+
 null "null" = "null" {
   return {
     type: "null",
     location: location()
   };
 }
+
 false "false" = "false" {
   return {
     type: "false",
     location: location()
   };
 }
+
 true "true" = "true" {
   return {
     type: "true",
@@ -186,11 +208,15 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-argsList = args:(noArgs / (arg:name _ { return arg; })+) {
+noArgs = "(" _ ")" {
+  return [];
+}
+
+argsList = args:(noArgs / (arg:identifierName _ { return arg; })+) {
   return args;
 }
 
-lambda "lambda" = "(" _ args:argsList _ "->" _ body:expression _ ")" {
+lambda "lambda" = args:argsList __ "->" __ body:expression {
   return {
     type: "lambda",
     args: args,
@@ -200,9 +226,9 @@ lambda "lambda" = "(" _ args:argsList _ "->" _ body:expression _ ")" {
 }
 
 list "list" =
-  "[" _
-  items:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })?
-  _ "]" {
+  "[" __
+  items:(first:expression rest:(__ "," __ item:expression { return item; })* { return [first].concat(rest); })?
+  __ "]" {
     return {
       type: "list",
       items: items || [],
@@ -220,17 +246,18 @@ namedKey = key:name {
 
 key = namedKey / literal / subExpression
 
-mapItem = key:key _ ":" _ value:expression {
+mapItem = key:key __ ":" __ value:expression {
   return {
     key: key,
     value: value,
     location: location()
   };
 }
+
 map "map" =
-  "{" _
-  items:(first:mapItem rest:(_ "," _ item:mapItem { return item; })* { return [first].concat(rest); })?
-  _ "}" {
+  "{" __
+  items:(first:mapItem rest:(__ "," __ item:mapItem { return item; })* { return [first].concat(rest); })?
+  __ "}" {
     return {
       type: "map",
       items: items || [],
@@ -248,6 +275,7 @@ literal "literal" =
   / list
   / map
   / lambda
+  / getter
 
 getter "getter" = keys:keyAccess+ {
   return {
@@ -257,7 +285,7 @@ getter "getter" = keys:keyAccess+ {
   };
 }
 
-caseBranch = condition:expression _ ":" _ value:expression {
+caseBranch = condition:expression __ ":" __ value:expression {
   return {
     condition: condition,
     value: value,
@@ -266,10 +294,9 @@ caseBranch = condition:expression _ ":" _ value:expression {
 }
 
 case "case" =
-  wordCase _
-  branches:(first:caseBranch rest:(_ "," _ branch:caseBranch { return branch; })* { return [first].concat(rest); })
-  _ "," _
-  otherwise:expression {
+  wordCase __
+  branches:(first:caseBranch rest:(__ branch:caseBranch { return branch; })* { return [first].concat(rest); })
+  __ wordElse __ otherwise:expression {
     return {
       type: "case",
       branches: branches,
@@ -278,19 +305,16 @@ case "case" =
     };
   }
 
-let "let" =
-  wordLet _
-  definitions:(first:definition rest:(_ "," _ definition:definition { return definition; })* { return [first].concat(rest); })
-  _ "," _ body:expression {
+scope "scope" = wordLet __ definitions:definitions __ wordIn __ body:expression {
     return {
-      type: "let",
-      definitions: groupDefinitions(definitions),
+      type: "scope",
+      definitions: definitions,
       body: body,
       location: location()
     };
   }
 
-doItem = via:(name:name _ "<-" _ { return name; })? value:expression {
+monadItem = via:(name:constantName __ "<-" __ { return name; })? value:expression {
   return {
     via: via,
     value: value,
@@ -298,11 +322,12 @@ doItem = via:(name:name _ "<-" _ { return name; })? value:expression {
   };
 }
 
-do "do" =
-  wordDo _
-  items:(first:doItem rest:(_ "," _ item:doItem { return item; })* { return [first].concat(rest); }) {
+monad "monad" =
+  wordDo __
+  items:(first:monadItem rest:(__ item:monadItem { return item; })* { return [first].concat(rest); })
+  __ wordEnd {
     return {
-      type: "do",
+      type: "monad",
       items: items,
       location: location()
     };
@@ -314,7 +339,6 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
 
 atom =
   literal
-  / getter
   / identifier
   / subExpression
 
@@ -341,15 +365,7 @@ get "get" = collection:atom keys:keyAccess+ {
 
 term = get / atom
 
-noArgs = "(" _ ")" {
-  return [];
-}
-
-args = args:(noArgs / (arg:term _ { return arg; })+) {
-  return args;
-}
-
-call "call" = fun:(term / operator) _ args:(args / noArgs) {
+call "call" = fun:term _ args:(noArgs / (arg:term _ { return arg; })+) {
   return {
     type: "call",
     fun: fun,
@@ -358,9 +374,18 @@ call "call" = fun:(term / operator) _ args:(args / noArgs) {
   };
 }
 
-operand = call / term / operator
+unary = operator:operator _ operand:term {
+  return {
+    type: "call",
+    fun: operator,
+    args:[operand],
+    location: location()
+  };
+}
 
-operation =
+operand = call / term / unary
+
+binary =
   first:operand
   rest:(_ operator:operator _ right:operand { return { operator, right }; })* {
   return rest.reduce(
@@ -373,9 +398,9 @@ operation =
     first);
   }
 
-expression "expression" = case / let / do / operation
+expression "expression" = case / scope / monad / binary / operator
 
-constant "constant" = name:name _ "=" _ value:expression {
+constantDefinition = name:constantName __ "=" __ value:expression {
   return {
     type: "constant",
     name: name,
@@ -384,7 +409,7 @@ constant "constant" = name:name _ "=" _ value:expression {
   };
 }
 
-function "function" = name:name _ args:argsList _ "=" _ body:expression {
+functionDefinition = name:functionName __ args:argsList _ "=" __ body:expression {
   return {
     type: "function",
     name: name,
@@ -394,7 +419,7 @@ function "function" = name:name _ args:argsList _ "=" _ body:expression {
   };
 }
 
-record "record" = name:recordName _ args:argsList _ "=" _ body:expression {
+recordDefinition = name:recordName __ args:argsList __ "=" __ body:expression {
   return {
     type: "record",
     name: name,
@@ -404,7 +429,7 @@ record "record" = name:recordName _ args:argsList _ "=" _ body:expression {
   };
 }
 
-method "method" = record:recordName "." name:name _ args:argsList _ "=" _ body:expression {
+methodDefinition = record:recordName "." name:functionName __ args:argsList __ "=" __ body:expression {
   return {
     type: "method",
     name: name,
@@ -415,9 +440,63 @@ method "method" = record:recordName "." name:name _ args:argsList _ "=" _ body:e
   };
 }
 
-definition "definition" = constant / record / function / method
+operatorDefinition = name:operatorName __ "=" __ value:expression {
+  return {
+    type: "constant",
+    name: name,
+    value: value,
+    location: location()
+  };
+}
 
-import "import" = wordImport _ alias:name? _ names:namesList? _ wordFrom _ module:moduleName {
+unaryDefinition = name:operatorName __ arg:identifierName __ "=" __ body:expression {
+  return {
+    type: "function",
+    name: name,
+    args: [arg],
+    body: body,
+    location: location()
+  };
+}
+
+binaryDefinition = a:identifierName __ name:operatorName __ b:identifierName __ "=" __ body:expression {
+  return {
+    type: "function",
+    name: name,
+    args: [a, b],
+    body: body,
+    location: location()
+  };
+}
+
+definition =
+  constantDefinition
+  / functionDefinition
+  / recordDefinition
+  / methodDefinition
+  / operatorDefinition
+  / unaryDefinition
+  / binaryDefinition
+
+definitions = first:definition rest:(__ definition:definition { return definition; })* {
+  return groupDefinitions([first].concat(rest));
+}
+
+importList =
+  "{" __
+  names:(first:name rest:(__ "," __ name:name { return name; })* { return [first].concat(rest); })
+  __ "}" {
+  return names;
+}
+
+exportList =
+  "{" __
+  names:(first:name rest:(__ "," __ name:name { return name; })* { return [first].concat(rest); })
+  __ "}" {
+  return names;
+}
+
+import "import" = wordImport __ alias:name? __ names:importList? __ wordFrom __ module:moduleName {
   return {
     type: "import",
     module: module,
@@ -426,6 +505,7 @@ import "import" = wordImport _ alias:name? _ names:namesList? _ wordFrom _ modul
     location: location()
   };
 }
+
 exportName = name:name {
   return {
     type: "export",
@@ -433,29 +513,29 @@ exportName = name:name {
     location: location()
   };
 }
-exportNames = names:namesList {
+
+exportNames = names:exportList {
   return {
     type: "export",
     names: names,
     location: location()
   };
 }
-export "export" = wordExport _ _export:(exportName / exportNames) {
+
+export "export" = wordExport __ _export:(exportName / exportNames) {
   return _export;
 }
-moduleDefinition "module level definition" = wordDef _ definition:definition {
-  return definition;
-}
+
 module "module" =
-  wordModule _ name:moduleName _
-  imports:(first:import rest:(_ _import:import { return _import; })* { return [first].concat(rest); })? _
-  definitions:(first:moduleDefinition rest:(_ definition:moduleDefinition { return definition; })* { return [first].concat(rest); }) _
+  wordModule __ name:moduleName __
+  imports:(first:import rest:(__ _import:import { return _import; })* { return [first].concat(rest); })? __
+  definitions:definitions __
   _export:export? {
   return {
     type: "module",
     name: name,
     imports: imports || [],
-    definitions: groupDefinitions(definitions),
+    definitions: definitions,
     export: _export,
     location: location()
   };

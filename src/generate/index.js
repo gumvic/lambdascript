@@ -225,7 +225,7 @@ function genFunction({ name, variants }, context) {
   }
 }
 
-function genDo({ items }, context) {
+function genMonad({ items }, context) {
   function _generate(items) {
     if (!items.length) {
       return null;
@@ -284,7 +284,7 @@ function genCase({ branches, otherwise }, context) {
   return f(branches, context);
 }
 
-function genLet({ definitions, body }, context) {
+function genScope({ definitions, body }, context) {
   definitions = definitions
     .map(definition => generate(definition, context))
     .join("\n");
@@ -409,9 +409,9 @@ function generate(ast, context) {
     /*case "setter": return genSetter(ast, context);*/
     case "constant": return genConstant(ast, context);
     case "function": return genFunction(ast, context);
-    case "do": return genDo(ast, context);
+    case "monad": return genMonad(ast, context);
     case "case": return genCase(ast, context);
-    case "let": return genLet(ast, context);
+    case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
     case "get": return genGet(ast, context);
     case "import": return genImport(ast, context);

@@ -5,7 +5,8 @@ module.exports = {
     names: [
       /* Primitives */
       "type",
-      "instance?",
+      "isa",
+      /* Operators */
       "==",
       "+",
       "-",
@@ -26,8 +27,6 @@ module.exports = {
       "!",
       "||",
       "&&",
-      /* Fun */
-      "compose",
       /* Collections */
       "size",
       "toJS",
@@ -35,8 +34,10 @@ module.exports = {
       "ImMap",
       "ImList",
       /* Transducers */
-      "transduce"
+      "transduce",
       /* Monads */
+      "monad",
+      "isMonad"
     ]
   }
 };

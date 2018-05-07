@@ -1,5 +1,16 @@
+- `core.js`:
+- js primitives
+- collection constructors
+- `==`
+- `transduce`, `done`, `done?`
+- `monad`, `monad?`
+
 - map/filter/etc
 - map/filter/etc with indexes
+
+
+- Maybe monad -- `undefined` is `none`, everything else is `just`
+- Error monad -- `instanceof Error` is `error`, everything else is `success`
 
 
 - maybe `..` should be the method call operation, a separate one that's not chained?
@@ -41,6 +52,7 @@ Point mk x y -> mk { x, y }
 
 
 - js keywords as identifiers (also `arguments` and `this`)
+- add descriptions to grammar
 - name clashes with auto generated names
 - asserts for args and returns? like `x: isNumber`, `f: isNumber isNumber -> isNumber`
 - template strings
