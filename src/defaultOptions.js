@@ -1,8 +1,11 @@
 module.exports = {
   core: {
     alias: "core",
-    module: "core",
+    module: "monada-core",
     names: [
+      /* Primitives */
+      "type",
+      "instance?",
       "==",
       "+",
       "-",
@@ -22,7 +25,18 @@ module.exports = {
       ">>>",
       "!",
       "||",
-      "&&"
+      "&&",
+      /* Fun */
+      "compose",
+      /* Collections */
+      "size",
+      "toJS",
+      "fromJS",
+      "ImMap",
+      "ImList",
+      /* Transducers */
+      "transduce"
+      /* Monads */
     ]
   }
 };

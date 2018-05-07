@@ -1,30 +1,26 @@
-- `core.native`:
-- transducers -- `done`, `done?`, `doneVal` or `terminate`, `terminated?` and `terminator`
-
-- `core`
 - map/filter/etc
 - map/filter/etc with indexes
 
-- syntax sugar for transducing?
-```
-for [1, 2, 3]
-  filter isEven,
-  map inc,
-  into []
-```
+
+- maybe `..` should be the method call operation, a separate one that's not chained?
 
 
-- name clashes with auto generated names
+- consider this
+```
+// this is fine:
+export { foo, bar }
+
+// this is not, because it will export an Immutable, instead of a JS map:
+def baz = { foo: 42, bar: 43 }
+export baz
+```
+- maybe only allow single exporting functions?
+- probably auto `toJS` exports
 
 
 - js module should be able to declare its name
-
-
-- `core.monad.toIterable` for lazy sequences?
-
-
-- auto `toJS` on export?
-- export should allow just a value? auto `toJS` it or not?
+- `#{ ... }` means set, `#[ ... ]` means stack
+- `#(1 + _)` is a lambda
 
 
 - A.f and f shouldn't lead to duplicates, see groupFunctionDefinitions and how it groups using only name now
@@ -45,12 +41,13 @@ Point mk x y -> mk { x, y }
 
 
 - js keywords as identifiers (also `arguments` and `this`)
-- moduleName should have a quotes string variant, like `"foo bar"`
+- name clashes with auto generated names
 - asserts for args and returns? like `x: isNumber`, `f: isNumber isNumber -> isNumber`
 - template strings
 - auto import standard JS things like `Object`, `String` etc? (Note that `Map` will be a name conflict)
 - `import (window, $) from ..` -- `..` means outside world
 - optimize `get` AST with `getIn`
+- `core.monad.toIterable` for lazy sequences?
 - multiple arguments like `f x y ...more`?
 - use a third party js generator
 - source maps

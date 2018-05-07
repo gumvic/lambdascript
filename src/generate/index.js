@@ -122,16 +122,16 @@ function genIdentifier({ name }, context) {
   return namify(name);
 }
 
+function genList({ items, location }, context) {
+  items = items.map(item => generate(item, context)).join(", ");
+  return `ImList([${items}])`;
+}
+
 function genMap({ items, location }, context) {
   items = items
     .map(({ key, value }) => `[${generate(key, context)}, ${generate(value, context)}]`)
     .join(", ");
-  return `Map([${items}])`;
-}
-
-function genList({ items, location }, context) {
-  items = items.map(item => generate(item, context)).join(", ");
-  return `List([${items}])`;
+  return `ImMap([${items}])`;
 }
 
 function genLambda({ args, body, location }, context) {
