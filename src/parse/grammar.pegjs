@@ -36,12 +36,12 @@ ast = __ ast:(module / expression) __ {
   return ast;
 }
 
-_ = [ \t]*
-__ = [ \t\n\r]*
+_ "whitespace" = [ \t]*
+__ "whitespace" = [ \t\n\r]*
 
 beginWordChar = [a-zA-Z_]
 
-reservedWord =
+reservedWord "reserved word" =
   wordCase
   / wordElse
   / wordLet
@@ -53,20 +53,20 @@ reservedWord =
   / wordFrom
   / wordExport
 
-wordCase = "case" !beginWordChar
-wordElse = "else" !beginWordChar
-wordLet = "let" !beginWordChar
-wordIn = "in" !beginWordChar
-wordDo = "do" !beginWordChar
-wordEnd = "end" !beginWordChar
-wordModule = "module" !beginWordChar
-wordImport = "import" !beginWordChar
-wordFrom = "from" !beginWordChar
-wordExport = "export" !beginWordChar
+wordCase "case" = "case" !beginWordChar
+wordElse "else" = "else" !beginWordChar
+wordLet "let" = "let" !beginWordChar
+wordIn "in" = "in" !beginWordChar
+wordDo "do" = "do" !beginWordChar
+wordEnd "end" = "end" !beginWordChar
+wordModule "module" = "module" !beginWordChar
+wordImport "import" = "import" !beginWordChar
+wordFrom "from" = "from" !beginWordChar
+wordExport "export" = "export" !beginWordChar
 
 beginConstantNameChar = [a-z_]
 constantNameChar = [0-9a-zA-Z_]
-constantName =
+constantName "constant name" =
   !reservedWord
   first:beginConstantNameChar
   rest:(constantNameChar+)?
@@ -76,7 +76,7 @@ constantName =
 
 beginFunctionNameChar = [a-z_]
 functionNameChar = [0-9a-zA-Z_]
-functionName =
+functionName "function name" =
   !reservedWord
   first:beginFunctionNameChar
   rest:(functionNameChar+)?
@@ -96,7 +96,7 @@ recordName "record name" =
 
 beginModuleNameChar = [a-zA-Z_]
 moduleNameChar = [0-9a-zA-Z_\.\/\-]
-moduleName =
+moduleName "module name" =
   !reservedWord
   first:beginModuleNameChar
   rest:(moduleNameChar+)?
@@ -111,7 +111,7 @@ name = identifierName / operatorName
 reservedOperator = ("=" / "->" / "<-") !operatorChar
 
 operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
-operatorName =
+operatorName "operator name" =
   !reservedOperator
   chars:operatorChar+ {
   return chars.join("");
@@ -208,7 +208,7 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-noArgs = "(" _ ")" {
+noArgs "()" = "(" _ ")" {
   return [];
 }
 
@@ -236,7 +236,7 @@ list "list" =
     };
   }
 
-namedKey = key:name {
+namedKey "named key" = key:name {
   return {
     type: "key",
     value: key,
@@ -352,9 +352,9 @@ indirectKeyAccess = "." key:key {
   return key;
 }
 
-keyAccess = directKeyAccess / indirectKeyAccess
+keyAccess "key access" = directKeyAccess / indirectKeyAccess
 
-get "get" = collection:atom keys:keyAccess+ {
+get = collection:atom keys:keyAccess+ {
   return {
     type: "get",
     collection: collection,
@@ -363,18 +363,9 @@ get "get" = collection:atom keys:keyAccess+ {
   };
 }
 
-term = get / atom
+unaryOperand = get / atom
 
-call "call" = fun:term _ args:(noArgs / (arg:term _ { return arg; })+) {
-  return {
-    type: "call",
-    fun: fun,
-    args: args,
-    location: location()
-  };
-}
-
-unary = operator:operator _ operand:term {
+unary = operator:operator _ operand:unaryOperand {
   return {
     type: "call",
     fun: operator,
@@ -383,11 +374,22 @@ unary = operator:operator _ operand:term {
   };
 }
 
-operand = call / term / unary
+fun = unary / unaryOperand
+
+call = fun:fun _ args:(noArgs / (arg:unaryOperand _ { return arg; })+) {
+  return {
+    type: "call",
+    fun: fun,
+    args: args,
+    location: location()
+  };
+}
+
+binaryOperand = call / fun
 
 binary =
-  first:operand
-  rest:(_ operator:operator _ right:operand { return { operator, right }; })* {
+  first:binaryOperand
+  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -398,7 +400,7 @@ binary =
     first);
   }
 
-expression "expression" = case / scope / monad / binary / operator
+expression = case / scope / monad / binary / binaryOperand / operator
 
 constantDefinition = name:constantName __ "=" __ value:expression {
   return {
