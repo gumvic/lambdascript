@@ -6,6 +6,7 @@ module.exports = {
       /* Primitives */
       "type",
       "isa",
+      "try",
       /* Operators */
       "==",
       "+",
@@ -33,6 +34,10 @@ module.exports = {
       "fromJS",
       "ImMap",
       "ImList",
+      "get",
+      "getIn",
+      "invoke",
+      "invokeIn",
       /* Transducers */
       "transduce",
       /* Monads */

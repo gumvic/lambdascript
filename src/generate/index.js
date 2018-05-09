@@ -319,6 +319,9 @@ function genCall(ast, context) {
       isBuiltInOperator(fun.name, args.length)) {
     return genOperatorCall(ast, context);
   }
+  else if (fun.type === "get") {
+    return genMethodCall(ast, context);
+  }
   else {
     return genFunctionCall(ast, context);
   }
@@ -333,6 +336,19 @@ function genOperatorCall({ fun: { name }, args }, context) {
     const left = generate(args[0], context);
     const right = generate(args[1], context);
     return `${left} ${name} ${right}`;
+  }
+}
+
+function genMethodCall({ fun: { collection, keys }, args }, context) {
+  const coll = generate(collection, context);
+  args = args.map(arg => generate(arg, context)).join(", ");
+  if (keys.length === 1) {
+    const key = generate(keys[0], context);
+    return `invoke(${coll}, ${key}, [${args}])`;
+  }
+  else {
+    keys = keys.map(key => generate(key, context)).join(", ");
+    return `invokeIn(${coll}, [${keys}], [${args}])`;
   }
 }
 

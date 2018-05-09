@@ -275,9 +275,8 @@ literal "literal" =
   / list
   / map
   / lambda
-  / getter
 
-getter "getter" = keys:keyAccess+ {
+getter "getter" = keys:("." key:key { return key; })+ {
   return {
     type: "getter",
     keys: keys,
@@ -340,6 +339,7 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
 atom =
   literal
   / identifier
+  / getter
   / subExpression
 
 get = collection:atom keys:("." key:key { return key; })+ {
