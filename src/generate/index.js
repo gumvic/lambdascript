@@ -5,11 +5,20 @@ const defaultOptions = require("../defaultOptions");
 class Context {
   constructor(core) {
     this.core = core;
-    this._oneOffName = 0;
+    this.defined = {};
+  }
+
+  define(name) {
+    const _name = namify(name);
+    this.defined[name] = _name;
+    return _name;
   }
 
   oneOffName(name) {
-    return `$${name || ""}_${this._oneOffName++}`;
+    while(this.defined[name]) {
+      name = "_" + name;
+    }
+    return this.define(name);
   }
 }
 
@@ -134,11 +143,12 @@ function genMap({ items, location }, context) {
   return `ImMap([${items}])`;
 }
 
-function genLambda({ args, body, location }, context) {
+function genLambda(ast, context) {
   return genFunction({
     type: "funcion",
-    variants: [{ args, body, location }],
-    location: location
+    variants: [ast],
+    skipChecks: ast.skipChecks,
+    location: ast.location
   }, context);
 }
 
@@ -166,62 +176,82 @@ function genGetter({ keys }, context) {
 }*/
 
 function genConstant({ name, value }, context) {
-  return `const ${namify(name)} = ${generate(value, context)};`;
+  name = context.define(name);
+  return `const ${name} = ${generate(value, context)};`;
 }
 
-function genFunctionVariant({ args, body }, context) {
-  const arity = args.length;
-  body = `return ${generate(body, context)};`;
-  if (arity === 0) {
-    return [
-      `if (arguments.length === ${arity}) {`,
-      __(body),
+function genFunctionVariant({ args, body }, context, { skipChecks, skipArgs }) {
+  let variant = `return ${generate(body, context)};`;
+  if (!skipArgs) {
+    variant = [
+      `const [${args.map(namify).join(", ")}] = arguments;`,
+      variant
+    ].join("\n");
+  }
+  if (!skipChecks) {
+    variant = [
+      `if (arguments.length === ${args.length}) {`,
+      __(variant),
       "}"
     ].join("\n");
   }
-  else {
-    args = `const [${args.map(namify).join(", ")}] = arguments;`
-    return [
-      `if (arguments.length === ${arity}) {`,
-      __(args),
-      __(body),
-      "}"
-    ].join("\n");
-  }
+  return variant;
 }
 
-function genFunction({ name, variants }, context) {
+function genFunctionSingleVariant(variant, context, { skipChecks }) {
   const badArity = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
-  if (variants.length === 1) {
-    const { args, body } = variants[0];
-    const arity = args.length;
-    const checkArity = [
-      `if (arguments.length !== ${arity}) {`,
-      __(badArity),
-      "}"
-    ].join("\n");
-    return [
-      `function ${name ? namify(name) : ""}(${args.map(namify).join(", ")}) {`,
-      __(checkArity),
-      __(`return ${generate(body, context)};`),
-      "}"
-    ].join("\n");
-  }
-  else {
-    variants = variants
-      .map(variant => genFunctionVariant(variant, context))
-      .join("\nelse ");
-    const defaultVariant = [
+  const args = variant.args.map(namify).join(", ");
+  let body = genFunctionVariant(variant, context, {
+    skipArgs: true,
+    skipChecks: skipChecks
+  });
+  if (!skipChecks) {
+    body = [
+      body,
       "else {",
       __(badArity),
       "}"
     ].join("\n");
-    return [
-      `function ${name ? namify(name) : ""}() {`,
-      __(variants),
-      __(defaultVariant),
+  }
+  return [
+    `(${args}) {`,
+    __(body),
+    "}"
+  ].join("\n");
+}
+
+function genFunctionMultipleVariants(variants, context, { skipChecks }) {
+  const badArity = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
+  const args = "";
+  let body = variants
+    .map(variant => genFunctionVariant(variant, context, { skipArgs: false, skipChecks: skipChecks }));
+  if (!skipChecks) {
+    body = [
+      body.join("\nelse "),
+      "else {",
+      __(badArity),
       "}"
     ].join("\n");
+  }
+  else {
+    body = body.join("\n");
+  }
+  return [
+    `(${args}) {`,
+    __(body),
+    "}"
+  ].join("\n");
+}
+
+function genFunction({ name, variants, skipChecks }, context) {
+  if (variants.length === 1) {
+    const fun = genFunctionSingleVariant(variants[0], context, { skipChecks });
+    return `function ${name ? namify(name) : ""} ${fun}`;
+  }
+  else {
+    skipChecks = false;
+    const fun = genFunctionMultipleVariants(variants, context, { skipChecks });
+    return `function ${name ? namify(name) : ""} ${fun}`;
   }
 }
 
@@ -234,14 +264,7 @@ function genMonad({ items }, context) {
       const left = items[0];
       const right = _generate(items.slice(1));
       if (!right) {
-        return {
-          type: "call",
-          fun: {
-            type: "identifier",
-            name: "monad"
-          },
-          args: [left.value]
-        };
+        return left.value;
       }
       else {
         return {
@@ -255,7 +278,8 @@ function genMonad({ items }, context) {
             {
               type: "lambda",
               args: [left.via || "_"],
-              body: right
+              body: right,
+              skipChecks: true
             }
           ]
         };
@@ -276,9 +300,9 @@ function genCase({ branches, otherwise }, context) {
     const ifTrue = generate(value, context);
     const ifFalse = f(rest, context);
     return [
-      `(${_condition} ?`,
+      `${_condition} ?`,
       __(`${ifTrue} :`),
-      __(`${ifFalse})`)
+      __(`${ifFalse}`)
     ].join("\n");
   }
   return f(branches, context);
@@ -290,10 +314,10 @@ function genScope({ definitions, body }, context) {
     .join("\n");
   body = generate(body, context);
   return [
-    "((() => {",
+    "(function() {",
     __(definitions),
     __(`return ${body};`),
-    "})())"
+    "}())"
   ].join("\n");
 }
 
@@ -337,7 +361,7 @@ function genGet({ collection, keys }, context) {
 }
 
 function genCoreImport({ names, alias, module }, context) {
-  alias = alias ? namify(alias) : context.oneOffName();
+  alias = context.oneOffName(alias || "core");
   module = `const ${alias} = require("${module}");`;
   names = names.length ?
     `const { ${names.map(namify).join(", ")} } = ${alias};` :
@@ -346,7 +370,7 @@ function genCoreImport({ names, alias, module }, context) {
 }
 
 function genImport({ names, alias, module }, context) {
-  alias = alias ? namify(alias) : context.oneOffName();
+  alias = context.oneOffName(alias || "_");
   module = `const ${alias} = require("${module}");`;
   names = names.length ?
     `const { ${names.map(namify).join(", ")} } = ${alias};` :

@@ -1,3 +1,7 @@
+- scopes should be readable
+- monads should generate lambdas
+- if name clash, attach `_` until it doesn't clash
+
 - `core.js`:
 - js primitives
 - collection constructors
