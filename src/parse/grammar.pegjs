@@ -342,19 +342,7 @@ atom =
   / identifier
   / subExpression
 
-directKeyAccess = ".." key:key {
-  key.isDirect = true;
-  return key;
-}
-
-indirectKeyAccess = "." key:key {
-  key.isDirect = false;
-  return key;
-}
-
-keyAccess "key access" = directKeyAccess / indirectKeyAccess
-
-get = collection:atom keys:keyAccess+ {
+get = collection:atom keys:("." key:key { return key; })+ {
   return {
     type: "get",
     collection: collection,

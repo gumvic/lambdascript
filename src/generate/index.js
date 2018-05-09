@@ -5,20 +5,11 @@ const defaultOptions = require("../defaultOptions");
 class Context {
   constructor(core) {
     this.core = core;
-    this.defined = {};
-  }
-
-  define(name) {
-    const _name = namify(name);
-    this.defined[name] = _name;
-    return _name;
+    this.oneOffCount = 0;
   }
 
   oneOffName(name) {
-    while(this.defined[name]) {
-      name = "_" + name;
-    }
-    return this.define(name);
+    return `${name}_${this.oneOffCount++}`;
   }
 }
 
@@ -154,12 +145,14 @@ function genLambda(ast, context) {
 
 function genGetter({ keys }, context) {
   const coll = context.oneOffName("coll");
-  keys = keys.reduce((coll, key) => {
-    const { isDirect } = key;
-    key = generate(key, context);
-    return isDirect ? `${coll}[${key}]` : `get(${coll}, ${key})`;
-  }, coll);
-  return `(${coll}) => ${keys}`;
+  if (keys.length === 1) {
+    const key = generate(keys[0], context);
+    return `(${coll}) => get(${coll}, ${key})`;
+  }
+  else {
+    keys = keys.map(key => generate(key, context)).join(", ");
+    return `(${coll}) => getIn(${coll}, [${keys}])`;
+  }
 }
 
 /*function genSetter({ keys }, context) {
@@ -176,8 +169,7 @@ function genGetter({ keys }, context) {
 }*/
 
 function genConstant({ name, value }, context) {
-  name = context.define(name);
-  return `const ${name} = ${generate(value, context)};`;
+  return `const ${namify(name)} = ${generate(value, context)};`;
 }
 
 function genFunctionVariant({ args, body }, context, { skipChecks, skipArgs }) {
@@ -246,12 +238,12 @@ function genFunctionMultipleVariants(variants, context, { skipChecks }) {
 function genFunction({ name, variants, skipChecks }, context) {
   if (variants.length === 1) {
     const fun = genFunctionSingleVariant(variants[0], context, { skipChecks });
-    return `function ${name ? namify(name) : ""} ${fun}`;
+    return `function ${name ? namify(name) : ""}${fun}`;
   }
   else {
     skipChecks = false;
     const fun = genFunctionMultipleVariants(variants, context, { skipChecks });
-    return `function ${name ? namify(name) : ""} ${fun}`;
+    return `function ${name ? namify(name) : ""}${fun}`;
   }
 }
 
@@ -277,7 +269,7 @@ function genMonad({ items }, context) {
             left.value,
             {
               type: "lambda",
-              args: [left.via || "_"],
+              args: [left.via || context.oneOffName("val")],
               body: right,
               skipChecks: true
             }
@@ -353,11 +345,14 @@ function genFunctionCall({ fun, args }, context) {
 
 function genGet({ collection, keys }, context) {
   const coll = generate(collection, context);
-  return keys.reduce((coll, key) => {
-    const { isDirect } = key;
-    key = generate(key, context);
-    return isDirect ? `${coll}[${key}]` : `get(${coll}, ${key})`;
-  }, coll);
+  if (keys.length === 1) {
+    const key = generate(keys[0], context);
+    return `get(${coll}, ${key})`;
+  }
+  else {
+    keys = keys.map(key => generate(key, context)).join(", ");
+    return `getIn(${coll}, [${keys}])`;
+  }
 }
 
 function genCoreImport({ names, alias, module }, context) {
