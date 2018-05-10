@@ -32,7 +32,7 @@ class Context {
   }
 }
 
-function checkIdentifier({ name, location }, context) {
+function checkName({ name, location }, context) {
   context.assertDefined(name, location);
 }
 
@@ -71,7 +71,7 @@ function checkSetter({ keys }, context) {
 
 function checkConstant({ name, value, location }, context) {
   check(value, context);
-  context.define(name, location);
+  checkDecomp(name, context);
 }
 
 function checkFunctionBody({ name, variants }, context) {
@@ -86,7 +86,7 @@ function checkFunctionBody({ name, variants }, context) {
       definedVariants[arity] = variant;
       const _context = context.spawn();
       for(let arg of args) {
-        _context.define(arg, location);
+        checkDecomp(arg, _context);
       }
       check(body, _context);
     }
@@ -108,7 +108,7 @@ function checkMonad({ items }, context) {
       check(value, context);
       if (via) {
         context = context.spawn();
-        context.define(via, location);
+        checkDecomp(via, context);
       }
       _check(items.slice(1), context);
     }
@@ -165,13 +165,20 @@ function checkGet({ collection, keys }, context) {
   }
 }
 
-function checkImport({ alias, names, location }, context) {
-  if (alias) {
-    context.define(alias, location);
+function checkDecomp(ast, context) {
+  if (ast.type === "name") {
+    context.define(ast.name, ast.location);
   }
-  for(let name of names) {
-    context.define(name, location);
+  else if (ast.type === "demap") {
+    for(let { key, name } of ast.items) {
+      check(key, context);
+      checkDecomp(name, context);
+    }
   }
+}
+
+function checkImport({ name }, context) {
+  checkDecomp(name, context);
 }
 
 function checkModuleImports({ name, imports }, context) {
@@ -193,17 +200,13 @@ function checkModuleDefinitions({ definitions }, context) {
   checkDefinitions(definitions, context);
 }
 
+function checkExport({ value }, context) {
+  check(value, context);
+}
+
 function checkModuleExport({ export: _export }, context) {
   if (_export) {
-    const { name, names, location } = _export;
-    if (name) {
-      context.assertDefined(name, location);
-    }
-    else if (names) {
-      for(let name of names) {
-        context.assertDefined(name, location);
-      }
-    }
+    checkExport(_export, context);
   }
 }
 
@@ -214,9 +217,11 @@ function checkModule(ast, context) {
   checkModuleExport(ast, context);
 }
 
-function initContext({ core }) {
+function initContext({ autoImports }) {
   const context = new Context()
-  checkImport(core, context);
+  for (let _import of autoImports) {
+    checkImport(_import, context);
+  }
   return context;
 }
 
@@ -229,7 +234,7 @@ function check(ast, context) {
     case "number":
     case "string":
     case "key": return;
-    case "identifier": return checkIdentifier(ast, context);
+    case "name": return checkName(ast, context);
     case "map":  return checkMap(ast, context);
     case "list": return checkList(ast, context);
     case "lambda": return checkLambda(ast, context);

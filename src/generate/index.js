@@ -3,13 +3,8 @@ const GenerationError = require("./error");
 const defaultOptions = require("../defaultOptions");
 
 class Context {
-  constructor(core) {
-    this.core = core;
-    this.oneOffCount = 0;
-  }
-
-  oneOffName(name) {
-    return `${name}_${this.oneOffCount++}`;
+  constructor(autoImports) {
+    this.autoImports = autoImports;
   }
 }
 
@@ -23,6 +18,7 @@ function __(str) {
 
 function namify(name) {
   // TODO js reserved words
+  // TODO this, arguments
   return name
     /*.replace(
       /^([A-Za-z0-9_]+)\?$/,
@@ -90,6 +86,74 @@ function isBuiltInOperator(name, arity) {
   }
 }
 
+function decomposePaths(path, ast) {
+  if (ast.type === "name") {
+    return [
+      {
+        path: path,
+        name: namify(ast.name)
+      }
+    ];
+  }
+  else if (ast.type === "demap") {
+    return ast.items
+      .map(({ key, name }) => decomposePaths(path.concat([key]), name))
+      .reduce((a, b) => a.concat(b));
+  }
+}
+
+function decompose(ast, value, context) {
+  function access({ name, path }, value) {
+    path = path.map(key => generate(key, context));
+    if (path.length === 1) {
+      return `const ${name} = get(${value}, ${path[0]});`;
+    }
+    else {
+      return `const ${name} = getIn(${value}, [${path.join(", ")}]);`;
+    }
+  }
+  if (ast.type === "name") {
+    return `const ${namify(ast.name)} = ${value};`;
+  }
+  else {
+    const paths = decomposePaths([], ast);
+    if (paths.length === 1) {
+      return access(paths[0], value);
+    }
+    else {
+      return [
+        `$tmp = ${value};`,
+        paths.map(path => access(path, "$tmp")).join("\n")
+      ].join("\n");
+    }
+  }
+}
+
+function decomposeDirectly(ast, value, context) {
+  function access({ name, path }, value) {
+    path = path
+      .map(key => generate(key, context))
+      .map(key => `[${key}]`)
+      .join("");
+    return `const ${name} = ${value}${path};`;
+  }
+  if (ast.type === "name") {
+    return `const ${namify(ast.name)} = ${value};`;
+  }
+  else {
+    const paths = decomposePaths([], ast);
+    if (paths.length === 1) {
+      return access(paths[0], value);
+    }
+    else {
+      return [
+        `$tmp = ${value};`,
+        paths.map(path => access(path, "$tmp")).join("\n")
+      ].join("\n");
+    }
+  }
+}
+
 function genUndefined(ast, context) {
   return "undefined";
 }
@@ -118,7 +182,7 @@ function genKey({ value }, context) {
   return `"${namify(value)}"`;
 }
 
-function genIdentifier({ name }, context) {
+function genName({ name }, context) {
   return namify(name);
 }
 
@@ -144,7 +208,7 @@ function genLambda(ast, context) {
 }
 
 function genGetter({ keys }, context) {
-  const coll = context.oneOffName("coll");
+  const coll = "$coll";
   if (keys.length === 1) {
     const key = generate(keys[0], context);
     return `(${coll}) => get(${coll}, ${key})`;
@@ -155,96 +219,46 @@ function genGetter({ keys }, context) {
   }
 }
 
-/*function genSetter({ keys }, context) {
-  const coll = context.oneOffName("coll");
-  const value = context.oneOffName("value");
-  if (keys.length === 1) {
-    const key = generate(keys[0], context);
-    return `(${coll}, ${value}) => core.data.set(${coll}, ${key}, ${value})`;
-  }
-  else {
-    keys = keys.map(key => generate(key, context)).join(", ");
-    return `(${coll}, ${value}) => core.data.setIn(${coll}, [${keys}], ${value})`;
-  }
-}*/
-
 function genConstant({ name, value }, context) {
-  return `const ${namify(name)} = ${generate(value, context)};`;
+  return decompose(name, generate(value, context), context);
 }
 
-function genFunctionVariant({ args, body }, context, { skipChecks, skipArgs }) {
-  let variant = `return ${generate(body, context)};`;
-  if (!skipArgs) {
-    variant = [
-      `const [${args.map(namify).join(", ")}] = arguments;`,
-      variant
-    ].join("\n");
+function genFunctionVariant({ args, body }, context, { skipChecks }) {
+  const arity = args.length;
+  args = args
+    .map((arg, i) => decompose(arg, `arguments[${i}]`, context))
+    .join("\n");
+  const variant = arity ?
+    [
+      args,
+      `return ${generate(body, context)};`
+    ].join("\n") :
+    `return ${generate(body, context)};`;
+  if (skipChecks) {
+    return variant;
   }
-  if (!skipChecks) {
-    variant = [
-      `if (arguments.length === ${args.length}) {`,
+  else {
+    return [
+      `if (arguments.length === ${arity}) {`,
       __(variant),
       "}"
     ].join("\n");
   }
-  return variant;
-}
-
-function genFunctionSingleVariant(variant, context, { skipChecks }) {
-  const badArity = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
-  const args = variant.args.map(namify).join(", ");
-  let body = genFunctionVariant(variant, context, {
-    skipArgs: true,
-    skipChecks: skipChecks
-  });
-  if (!skipChecks) {
-    body = [
-      body,
-      "else {",
-      __(badArity),
-      "}"
-    ].join("\n");
-  }
-  return [
-    `(${args}) {`,
-    __(body),
-    "}"
-  ].join("\n");
-}
-
-function genFunctionMultipleVariants(variants, context, { skipChecks }) {
-  const badArity = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
-  const args = "";
-  let body = variants
-    .map(variant => genFunctionVariant(variant, context, { skipArgs: false, skipChecks: skipChecks }));
-  if (!skipChecks) {
-    body = [
-      body.join("\nelse "),
-      "else {",
-      __(badArity),
-      "}"
-    ].join("\n");
-  }
-  else {
-    body = body.join("\n");
-  }
-  return [
-    `(${args}) {`,
-    __(body),
-    "}"
-  ].join("\n");
 }
 
 function genFunction({ name, variants, skipChecks }, context) {
-  if (variants.length === 1) {
-    const fun = genFunctionSingleVariant(variants[0], context, { skipChecks });
-    return `function ${name ? namify(name) : ""}${fun}`;
-  }
-  else {
+  if (variants.length !== 1) {
     skipChecks = false;
-    const fun = genFunctionMultipleVariants(variants, context, { skipChecks });
-    return `function ${name ? namify(name) : ""}${fun}`;
   }
+  const body = variants
+    .map(variant => genFunctionVariant(variant, context, { skipChecks }))
+    .join("\nelse ");
+  return [
+    `function ${name ? namify(name) : ""}() {`,
+    __(body),
+    __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
+    "}"
+  ].join("\n");
 }
 
 function genMonad({ items }, context) {
@@ -262,14 +276,14 @@ function genMonad({ items }, context) {
         return {
           type: "call",
           fun: {
-            type: "identifier",
+            type: "name",
             name: "monad"
           },
           args: [
             left.value,
             {
               type: "lambda",
-              args: [left.via || context.oneOffName("val")],
+              args: left.via ? [left.via] : [],
               body: right,
               skipChecks: true
             }
@@ -315,7 +329,7 @@ function genScope({ definitions, body }, context) {
 
 function genCall(ast, context) {
   const { fun, args } = ast;
-  if (fun.type === "identifier" &&
+  if (fun.type === "name" &&
       isBuiltInOperator(fun.name, args.length)) {
     return genOperatorCall(ast, context);
   }
@@ -371,22 +385,8 @@ function genGet({ collection, keys }, context) {
   }
 }
 
-function genCoreImport({ names, alias, module }, context) {
-  alias = context.oneOffName(alias || "core");
-  module = `const ${alias} = require("${module}");`;
-  names = names.length ?
-    `const { ${names.map(namify).join(", ")} } = ${alias};` :
-    "";
-  return [module, names].filter(str => str !== "").join("\n");
-}
-
-function genImport({ names, alias, module }, context) {
-  alias = context.oneOffName(alias || "_");
-  module = `const ${alias} = require("${module}");`;
-  names = names.length ?
-    `const { ${names.map(namify).join(", ")} } = ${alias};` :
-    "";
-  return [module, names].filter(str => str !== "").join("\n");
+function genImport({ module, name }, context) {
+  return decomposeDirectly(name, `require("${module}")`, context);
 }
 
 function genModuleImports({ imports }, context) {
@@ -403,28 +403,26 @@ function genModuleDefinitions({ definitions }, context) {
 
 function genModuleExport({ export: _export }, context) {
   if (_export) {
-    const { type, name, names, location } = _export;
-    if (name) {
-      return `module.exports = ${namify(name)};`;
-    }
-    else if (names) {
-      return `module.exports = { ${names.map(namify).join(", ")} };`;
-    }
+    const value = generate(_export.value, context);
+    return `module.exports = toJS(${value});`
   }
 }
 
 function genModule(ast, context) {
-  const coreImport = genCoreImport(context.core, context);
+  ast.imports = context.autoImports.concat(ast.imports);
   const imports = genModuleImports(ast, context);
   const definitions = genModuleDefinitions(ast, context);
   const _export = genModuleExport(ast, context);
-  return [coreImport, imports, definitions, _export]
-    .filter(x => x !== "")
-    .join("\n\n");
+  return [
+    "let $tmp = null;",
+    imports,
+    definitions,
+    _export
+  ].filter(x => x !== "").join("\n\n");
 }
 
-function initContext({ core }) {
-  return new Context(core);
+function initContext({ autoImports }) {
+  return new Context(autoImports);
 }
 
 function generate(ast, context) {
@@ -436,12 +434,11 @@ function generate(ast, context) {
     case "number": return genNumber(ast, context);
     case "string": return genString(ast, context);
     case "key": return genKey(ast, context);
-    case "identifier": return genIdentifier(ast, context);
+    case "name": return genName(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
     case "lambda": return genLambda(ast, context);
     case "getter": return genGetter(ast, context);
-    /*case "setter": return genSetter(ast, context);*/
     case "constant": return genConstant(ast, context);
     case "function": return genFunction(ast, context);
     case "monad": return genMonad(ast, context);

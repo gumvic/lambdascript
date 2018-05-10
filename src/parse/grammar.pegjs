@@ -71,7 +71,11 @@ constantName "constant name" =
   first:beginConstantNameChar
   rest:(constantNameChar+)?
   {
-    return [first].concat(rest || []).join("");
+    return {
+      type: "name",
+      name: [first].concat(rest || []).join(""),
+      location: location()
+    };
   }
 
 beginFunctionNameChar = [a-z_]
@@ -81,7 +85,11 @@ functionName "function name" =
   first:beginFunctionNameChar
   rest:(functionNameChar+)?
   {
-    return [first].concat(rest || []).join("");
+    return {
+      type: "name",
+      name: [first].concat(rest || []).join(""),
+      location: location()
+    };
   }
 
 beginRecordNameChar = [A-Z]
@@ -91,7 +99,11 @@ recordName "record name" =
   first:beginRecordNameChar
   rest:(recordNameChar+)?
   {
-    return [first].concat(rest || []).join("");
+    return {
+      type: "name",
+      name: [first].concat(rest || []).join(""),
+      location: location()
+    };
   }
 
 beginModuleNameChar = [a-zA-Z_]
@@ -101,37 +113,27 @@ moduleName "module name" =
   first:beginModuleNameChar
   rest:(moduleNameChar+)?
   {
-    return [first].concat(rest || []).join("");
+    return {
+      type: "name",
+      name: [first].concat(rest || []).join(""),
+      location: location()
+    };
   }
-
-identifierName = constantName / functionName / recordName
-
-name = identifierName / operatorName
 
 reservedOperator = ("=" / "->" / "<-") !operatorChar
 
 operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
-operatorName "operator name" =
+operator "operator" =
   !reservedOperator
   chars:operatorChar+ {
-  return chars.join("");
-}
-
-identifier "identifier" = name:identifierName {
   return {
-    type: "identifier",
-    name: name,
+    type: "name",
+    name: chars.join(""),
     location: location()
   };
 }
 
-operator "operator" = name:operatorName {
-  return {
-    type: "identifier",
-    name: name,
-    location: location()
-  };
-}
+name = constantName / functionName / recordName / operator
 
 undefined "undefined" = "undefined" {
   return {
@@ -208,11 +210,34 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
+demapItem = key:(key:key __ ":" __ { return key; })? name:decomp {
+  return {
+    key: key || {
+      type: "key",
+      value: name.name
+    },
+    name: name
+  };
+}
+
+demap "map decomposition" =
+  "{" __
+  items:(first:demapItem rest:(__ "," __ item:demapItem { return item; })* { return [first].concat(rest); })
+  __ "}" {
+    return {
+      type: "demap",
+      items: items,
+      location: location()
+    };
+  }
+
+decomp = name / demap
+
 noArgs "()" = "(" _ ")" {
   return [];
 }
 
-argsList = args:(noArgs / (arg:identifierName _ { return arg; })+) {
+argsList = args:(noArgs / (arg:decomp _ { return arg; })+) {
   return args;
 }
 
@@ -239,20 +264,34 @@ list "list" =
 namedKey "named key" = key:name {
   return {
     type: "key",
-    value: key,
+    value: key.name,
     location: location()
   };
 }
 
 key = namedKey / literal / subExpression
 
-mapItem = key:key __ ":" __ value:expression {
+mapKeyItem = key:name {
+  return {
+    key: {
+      type: "key",
+      value: key.name,
+      location: key.location
+    },
+    value: key,
+    location: location()
+  };
+}
+
+mapKeyValueItem = key:key __ ":" __ value:expression {
   return {
     key: key,
     value: value,
     location: location()
   };
 }
+
+mapItem = mapKeyValueItem / mapKeyItem
 
 map "map" =
   "{" __
@@ -272,9 +311,9 @@ literal "literal" =
   / true
   / number
   / string
+  / lambda
   / list
   / map
-  / lambda
 
 getter "getter" = keys:("." key:key { return key; })+ {
   return {
@@ -313,7 +352,7 @@ scope "scope" = wordLet __ definitions:definitions __ wordIn __ body:expression 
     };
   }
 
-monadItem = via:(name:constantName __ "<-" __ { return name; })? value:expression {
+monadItem = via:(via:decomp __ "<-" __ { return via; })? value:expression {
   return {
     via: via,
     value: value,
@@ -338,7 +377,9 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
 
 atom =
   literal
-  / identifier
+  / constantName
+  / functionName
+  / recordName
   / getter
   / case
   / scope
@@ -393,7 +434,7 @@ binary =
 
 expression = binary / binaryOperand / operator
 
-constantDefinition = name:constantName __ "=" __ value:expression {
+constantDefinition = name:decomp __ "=" __ value:expression {
   return {
     type: "constant",
     name: name,
@@ -402,11 +443,40 @@ constantDefinition = name:constantName __ "=" __ value:expression {
   };
 }
 
-functionDefinition = name:functionName __ args:argsList _ "=" __ body:expression {
+functionDefinition = name:functionName __ args:argsList __ "=" __ body:expression {
   return {
     type: "function",
-    name: name,
+    name: name.name,
     args: args,
+    body: body,
+    location: location()
+  };
+}
+
+operatorDefinition = name:operator __ "=" __ value:expression {
+  return {
+    type: "constant",
+    name: name.name,
+    value: value,
+    location: location()
+  };
+}
+
+unaryOperatorDefinition = name:operator __ operand:decomp __ "=" __ body:expression {
+  return {
+    type: "function",
+    name: name.name,
+    args: [operand],
+    body: body,
+    location: location()
+  };
+}
+
+binaryOperatorDefinition = name:operator __ left:decomp _ right:decomp __ "=" __ body:expression {
+  return {
+    type: "function",
+    name: name.name,
+    args: [left, right],
     body: body,
     location: location()
   };
@@ -415,7 +485,7 @@ functionDefinition = name:functionName __ args:argsList _ "=" __ body:expression
 recordDefinition = name:recordName __ args:argsList __ "=" __ body:expression {
   return {
     type: "record",
-    name: name,
+    name: name.name,
     args: args,
     body: body,
     location: location()
@@ -425,38 +495,9 @@ recordDefinition = name:recordName __ args:argsList __ "=" __ body:expression {
 methodDefinition = record:recordName "." name:functionName __ args:argsList __ "=" __ body:expression {
   return {
     type: "method",
-    name: name,
-    record: record,
+    name: name.name,
+    record: record.name,
     args: args,
-    body: body,
-    location: location()
-  };
-}
-
-operatorDefinition = name:operatorName __ "=" __ value:expression {
-  return {
-    type: "constant",
-    name: name,
-    value: value,
-    location: location()
-  };
-}
-
-unaryDefinition = name:operatorName __ arg:identifierName __ "=" __ body:expression {
-  return {
-    type: "function",
-    name: name,
-    args: [arg],
-    body: body,
-    location: location()
-  };
-}
-
-binaryDefinition = a:identifierName __ name:operatorName __ b:identifierName __ "=" __ body:expression {
-  return {
-    type: "function",
-    name: name,
-    args: [a, b],
     body: body,
     location: location()
   };
@@ -468,55 +509,28 @@ definition =
   / recordDefinition
   / methodDefinition
   / operatorDefinition
-  / unaryDefinition
-  / binaryDefinition
+  / unaryOperatorDefinition
+  / binaryOperatorDefinition
 
 definitions = first:definition rest:(__ definition:definition { return definition; })* {
   return groupDefinitions([first].concat(rest));
 }
 
-importList =
-  "{" __
-  names:(first:name rest:(__ "," __ name:name { return name; })* { return [first].concat(rest); })
-  __ "}" {
-  return names;
-}
-
-exportList =
-  "{" __
-  names:(first:name rest:(__ "," __ name:name { return name; })* { return [first].concat(rest); })
-  __ "}" {
-  return names;
-}
-
-import "import" = wordImport __ alias:name? __ names:importList? __ wordFrom __ module:moduleName {
+import = wordImport __ name:decomp __ wordFrom __ module:moduleName {
   return {
     type: "import",
-    module: module,
-    alias: alias,
-    names: names || [],
-    location: location()
-  };
-}
-
-exportName = name:name {
-  return {
-    type: "export",
+    module: module.name,
     name: name,
     location: location()
   };
 }
 
-exportNames = names:exportList {
+export = wordExport __ value:expression {
   return {
     type: "export",
-    names: names,
+    value: value,
     location: location()
   };
-}
-
-export "export" = wordExport __ _export:(exportName / exportNames) {
-  return _export;
 }
 
 module "module" =
@@ -526,7 +540,7 @@ module "module" =
   _export:export? {
   return {
     type: "module",
-    name: name,
+    name: name.name,
     imports: imports || [],
     definitions: definitions,
     export: _export,
