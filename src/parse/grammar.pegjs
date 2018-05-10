@@ -340,6 +340,9 @@ atom =
   literal
   / identifier
   / getter
+  / case
+  / scope
+  / monad
   / subExpression
 
 get = collection:atom keys:("." key:key { return key; })+ {
@@ -388,7 +391,7 @@ binary =
     first);
   }
 
-expression = case / scope / monad / binary / binaryOperand / operator
+expression = binary / binaryOperand / operator
 
 constantDefinition = name:constantName __ "=" __ value:expression {
   return {

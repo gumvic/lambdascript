@@ -10,14 +10,6 @@ Point mk x y -> mk { x, y }
 ```
 
 
-- it would be nice if this was allowed:
-```
-run do
-  ...
-end
-```
-
-
 - map/filter/etc with indexes
 
 - Maybe monad -- `undefined` is `none`, everything else is `just`
