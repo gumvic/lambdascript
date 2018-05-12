@@ -1,75 +1,38 @@
-{
-  function groupDefinitions(definitions) {
-    let groupedDefinitions = [];
-    let functions = {};
-    let methods = {};
-    for(let definition of definitions) {
-      const { type, name, record, args, body, location } = definition;
-      if (type === "function" ||
-          type === "record" ||
-          type === "method") {
-        const id = `${record || ""}.${name}`;
-        if (!functions[id]) {
-          definition = {
-            type: type,
-            name: name,
-            record: record,
-            variants: [{ args, body, location }],
-            location: location
-          };
-          functions[id] = definition;
-          groupedDefinitions.push(definition);
-        }
-        else {
-          functions[id].variants.push({ args, body, location });
-        }
-      }
-      else {
-        groupedDefinitions.push(definition);
-      }
-    }
-    return groupedDefinitions;
-  }
-}
-
-ast = __ ast:(module / expression) __ {
+ast = _ ast:(module / value) _ {
   return ast;
 }
 
-_ "whitespace" = [ \t]*
-__ "whitespace" = [ \t\n\r]*
-
-beginWordChar = [a-zA-Z_]
+_ "whitespace" = [ \t\n\r]*
 
 reservedWord "reserved word" =
-  wordCase
-  / wordElse
+  wordAs
+  / wordFn
+  / wordCase
   / wordLet
-  / wordIn
   / wordDo
-  / wordEnd
+  / wordDef
+  / wordDefn
   / wordModule
   / wordImport
-  / wordFrom
   / wordExport
 
-wordCase "case" = "case" !beginWordChar
-wordElse "else" = "else" !beginWordChar
-wordLet "let" = "let" !beginWordChar
-wordIn "in" = "in" !beginWordChar
-wordDo "do" = "do" !beginWordChar
-wordEnd "end" = "end" !beginWordChar
-wordModule "module" = "module" !beginWordChar
-wordImport "import" = "import" !beginWordChar
-wordFrom "from" = "from" !beginWordChar
-wordExport "export" = "export" !beginWordChar
+wordAs "as" = "as" !beginNameChar
+wordFn "fn" = "fn" !beginNameChar
+wordDef "def" = "def" !beginNameChar
+wordDefn "defn" = "defn" !beginNameChar
+wordCase "case" = "case" !beginNameChar
+wordLet "let" = "let" !beginNameChar
+wordDo "do" = "do" !beginNameChar
+wordModule "module" = "module" !beginNameChar
+wordImport "import" = "import" !beginNameChar
+wordExport "export" = "export" !beginNameChar
 
-beginConstantNameChar = [a-z_]
-constantNameChar = [0-9a-zA-Z_]
-constantName "constant name" =
+beginNameChar = [a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\.]
+nameChar = [0-9a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\.]
+name "name" =
   !reservedWord
-  first:beginConstantNameChar
-  rest:(constantNameChar+)?
+  first:beginNameChar
+  rest:(nameChar+)?
   {
     return {
       type: "name",
@@ -77,63 +40,6 @@ constantName "constant name" =
       location: location()
     };
   }
-
-beginFunctionNameChar = [a-z_]
-functionNameChar = [0-9a-zA-Z_]
-functionName "function name" =
-  !reservedWord
-  first:beginFunctionNameChar
-  rest:(functionNameChar+)?
-  {
-    return {
-      type: "name",
-      name: [first].concat(rest || []).join(""),
-      location: location()
-    };
-  }
-
-beginRecordNameChar = [A-Z]
-recordNameChar = [0-9a-zA-Z_]
-recordName "record name" =
-  !reservedWord
-  first:beginRecordNameChar
-  rest:(recordNameChar+)?
-  {
-    return {
-      type: "name",
-      name: [first].concat(rest || []).join(""),
-      location: location()
-    };
-  }
-
-beginModuleNameChar = [a-zA-Z_]
-moduleNameChar = [0-9a-zA-Z_\.\/\-]
-moduleName "module name" =
-  !reservedWord
-  first:beginModuleNameChar
-  rest:(moduleNameChar+)?
-  {
-    return {
-      type: "name",
-      name: [first].concat(rest || []).join(""),
-      location: location()
-    };
-  }
-
-reservedOperator = ("=" / "->" / "<-") !operatorChar
-
-operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
-operator "operator" =
-  !reservedOperator
-  chars:operatorChar+ {
-  return {
-    type: "name",
-    name: chars.join(""),
-    location: location()
-  };
-}
-
-name = constantName / functionName / recordName / operator
 
 undefined "undefined" = "undefined" {
   return {
@@ -210,50 +116,69 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-demapItem = key:(key:key __ ":" __ { return key; })? name:decomp {
+demapKeys =
+  names:(first:name rest:(_ name:name { return name; })* { return [first].concat(rest); }) {
+    return {
+      type: "demap",
+      items: names.map(({ name, location }) => ({
+        type: "key",
+        key: {
+          type: "key",
+          value: name
+        },
+        name: {
+          type: "name",
+          name: name
+        }
+      }))
+    };
+  }
+
+demapKeyName = key:(key / number / string) _ name:decomp {
   return {
-    key: key || {
-      type: "key",
-      value: name.name
-    },
+    type: "key",
+    key: key,
     name: name
   };
 }
 
-demap "map decomposition" =
-  "{" __
-  items:(first:demapItem rest:(__ "," __ item:demapItem { return item; })* { return [first].concat(rest); })
-  __ "}" {
+demapKeyNames = first:demapKeyName rest:(_ item:demapKeyName { return item; })* {
     return {
       type: "demap",
-      items: items,
-      location: location()
+      items: [first].concat(rest)
     };
   }
 
+demap = "{" _
+  demap:(demapKeys / demapKeyNames) alias:(_ wordAs _ alias:name { return alias; })?
+  _ "}" {
+  if (alias) {
+    return {
+      type: "alias",
+      name: alias,
+      value: demap
+    };
+  }
+  else {
+    return demap;
+  }
+}
+
 decomp = name / demap
 
-noArgs "()" = "(" _ ")" {
-  return [];
-}
-
-argsList = args:(noArgs / (arg:decomp _ { return arg; })+) {
-  return args;
-}
-
-lambda "lambda" = args:argsList __ "->" __ body:expression {
+keyChar = [0-9a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\.]
+key = chars:keyChar+ ":" {
   return {
-    type: "lambda",
-    args: args,
-    body: body,
+    type: "key",
+    value: chars.join(""),
     location: location()
   };
 }
 
 list "list" =
-  "[" __
-  items:(first:expression rest:(__ "," __ item:expression { return item; })* { return [first].concat(rest); })?
-  __ "]" {
+  "[" _
+  items:(first:value rest:(_ item:value { return item; })* { return [first].concat(rest); })?
+  _ "]" {
     return {
       type: "list",
       items: items || [],
@@ -261,29 +186,7 @@ list "list" =
     };
   }
 
-namedKey "named key" = key:name {
-  return {
-    type: "key",
-    value: key.name,
-    location: location()
-  };
-}
-
-key = namedKey / literal / subExpression
-
-mapKeyItem = key:name {
-  return {
-    key: {
-      type: "key",
-      value: key.name,
-      location: key.location
-    },
-    value: key,
-    location: location()
-  };
-}
-
-mapKeyValueItem = key:key __ ":" __ value:expression {
+mapItem = key:value _ value:value {
   return {
     key: key,
     value: value,
@@ -291,12 +194,10 @@ mapKeyValueItem = key:key __ ":" __ value:expression {
   };
 }
 
-mapItem = mapKeyValueItem / mapKeyItem
-
 map "map" =
-  "{" __
-  items:(first:mapItem rest:(__ "," __ item:mapItem { return item; })* { return [first].concat(rest); })?
-  __ "}" {
+  "{" _
+  items:(first:mapItem rest:(_ item:mapItem { return item; })* { return [first].concat(rest); })?
+  _ "}" {
     return {
       type: "map",
       items: items || [],
@@ -304,26 +205,32 @@ map "map" =
     };
   }
 
-literal "literal" =
-  undefined
-  / null
-  / false
-  / true
-  / number
-  / string
-  / lambda
-  / list
-  / map
+args =
+  "(" _
+  args:(first:decomp rest:(_ arg:decomp { return arg; })* { return [first].concat(rest); })?
+  _ ")" {
+    return args || [];
+  }
 
-getter "getter" = keys:("." key:key { return key; })+ {
+variant = args:args _ body:value {
   return {
-    type: "getter",
-    keys: keys,
+    args: args,
+    body: body
+  };
+}
+
+function "function" = "(" _
+  wordFn _
+  variants:(first:variant rest:(_ variant:variant { return variant; })* { return [first].concat(rest); })
+  _ ")" {
+  return {
+    type: "function",
+    variants: variants,
     location: location()
   };
 }
 
-caseBranch = condition:expression __ ":" __ value:expression {
+caseBranch = condition:value _ value:value {
   return {
     condition: condition,
     value: value,
@@ -332,9 +239,10 @@ caseBranch = condition:expression __ ":" __ value:expression {
 }
 
 case "case" =
-  wordCase __
-  branches:(first:caseBranch rest:(__ branch:caseBranch { return branch; })* { return [first].concat(rest); })
-  __ wordElse __ otherwise:expression {
+  "(" _ wordCase _
+  branches:(first:caseBranch rest:(_ branch:caseBranch { return branch; })* { return [first].concat(rest); })
+  _ otherwise:value
+  _ ")" {
     return {
       type: "case",
       branches: branches,
@@ -343,7 +251,14 @@ case "case" =
     };
   }
 
-scope "scope" = wordLet __ definitions:definitions __ wordIn __ body:expression {
+scope "scope" =
+  "(" _
+  wordLet
+  _
+  definitions:(first:definition rest:(_ definition:definition { return definition; })* { return [first].concat(rest); })
+  _
+  body:value
+  _ ")" {
     return {
       type: "scope",
       definitions: definitions,
@@ -352,18 +267,25 @@ scope "scope" = wordLet __ definitions:definitions __ wordIn __ body:expression 
     };
   }
 
-monadItem = via:(via:decomp __ "<-" __ { return via; })? value:expression {
+monadDefinition = "(" _ wordDef _ via:name _ value:value _ ")" {
   return {
     via: via,
-    value: value,
-    location: location()
+    value: value
   };
 }
 
+monadStep = value:value {
+  return {
+    value: value
+  };
+}
+
+monadItem = monadDefinition / monadStep
+
 monad "monad" =
-  wordDo __
-  items:(first:monadItem rest:(__ item:monadItem { return item; })* { return [first].concat(rest); })
-  __ wordEnd {
+  "(" _ wordDo _
+  items:(first:monadItem rest:(_ item:monadItem { return item; })* { return [first].concat(rest); })
+  _ ")" {
     return {
       type: "monad",
       items: items,
@@ -371,70 +293,38 @@ monad "monad" =
     };
   }
 
-subExpression "sub-expression" = "(" _ expression:expression _ ")" {
-  return expression;
-}
-
-atom =
-  literal
-  / constantName
-  / functionName
-  / recordName
-  / getter
+value =
+  undefined
+  / null
+  / false
+  / true
+  / number
+  / string
+  / key
+  / name
+  / list
+  / map
+  / function
   / case
   / scope
   / monad
-  / subExpression
+  / call
 
-get = collection:atom keys:("." key:key { return key; })+ {
-  return {
-    type: "get",
-    collection: collection,
-    keys: keys,
-    location: location()
-  };
-}
-
-unaryOperand = get / atom
-
-unary = operator:operator _ operand:unaryOperand {
-  return {
-    type: "call",
-    fun: operator,
-    args:[operand],
-    location: location()
-  };
-}
-
-fun = unary / unaryOperand
-
-call = fun:fun _ args:(noArgs / (arg:unaryOperand _ { return arg; })+) {
+call =
+  "(" _ fun:value
+  _
+  args:(first:value rest:(_ arg:value { return arg; })* { return [first].concat(rest); })?
+  _
+  _ ")" {
   return {
     type: "call",
     fun: fun,
-    args: args,
+    args: args || [],
     location: location()
   };
 }
 
-binaryOperand = call / fun
-
-binary =
-  first:binaryOperand
-  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
-  return rest.reduce(
-    (left, { operator, right }) => ({
-      type: "call",
-      fun: operator,
-      args: [left, right],
-      location: location()
-    }),
-    first);
-  }
-
-expression = binary / binaryOperand / operator
-
-constantDefinition = name:decomp __ "=" __ value:expression {
+constantDefinition = "(" _ wordDef _ name:decomp _ value:value _ ")" {
   return {
     type: "constant",
     name: name,
@@ -443,89 +333,35 @@ constantDefinition = name:decomp __ "=" __ value:expression {
   };
 }
 
-functionDefinition = name:functionName __ args:argsList __ "=" __ body:expression {
+functionDefinition "function definition" =
+  "(" _
+  wordDefn _ name:name
+  _
+  variants:(first:variant rest:(_ variant:variant { return variant; })* { return [first].concat(rest); })
+  _ ")" {
   return {
     type: "function",
-    name: name.name,
-    args: args,
-    body: body,
+    name: name,
+    variants: variants,
     location: location()
   };
 }
 
-operatorDefinition = name:operator __ "=" __ value:expression {
-  return {
-    type: "constant",
-    name: name.name,
-    value: value,
-    location: location()
-  };
-}
+definition = constantDefinition / functionDefinition
 
-unaryOperatorDefinition = name:operator __ operand:decomp __ "=" __ body:expression {
-  return {
-    type: "function",
-    name: name.name,
-    args: [operand],
-    body: body,
-    location: location()
-  };
-}
-
-binaryOperatorDefinition = name:operator __ left:decomp _ right:decomp __ "=" __ body:expression {
-  return {
-    type: "function",
-    name: name.name,
-    args: [left, right],
-    body: body,
-    location: location()
-  };
-}
-
-recordDefinition = name:recordName __ args:argsList __ "=" __ body:expression {
-  return {
-    type: "record",
-    name: name.name,
-    args: args,
-    body: body,
-    location: location()
-  };
-}
-
-methodDefinition = record:recordName "." name:functionName __ args:argsList __ "=" __ body:expression {
-  return {
-    type: "method",
-    name: name.name,
-    record: record.name,
-    args: args,
-    body: body,
-    location: location()
-  };
-}
-
-definition =
-  constantDefinition
-  / functionDefinition
-  / recordDefinition
-  / methodDefinition
-  / operatorDefinition
-  / unaryOperatorDefinition
-  / binaryOperatorDefinition
-
-definitions = first:definition rest:(__ definition:definition { return definition; })* {
-  return groupDefinitions([first].concat(rest));
-}
-
-import = wordImport __ name:decomp __ wordFrom __ module:moduleName {
+import =
+  "(" _ wordImport _ module:name _
+  expose:(first:name rest:(_ name:name { return name; })* { return [first].concat(rest); })?
+  _ ")" {
   return {
     type: "import",
-    module: module.name,
-    name: name,
+    module: module,
+    expose: expose || [],
     location: location()
   };
 }
 
-export = wordExport __ value:expression {
+export = "(" _ wordExport _ value:value _ ")" {
   return {
     type: "export",
     value: value,
@@ -534,13 +370,18 @@ export = wordExport __ value:expression {
 }
 
 module "module" =
-  wordModule __ name:moduleName __
-  imports:(first:import rest:(__ _import:import { return _import; })* { return [first].concat(rest); })? __
-  definitions:definitions __
-  _export:export? {
+  "(" _ wordModule _ name:name _
+  imports:(first:import rest:(_ _import:import { return _import; })* { return [first].concat(rest); })?
+  _
+  _export:export
+  _ ")"
+  _
+  definitions:(first:definition rest:(_ definition:definition { return definition; })* { return [first].concat(rest); })
+  _
+   {
   return {
     type: "module",
-    name: name.name,
+    name: name,
     imports: imports || [],
     definitions: definitions,
     export: _export,

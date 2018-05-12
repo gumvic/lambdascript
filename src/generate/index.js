@@ -20,14 +20,8 @@ function namify(name) {
   // TODO js reserved words
   // TODO this, arguments
   return name
-    /*.replace(
-      /^([A-Za-z0-9_]+)\?$/,
-      function(_, match) {
-        match = match[0].toUpperCase() + match.slice(1);
-        return `is${match}`;
-      })*/
     .replace(
-      /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?]/g,
+      /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?\.]/g,
       function(match) {
         switch(match) {
           case "+": return "_plus_";
@@ -44,6 +38,7 @@ function namify(name) {
           case "^": return "_caret_";
           case "~": return "_tilda_";
           case "?": return "_question_";
+          case ".": return "_dot_";
         }
       });
 }
@@ -86,7 +81,7 @@ function isBuiltInOperator(name, arity) {
   }
 }
 
-function decomposePaths(path, ast) {
+/*function decomposePaths(path, ast) {
   if (ast.type === "name") {
     return [
       {
@@ -100,9 +95,9 @@ function decomposePaths(path, ast) {
       .map(({ key, name }) => decomposePaths(path.concat([key]), name))
       .reduce((a, b) => a.concat(b));
   }
-}
+}*/
 
-function decompose(ast, value, context) {
+/*function genDemap(ast, value, context) {
   function access({ name, path }, value) {
     path = path.map(key => generate(key, context));
     if (path.length === 1) {
@@ -127,30 +122,28 @@ function decompose(ast, value, context) {
       ].join("\n");
     }
   }
+}*/
+
+function genDemap({ items }, value, context) {
+  return items.map(({ key, name }) => {
+    key = generate(key, context);
+    return genDecomp(name, `get(${value}, ${key})`, context);
+  }).join("\n");
 }
 
-function decomposeDirectly(ast, value, context) {
-  function access({ name, path }, value) {
-    path = path
-      .map(key => generate(key, context))
-      .map(key => `[${key}]`)
-      .join("");
-    return `const ${name} = ${value}${path};`;
-  }
+function genDecomp(ast, value, context) {
   if (ast.type === "name") {
     return `const ${namify(ast.name)} = ${value};`;
   }
-  else {
-    const paths = decomposePaths([], ast);
-    if (paths.length === 1) {
-      return access(paths[0], value);
-    }
-    else {
-      return [
-        `$tmp = ${value};`,
-        paths.map(path => access(path, "$tmp")).join("\n")
-      ].join("\n");
-    }
+  else if (ast.type === "alias") {
+    const name = namify(ast.name.name);
+    return [
+      `const ${name} = ${value};`,
+      genDecomp(ast.value, name, context)
+    ].join("\n");
+  }
+  else if (ast.type === "demap") {
+    return genDemap(ast, value, context);
   }
 }
 
@@ -198,35 +191,14 @@ function genMap({ items, location }, context) {
   return `ImMap([${items}])`;
 }
 
-function genLambda(ast, context) {
-  return genFunction({
-    type: "funcion",
-    variants: [ast],
-    skipChecks: ast.skipChecks,
-    location: ast.location
-  }, context);
-}
-
-function genGetter({ keys }, context) {
-  const coll = "$coll";
-  if (keys.length === 1) {
-    const key = generate(keys[0], context);
-    return `(${coll}) => get(${coll}, ${key})`;
-  }
-  else {
-    keys = keys.map(key => generate(key, context)).join(", ");
-    return `(${coll}) => getIn(${coll}, [${keys}])`;
-  }
-}
-
 function genConstant({ name, value }, context) {
-  return decompose(name, generate(value, context), context);
+  return genDecomp(name, generate(value, context), context);
 }
 
 function genFunctionVariant({ args, body }, context, { skipChecks }) {
   const arity = args.length;
   args = args
-    .map((arg, i) => decompose(arg, `arguments[${i}]`, context))
+    .map((arg, i) => genDecomp(arg, `arguments[${i}]`, context))
     .join("\n");
   const variant = arity ?
     [
@@ -254,7 +226,7 @@ function genFunction({ name, variants, skipChecks }, context) {
     .map(variant => genFunctionVariant(variant, context, { skipChecks }))
     .join("\nelse ");
   return [
-    `function ${name ? namify(name) : ""}() {`,
+    `function ${name ? namify(name.name) : ""}() {`,
     __(body),
     __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
     "}"
@@ -282,9 +254,13 @@ function genMonad({ items }, context) {
           args: [
             left.value,
             {
-              type: "lambda",
-              args: left.via ? [left.via] : [],
-              body: right,
+              type: "function",
+              variants: [
+                {
+                  args: left.via ? [left.via] : [],
+                  body: right
+                }
+              ],
               skipChecks: true
             }
           ]
@@ -333,9 +309,6 @@ function genCall(ast, context) {
       isBuiltInOperator(fun.name, args.length)) {
     return genOperatorCall(ast, context);
   }
-  else if (fun.type === "get") {
-    return genMethodCall(ast, context);
-  }
   else {
     return genFunctionCall(ast, context);
   }
@@ -353,19 +326,6 @@ function genOperatorCall({ fun: { name }, args }, context) {
   }
 }
 
-function genMethodCall({ fun: { collection, keys }, args }, context) {
-  const coll = generate(collection, context);
-  args = args.map(arg => generate(arg, context)).join(", ");
-  if (keys.length === 1) {
-    const key = generate(keys[0], context);
-    return `invoke(${coll}, ${key}, [${args}])`;
-  }
-  else {
-    keys = keys.map(key => generate(key, context)).join(", ");
-    return `invokeIn(${coll}, [${keys}], [${args}])`;
-  }
-}
-
 function genFunctionCall({ fun, args }, context) {
   // TODO wrap in braces values that js won't call
   fun = generate(fun, context);
@@ -373,20 +333,13 @@ function genFunctionCall({ fun, args }, context) {
   return `${fun}(${args})`;
 }
 
-function genGet({ collection, keys }, context) {
-  const coll = generate(collection, context);
-  if (keys.length === 1) {
-    const key = generate(keys[0], context);
-    return `get(${coll}, ${key})`;
-  }
-  else {
-    keys = keys.map(key => generate(key, context)).join(", ");
-    return `getIn(${coll}, [${keys}])`;
-  }
-}
-
-function genImport({ module, name }, context) {
-  return decomposeDirectly(name, `require("${module}")`, context);
+function genImport({ module, expose }, context) {
+  const alias = namify(module.name);
+  expose = expose
+    .map(({ name }) => namify(name))
+    .map(name => `const ${name} = ${alias}.${name};`)
+    .join("\n");
+  return [`const ${alias} = require("${module.name}");`].concat(expose).join("\n");
 }
 
 function genModuleImports({ imports }, context) {
@@ -401,24 +354,19 @@ function genModuleDefinitions({ definitions }, context) {
     .join("\n\n");
 }
 
-function genModuleExport({ export: _export }, context) {
-  if (_export) {
-    const value = generate(_export.value, context);
-    return `module.exports = toJS(${value});`
-  }
+function genModuleExport({ export: { value } }, context) {
+  value = generate(value, context);
+  return `module.exports = toJS(${value});`;
 }
 
 function genModule(ast, context) {
   ast.imports = context.autoImports.concat(ast.imports);
-  const imports = genModuleImports(ast, context);
-  const definitions = genModuleDefinitions(ast, context);
-  const _export = genModuleExport(ast, context);
   return [
     "let $tmp = null;",
-    imports,
-    definitions,
-    _export
-  ].filter(x => x !== "").join("\n\n");
+    genModuleImports(ast, context),
+    genModuleDefinitions(ast, context),
+    genModuleExport(ast, context)
+  ].join("\n\n");
 }
 
 function initContext({ autoImports }) {
@@ -437,15 +385,12 @@ function generate(ast, context) {
     case "name": return genName(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
-    case "lambda": return genLambda(ast, context);
-    case "getter": return genGetter(ast, context);
     case "constant": return genConstant(ast, context);
     case "function": return genFunction(ast, context);
     case "monad": return genMonad(ast, context);
     case "case": return genCase(ast, context);
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
-    case "get": return genGet(ast, context);
     case "import": return genImport(ast, context);
     case "export": return genExport(ast, context);
     case "module": return genModule(ast, context);

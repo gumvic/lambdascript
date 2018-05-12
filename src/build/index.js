@@ -54,7 +54,7 @@ function readMonadaModule(file, context) {
     const module = {
       type: "monada",
       file: file,
-      name: ast.name,
+      name: ast.name.name,
       ast: ast
     };
     context.addModule(module);
@@ -118,14 +118,6 @@ function buildMonadaModule(module, context) {
     const js = generate(ast, options);
     return writeFile(distFile, js);
   });
-    //.then(() => normalizeModuleImports(module, context))
-    //.then(({ ast }) => generate())
-  /*return ensureFile(distFile)
-    .then(() => {
-      normalizeModuleImports(module, context);
-      return generate(module.ast, options);
-    })
-    .then(js => writeFile(distFile, js));*/
 }
 
 function buildJSModule({ file }, { srcDir, distDir }) {
