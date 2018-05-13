@@ -116,7 +116,7 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-demapKeys =
+/*demapKeys =
   names:(first:name rest:(_ name:name { return name; })* { return [first].concat(rest); }) {
     return {
       type: "demap",
@@ -161,6 +161,48 @@ demap = "{" _
   }
   else {
     return demap;
+  }
+}*/
+
+demapKeyName = key:(key / number / string) _ name:decomp {
+  return {
+    key: key,
+    name: name
+  };
+}
+
+demapName = name:name {
+  return {
+    key: {
+      type: "key",
+      value: name.name,
+      location: name.location
+    },
+    name: name
+  };
+}
+
+demapItem = demapKeyName / demapName
+
+demap = "{" _
+  items:(first:demapItem rest:(_ item:demapItem { return item; })* { return [first].concat(rest); })
+  alias:(_ wordAs _ alias:name { return alias; })?
+  _ "}" {
+  if (alias) {
+    return {
+      type: "alias",
+      name: alias,
+      value: {
+        type: "demap",
+        items: items
+      }
+    };
+  }
+  else {
+    return {
+      type: "demap",
+      items: items
+    };
   }
 }
 

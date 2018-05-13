@@ -8,7 +8,10 @@
 - `as` keyword
 - monad -- not `def`, something else
 - method calls like `(.foo obj 42)`
-- getters like `.x.y.z` and `:x:y:z`
+- getters like `.x.y.z`
+
+- `(get x:)`/`(get-in [x: y: :z])` versions instead of getters, the same for setters
+- maybe `get-in` should take spread args
 
 
 - map/filter/etc with indexes
