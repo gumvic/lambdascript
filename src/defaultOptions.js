@@ -5,7 +5,7 @@ module.exports = {
       module: {
         name: "monada-core"
       },
-      expose: [
+      names: [
         {
           "name": "type"
         },

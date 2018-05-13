@@ -351,20 +351,22 @@ definition = constantDefinition / functionDefinition
 
 import =
   "(" _ wordImport _ module:name _
-  expose:(first:name rest:(_ name:name { return name; })* { return [first].concat(rest); })?
+  names:(first:name rest:(_ name:name { return name; })* { return [first].concat(rest); })?
   _ ")" {
   return {
     type: "import",
     module: module,
-    expose: expose || [],
+    names: names || [],
     location: location()
   };
 }
 
-export = "(" _ wordExport _ value:value _ ")" {
+export = "(" _ wordExport _
+names:(first:name rest:(_ name:name { return name; })* { return [first].concat(rest); })
+")" {
   return {
     type: "export",
-    value: value,
+    names: names,
     location: location()
   };
 }

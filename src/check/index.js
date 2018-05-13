@@ -154,9 +154,9 @@ function checkDecomp(ast, context) {
   }
 }
 
-function checkImport({ module, expose, location }, context) {
+function checkImport({ module, names, location }, context) {
   context.define(module);
-  for(let name of expose) {
+  for(let name of names) {
     context.define(name);
   }
 }
@@ -180,8 +180,10 @@ function checkModuleDefinitions({ definitions }, context) {
   checkDefinitions(definitions, context);
 }
 
-function checkModuleExport({ export: { value } }, context) {
-  check(value, context);
+function checkModuleExport({ export: { names } }, context) {
+  for(let name of names) {
+    check(name, context);
+  }
 }
 
 function checkModule(ast, context) {

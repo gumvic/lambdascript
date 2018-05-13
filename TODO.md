@@ -1,10 +1,9 @@
-- `transduce coll xf...` where the `xf`s will be composed automatically:
-`adultNames users = transduce users (filter isAdult) (map .name)`
 - `transduce` -> `for`
 ```
 (for users
   (filter adult?)
-  (map :name))
+  (map :name)
+  (join ", "))
 ```
 - `as` keyword
 - monad -- not `def`, something else

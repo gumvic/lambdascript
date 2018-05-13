@@ -333,13 +333,13 @@ function genFunctionCall({ fun, args }, context) {
   return `${fun}(${args})`;
 }
 
-function genImport({ module, expose }, context) {
+function genImport({ module, names }, context) {
   const alias = namify(module.name);
-  expose = expose
+  names = names
     .map(({ name }) => namify(name))
     .map(name => `const ${name} = ${alias}.${name};`)
     .join("\n");
-  return [`const ${alias} = require("${module.name}");`].concat(expose).join("\n");
+  return [`const ${alias} = require("${module.name}");`].concat(names).join("\n");
 }
 
 function genModuleImports({ imports }, context) {
@@ -354,9 +354,21 @@ function genModuleDefinitions({ definitions }, context) {
     .join("\n\n");
 }
 
-function genModuleExport({ export: { value } }, context) {
-  value = generate(value, context);
-  return `module.exports = toJS(${value});`;
+function genModuleExport({ export: { names } }, context) {
+  if (names.length === 1) {
+    return `module.exports = ${namify(names[0].name)};`;
+  }
+  else {
+    names = names
+      .map(({ name }) => namify(name))
+      .map(name => `"${name}": ${name}`)
+      .join(",\n");
+    return [
+      '{',
+      __(names),
+      '}'
+    ].join("\n");
+  }
 }
 
 function genModule(ast, context) {
