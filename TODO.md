@@ -1,3 +1,5 @@
+- `generate` -- `lines`
+
 - `transduce` -> `for`
 ```
 (for users

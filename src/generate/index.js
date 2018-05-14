@@ -5,6 +5,11 @@ const defaultOptions = require("../defaultOptions");
 class Context {
   constructor(autoImports) {
     this.autoImports = autoImports;
+    this.oneOffCount = 0;
+  }
+
+  oneOffName() {
+    return `$${this.oneOffCount++}`;
   }
 }
 
@@ -81,54 +86,21 @@ function isBuiltInOperator(name, arity) {
   }
 }
 
-/*function decomposePaths(path, ast) {
-  if (ast.type === "name") {
-    return [
-      {
-        path: path,
-        name: namify(ast.name)
-      }
-    ];
-  }
-  else if (ast.type === "demap") {
-    return ast.items
-      .map(({ key, name }) => decomposePaths(path.concat([key]), name))
-      .reduce((a, b) => a.concat(b));
-  }
-}*/
-
-/*function genDemap(ast, value, context) {
-  function access({ name, path }, value) {
-    path = path.map(key => generate(key, context));
-    if (path.length === 1) {
-      return `const ${name} = get(${value}, ${path[0]});`;
-    }
-    else {
-      return `const ${name} = getIn(${value}, [${path.join(", ")}]);`;
-    }
-  }
-  if (ast.type === "name") {
-    return `const ${namify(ast.name)} = ${value};`;
-  }
-  else {
-    const paths = decomposePaths([], ast);
-    if (paths.length === 1) {
-      return access(paths[0], value);
-    }
-    else {
-      return [
-        `$tmp = ${value};`,
-        paths.map(path => access(path, "$tmp")).join("\n")
-      ].join("\n");
-    }
-  }
-}*/
-
 function genDemap({ items }, value, context) {
-  return items.map(({ key, name }) => {
+  function genItem({ key, name }, value, context) {
     key = generate(key, context);
     return genDecomp(name, `get(${value}, ${key})`, context);
-  }).join("\n");
+  }
+  if (items.length > 1) {
+    const tmpName = context.oneOffName();
+    return [
+      `const ${tmpName} = ${value};`,
+      items.map(item => genItem(item, tmpName, context)).join("\n")
+    ].join("\n");
+  }
+  else {
+    return genItem(items[0], value, context);
+  }
 }
 
 function genDecomp(ast, value, context) {
@@ -374,7 +346,6 @@ function genModuleExport({ export: { names } }, context) {
 function genModule(ast, context) {
   ast.imports = context.autoImports.concat(ast.imports);
   return [
-    "let $tmp = null;",
     genModuleImports(ast, context),
     genModuleDefinitions(ast, context),
     genModuleExport(ast, context)

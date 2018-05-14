@@ -116,54 +116,6 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-/*demapKeys =
-  names:(first:name rest:(_ name:name { return name; })* { return [first].concat(rest); }) {
-    return {
-      type: "demap",
-      items: names.map(({ name, location }) => ({
-        type: "key",
-        key: {
-          type: "key",
-          value: name
-        },
-        name: {
-          type: "name",
-          name: name
-        }
-      }))
-    };
-  }
-
-demapKeyName = key:(key / number / string) _ name:decomp {
-  return {
-    type: "key",
-    key: key,
-    name: name
-  };
-}
-
-demapKeyNames = first:demapKeyName rest:(_ item:demapKeyName { return item; })* {
-    return {
-      type: "demap",
-      items: [first].concat(rest)
-    };
-  }
-
-demap = "{" _
-  demap:(demapKeys / demapKeyNames) alias:(_ wordAs _ alias:name { return alias; })?
-  _ "}" {
-  if (alias) {
-    return {
-      type: "alias",
-      name: alias,
-      value: demap
-    };
-  }
-  else {
-    return demap;
-  }
-}*/
-
 demapKeyName = key:(key / number / string) _ name:decomp {
   return {
     key: key,
