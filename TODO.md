@@ -17,8 +17,6 @@
 - js module should be able to declare its name
 - `#{ ... }` means set, `#[ ... ]` means stack
 - `#(1 + _)` is a lambda
-- js keywords as identifiers (also `arguments` and `this`)
-- name clashes with auto generated names
 - template strings
 - `import (window, $) from ..` -- `..` means outside world
 - `core.monad.toIterable` for lazy sequences?
