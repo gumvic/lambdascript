@@ -285,6 +285,13 @@ function genFunctionCall({ fun, args }, context) {
   return `${fun}(${args})`;
 }
 
+function genInvoke({ object, method, args }, context) {
+  object = generate(object, context);
+  method = namify(method.name);
+  args = args.map((arg) => generate(arg, context)).join(", ");
+  return `${object}.${method}(${args})`;
+}
+
 function genImport({ module, names }, context) {
   const alias = namify(module.name);
   names = names
@@ -349,6 +356,7 @@ function generate(ast, context) {
     case "case": return genCase(ast, context);
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
+    case "invoke": return genInvoke(ast, context);
     case "import": return genImport(ast, context);
     case "export": return genExport(ast, context);
     case "module": return genModule(ast, context);

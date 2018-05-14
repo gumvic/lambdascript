@@ -27,7 +27,7 @@ wordModule "module" = "module" !beginNameChar
 wordImport "import" = "import" !beginNameChar
 wordExport "export" = "export" !beginNameChar
 
-beginNameChar = [a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\.]
+beginNameChar = [a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
 nameChar = [0-9a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\.]
 name "name" =
   !reservedWord
@@ -302,6 +302,7 @@ value =
   / case
   / scope
   / monad
+  / invoke
   / call
 
 call =
@@ -313,6 +314,23 @@ call =
   return {
     type: "call",
     fun: fun,
+    args: args || [],
+    location: location()
+  };
+}
+
+invoke =
+  "(" _ method:("." name:name { return name; })
+  _
+  object:value
+  _
+  args:(first:value rest:(_ arg:value { return arg; })* { return [first].concat(rest); })?
+  _
+  _ ")" {
+  return {
+    type: "invoke",
+    object: object,
+    method: method,
     args: args || [],
     location: location()
   };

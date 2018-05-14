@@ -138,6 +138,13 @@ function checkCall({ fun, args }, context) {
   }
 }
 
+function checkInvoke({ object, args }, context) {
+  check(object, context);
+  for(let arg of args) {
+    check(arg, context);
+  }
+}
+
 function checkDecomp(ast, context) {
   if (ast.type === "name") {
     context.define(ast);
@@ -219,6 +226,7 @@ function check(ast, context) {
     case "case": return checkCase(ast, context);
     case "scope": return checkScope(ast, context);
     case "call": return checkCall(ast, context);
+    case "invoke": return checkInvoke(ast, context);
     case "import": return checkImport(ast, context);
     case "export": return checkExport(ast, context);
     case "module": return checkModule(ast, context);
