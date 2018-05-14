@@ -17,7 +17,7 @@ function lines() {
   return Array.prototype.map.call(arguments, line =>
     line instanceof Array ?
       lines.apply(null, line):
-      line).filter(s => s !== "").join("\n");
+      line).filter(s => !!s).join("\n");
 }
 
 function __(str) {
@@ -197,41 +197,33 @@ function genFunction({ name, variants }, context) {
 }
 
 function genMonad({ items }, context) {
-  /*function _generate(items) {
+  function _generate(items, context) {
     if (!items.length) {
       return null;
     }
     else {
       const left = items[0];
-      const right = _generate(items.slice(1));
+      const via = left.via;
+      const right = _generate(items.slice(1), context);
+      const value = generate(left.value, context);
       if (!right) {
-        return left.value;
+        return value;
       }
       else {
-        return {
-          type: "call",
-          fun: {
-            type: "name",
-            name: "monad"
-          },
-          args: [
-            left.value,
-            {
-              type: "function",
-              variants: [
-                {
-                  args: left.via ? [left.via] : [],
-                  body: right
-                }
-              ],
-              skipChecks: true
-            }
-          ]
-        };
+        const next = via ?
+          lines(
+            "($val) =>",
+            __(lines(
+              genDecomp(via, "$val", context),
+              right))):
+          lines(
+            "() =>",
+            __(right));
+        return `monad(${value}, ${next})`;
       }
     }
   }
-  return generate(_generate(items), context);*/
+  return _generate(items, context);
 }
 
 function genCase({ branches, otherwise }, context) {
@@ -304,15 +296,11 @@ function genImport({ module, names }, context) {
 }
 
 function genModuleImports({ imports }, context) {
-  return imports
-    .map(_import => generate(_import, context))
-    .join("\n\n");
+  return lines(imports.map(_import => generate(_import, context)));
 }
 
 function genModuleDefinitions({ definitions }, context) {
-  return definitions
-    .map(definition => generate(definition, context))
-    .join("\n\n");
+  return lines(definitions.map(definition => generate(definition, context)));
 }
 
 function genModuleExport({ export: { names } }, context) {
@@ -333,11 +321,10 @@ function genModuleExport({ export: { names } }, context) {
 
 function genModule(ast, context) {
   ast.imports = context.autoImports.concat(ast.imports);
-  return [
+  return lines(
     genModuleImports(ast, context),
     genModuleDefinitions(ast, context),
-    genModuleExport(ast, context)
-  ].join("\n\n");
+    genModuleExport(ast, context));
 }
 
 function initContext({ autoImports }) {
