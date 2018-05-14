@@ -13,6 +13,13 @@ class Context {
   }
 }
 
+function lines() {
+  return Array.prototype.map.call(arguments, line =>
+    line instanceof Array ?
+      lines.apply(null, line):
+      line).join("\n");
+}
+
 function __(str) {
   const indentationLength = 2;
   return str
@@ -93,10 +100,9 @@ function genDemap({ items }, value, context) {
   }
   if (items.length > 1) {
     const tmpName = context.oneOffName();
-    return [
+    return lines(
       `const ${tmpName} = ${value};`,
-      items.map(item => genItem(item, tmpName, context)).join("\n")
-    ].join("\n");
+      items.map(item => genItem(item, tmpName, context)));
   }
   else {
     return genItem(items[0], value, context);
@@ -109,10 +115,9 @@ function genDecomp(ast, value, context) {
   }
   else if (ast.type === "alias") {
     const name = namify(ast.name.name);
-    return [
+    return lines(
       `const ${name} = ${value};`,
-      genDecomp(ast.value, name, context)
-    ].join("\n");
+      genDecomp(ast.value, name, context));
   }
   else if (ast.type === "demap") {
     return genDemap(ast, value, context);
@@ -169,24 +174,21 @@ function genConstant({ name, value }, context) {
 
 function genFunctionVariant({ args, body }, context, { skipChecks }) {
   const arity = args.length;
-  args = args
-    .map((arg, i) => genDecomp(arg, `arguments[${i}]`, context))
-    .join("\n");
+  args = lines(
+    args.map((arg, i) => genDecomp(arg, `arguments[${i}]`, context)));
   const variant = arity ?
-    [
+    lines(
       args,
-      `return ${generate(body, context)};`
-    ].join("\n") :
+      `return ${generate(body, context)};`) :
     `return ${generate(body, context)};`;
   if (skipChecks) {
     return variant;
   }
   else {
-    return [
+    return lines(
       `if (arguments.length === ${arity}) {`,
       __(variant),
-      "}"
-    ].join("\n");
+      "}");
   }
 }
 
@@ -197,12 +199,11 @@ function genFunction({ name, variants, skipChecks }, context) {
   const body = variants
     .map(variant => genFunctionVariant(variant, context, { skipChecks }))
     .join("\nelse ");
-  return [
+  return lines(
     `function ${name ? namify(name.name) : ""}() {`,
     __(body),
     __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
-    "}"
-  ].join("\n");
+    "}");
 }
 
 function genMonad({ items }, context) {
@@ -253,26 +254,23 @@ function genCase({ branches, otherwise }, context) {
     const _condition = generate(condition, context);
     const ifTrue = generate(value, context);
     const ifFalse = f(rest, context);
-    return [
+    return lines(
       `${_condition} ?`,
       __(`${ifTrue} :`),
-      __(`${ifFalse}`)
-    ].join("\n");
+      __(`${ifFalse}`));
   }
   return f(branches, context);
 }
 
 function genScope({ definitions, body }, context) {
-  definitions = definitions
-    .map(definition => generate(definition, context))
-    .join("\n");
+  definitions = lines(
+    definitions.map(definition => generate(definition, context)));
   body = generate(body, context);
-  return [
+  return lines(
     "(function() {",
     __(definitions),
     __(`return ${body};`),
-    "}())"
-  ].join("\n");
+    "}())");
 }
 
 function genCall(ast, context) {
@@ -309,9 +307,10 @@ function genImport({ module, names }, context) {
   const alias = namify(module.name);
   names = names
     .map(({ name }) => namify(name))
-    .map(name => `const ${name} = ${alias}.${name};`)
-    .join("\n");
-  return [`const ${alias} = require("${module.name}");`].concat(names).join("\n");
+    .map(name => `const ${name} = ${alias}.${name};`);
+  return lines(
+    `const ${alias} = require("${module.name}");`,
+    names);
 }
 
 function genModuleImports({ imports }, context) {
@@ -335,11 +334,10 @@ function genModuleExport({ export: { names } }, context) {
       .map(({ name }) => namify(name))
       .map(name => `"${name}": ${name}`)
       .join(",\n");
-    return [
+    return lines(
       '{',
       __(names),
-      '}'
-    ].join("\n");
+      '}');
   }
 }
 
