@@ -17,7 +17,7 @@ function lines() {
   return Array.prototype.map.call(arguments, line =>
     line instanceof Array ?
       lines.apply(null, line):
-      line).join("\n");
+      line).filter(s => s !== "").join("\n");
 }
 
 function __(str) {
@@ -175,32 +175,19 @@ function genConstant({ name, value }, context) {
   return genDecomp(name, generate(value, context), context);
 }
 
-function genFunctionVariant({ args, body }, context, { skipChecks }) {
-  const arity = args.length;
-  args = lines(
-    args.map((arg, i) => genDecomp(arg, `arguments[${i}]`, context)));
-  const variant = arity ?
-    lines(
-      args,
-      `return ${generate(body, context)};`) :
-    `return ${generate(body, context)};`;
-  if (skipChecks) {
-    return variant;
-  }
-  else {
-    return lines(
-      `if (arguments.length === ${arity}) {`,
-      __(variant),
-      "}");
-  }
+function genFunctionVariant({ args, body }, context) {
+  const variant = lines(
+    args.map((arg, i) => genDecomp(arg, `arguments[${i}]`, context)),
+    `return ${generate(body, context)};`);
+  return lines(
+    `if (arguments.length === ${args.length}) {`,
+    __(variant),
+    "}");
 }
 
-function genFunction({ name, variants, skipChecks }, context) {
-  if (variants.length !== 1) {
-    skipChecks = false;
-  }
+function genFunction({ name, variants }, context) {
   const body = variants
-    .map(variant => genFunctionVariant(variant, context, { skipChecks }))
+    .map(variant => genFunctionVariant(variant, context))
     .join("\nelse ");
   return lines(
     `function ${name ? namify(name.name) : ""}() {`,
@@ -210,7 +197,7 @@ function genFunction({ name, variants, skipChecks }, context) {
 }
 
 function genMonad({ items }, context) {
-  function _generate(items) {
+  /*function _generate(items) {
     if (!items.length) {
       return null;
     }
@@ -244,7 +231,7 @@ function genMonad({ items }, context) {
       }
     }
   }
-  return generate(_generate(items), context);
+  return generate(_generate(items), context);*/
 }
 
 function genCase({ branches, otherwise }, context) {
