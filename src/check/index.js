@@ -49,18 +49,13 @@ function checkList({ items }, context) {
   }
 }
 
-function checkConstant({ name, value, location }, context) {
-  check(value, context);
-  checkDecomp(name, context);
-}
-
-function checkFunctionBody({ name, variants }, context) {
+function checkLambda({ variants }, context) {
   let definedVariants = {};
   for(let variant of variants) {
     const { args, body, location } = variant;
     const arity = args.length;
     if (definedVariants[arity]) {
-      throw new CheckError(`Duplicate definition: ${name} ${args.join(" ")}`, location);
+      throw new CheckError(`Duplicate definition: (${args.map(({ name }) => name).join(" ")})`, location);
     }
     else {
       definedVariants[arity] = variant;
@@ -71,14 +66,6 @@ function checkFunctionBody({ name, variants }, context) {
       check(body, _context);
     }
   }
-}
-
-function checkFunction(definition, context) {
-  const { name } = definition;
-  if (name) {
-    context.define(name);
-  }
-  checkFunctionBody(definition, context);
 }
 
 function checkMonad({ items }, context) {
@@ -103,16 +90,14 @@ function checkDefinitions(definitions, context) {
       context.define(name);
     }
     else if (type === "constant") {
-      check(definition, context);
-    }
-    else {
-      throw new CheckError(`Internal error: unknown AST type ${type}.`, location);
+      check(definition.value, context);
+      checkDecomp(name, context);
     }
   }
   for(let definition of definitions) {
     const { type } = definition;
     if(type === "function") {
-      checkFunctionBody(definition, context);
+      checkLambda(definition, context);
     }
   }
 }
@@ -220,8 +205,7 @@ function check(ast, context) {
     case "name": return checkName(ast, context);
     case "map":  return checkMap(ast, context);
     case "list": return checkList(ast, context);
-    case "constant": return checkConstant(ast, context);
-    case "function": return checkFunction(ast, context);
+    case "lambda": return checkLambda(ast, context);
     case "monad": return checkMonad(ast, context);
     case "case": return checkCase(ast, context);
     case "scope": return checkScope(ast, context);

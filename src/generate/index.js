@@ -175,7 +175,28 @@ function genConstant({ name, value }, context) {
   return genDecomp(name, generate(value, context), context);
 }
 
-function genFunctionVariant({ args, body }, context) {
+function genFunction({ name, variants }, context) {
+  const body = variants
+    .map(variant => genVariant(variant, context))
+    .join("\nelse ");
+  return lines(
+    `function ${namify(name.name)}() {`,
+    __(body),
+    __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
+    "}");
+}
+
+function genDefinition(ast, context) {
+  const { type } = ast;
+  if (type === "constant") {
+    return genConstant(ast, context);
+  }
+  else if (type === "function") {
+    return genFunction(ast, context);
+  }
+}
+
+function genVariant({ args, body }, context) {
   const variant = lines(
     args.map((arg, i) => genDecomp(arg, `arguments[${i}]`, context)),
     `return ${generate(body, context)};`);
@@ -185,12 +206,12 @@ function genFunctionVariant({ args, body }, context) {
     "}");
 }
 
-function genFunction({ name, variants }, context) {
+function genLambda({ variants }, context) {
   const body = variants
-    .map(variant => genFunctionVariant(variant, context))
+    .map(variant => genVariant(variant, context))
     .join("\nelse ");
   return lines(
-    `function ${name ? namify(name.name) : ""}() {`,
+    `() => {`,
     __(body),
     __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
     "}");
@@ -245,11 +266,10 @@ function genCase({ branches, otherwise }, context) {
 }
 
 function genScope({ definitions, body }, context) {
-  definitions = lines(
-    definitions.map(definition => generate(definition, context)));
+  definitions = lines(definitions.map(definition => genDefinition(definition, context)));
   body = generate(body, context);
   return lines(
-    "(function() {",
+    "(() => {",
     __(definitions),
     __(`return ${body};`),
     "}())");
@@ -307,7 +327,7 @@ function genModuleImports({ imports }, context) {
 }
 
 function genModuleDefinitions({ definitions }, context) {
-  return lines(definitions.map(definition => generate(definition, context)));
+  return lines(definitions.map(definition => genDefinition(definition, context)));
 }
 
 function genModuleExport({ export: { names } }, context) {
@@ -320,7 +340,7 @@ function genModuleExport({ export: { names } }, context) {
       .map(name => `"${name}": ${name}`)
       .join(",\n");
     return lines(
-      '{',
+      'module.exports = {',
       __(names),
       '}');
   }
@@ -350,8 +370,9 @@ function generate(ast, context) {
     case "name": return genName(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
-    case "constant": return genConstant(ast, context);
-    case "function": return genFunction(ast, context);
+    //case "constant": return genConstant(ast, context);
+    //case "function": return genFunction(ast, context);
+    case "lambda": return genLambda(ast, context);
     case "monad": return genMonad(ast, context);
     case "case": return genCase(ast, context);
     case "scope": return genScope(ast, context);

@@ -209,16 +209,17 @@ args =
 variant = args:args _ body:value {
   return {
     args: args,
-    body: body
+    body: body,
+    location: location()
   };
 }
 
-function "function" = "(" _
+lambda "lambda" = "(" _
   wordFn _
   variants:(first:variant rest:(_ variant:variant { return variant; })* { return [first].concat(rest); })
   _ ")" {
   return {
-    type: "function",
+    type: "lambda",
     variants: variants,
     location: location()
   };
@@ -298,7 +299,7 @@ value =
   / name
   / list
   / map
-  / function
+  / lambda
   / case
   / scope
   / monad
