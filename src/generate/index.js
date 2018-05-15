@@ -28,7 +28,7 @@ function __(str) {
     .join("\n");
 }
 
-function namify(name) {
+function namify({ name }) {
   return name
     .replace(
       /^do|if|in|for|let|new|try|var|case|else|enum|eval|null|this|true|void|with|await|break|catch|class|const|false|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof$/g,
@@ -114,10 +114,10 @@ function genDemap({ items }, value, context) {
 
 function genDecomp(ast, value, context) {
   if (ast.type === "name") {
-    return `const ${namify(ast.name)} = ${value};`;
+    return `const ${namify(ast)} = ${value};`;
   }
   else if (ast.type === "alias") {
-    const name = namify(ast.name.name);
+    const name = namify(ast.name);
     return lines(
       `const ${name} = ${value};`,
       genDecomp(ast.value, name, context));
@@ -151,12 +151,12 @@ function genString({ value }, context) {
   return `"${value}"`;
 }
 
-function genKey({ value }, context) {
-  return `"${namify(value)}"`;
+function genKey(ast, context) {
+  return `"${namify(ast)}"`;
 }
 
-function genName({ name }, context) {
-  return namify(name);
+function genName(ast, context) {
+  return namify(ast);
 }
 
 function genList({ items, location }, context) {
@@ -180,7 +180,7 @@ function genFunction({ name, variants }, context) {
     .map(variant => genVariant(variant, context))
     .join("\nelse ");
   return lines(
-    `function ${namify(name.name)}() {`,
+    `function ${namify(name)}() {`,
     __(body),
     __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
     "}");
@@ -307,15 +307,15 @@ function genFunctionCall({ fun, args }, context) {
 
 function genInvoke({ object, method, args }, context) {
   object = generate(object, context);
-  method = namify(method.name);
+  method = namify(method);
   args = args.map((arg) => generate(arg, context)).join(", ");
   return `${object}.${method}(${args})`;
 }
 
 function genImport({ module, names }, context) {
-  const alias = namify(module.name);
+  const alias = namify(module);
   names = names
-    .map(({ name }) => namify(name))
+    .map(namify)
     .map(name => `const ${name} = ${alias}.${name};`);
   return lines(
     `const ${alias} = require("${module.name}");`,
@@ -332,11 +332,11 @@ function genModuleDefinitions({ definitions }, context) {
 
 function genModuleExport({ export: { names } }, context) {
   if (names.length === 1) {
-    return `module.exports = ${namify(names[0].name)};`;
+    return `module.exports = ${namify(names[0])};`;
   }
   else {
     names = names
-      .map(({ name }) => namify(name))
+      .map(namify)
       .map(name => `"${name}": ${name}`)
       .join(",\n");
     return lines(

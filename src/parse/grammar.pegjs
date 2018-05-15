@@ -127,7 +127,7 @@ demapName = name:name {
   return {
     key: {
       type: "key",
-      value: name.name,
+      name: name.name,
       location: name.location
     },
     name: name
@@ -164,7 +164,7 @@ keyChar = [0-9a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\.]
 key = chars:keyChar+ ":" {
   return {
     type: "key",
-    value: chars.join(""),
+    name: chars.join(""),
     location: location()
   };
 }

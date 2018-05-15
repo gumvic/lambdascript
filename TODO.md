@@ -1,7 +1,6 @@
 - monad -- not `def`, something else
 - method calls like `(.foo obj 42)`
 - operator generation
-- `namify` to accept ast
 
 - `transduce` -> `for`
 ```
