@@ -9,7 +9,10 @@ class Context {
   }
 
   oneOffName() {
-    return `$${this.oneOffCount++}`;
+    return {
+      type: "name",
+      name: `$${this.oneOffCount++}`
+    };
   }
 }
 
@@ -98,13 +101,21 @@ function isBuiltInOperator(name, arity) {
 
 function genDemap({ items }, value, context) {
   function genItem({ key, name }, value, context) {
-    key = generate(key, context);
-    return genDecomp(name, `get(${value}, ${key})`, context);
+    value = {
+      type: "call",
+      fun: {
+        type: "name",
+        name: "get"
+      },
+      args: [value, key]
+    };
+    return genDecomp(name, value, context);
   }
   if (items.length > 1) {
     const tmpName = context.oneOffName();
+    value = generate(value, context);
     return lines(
-      `const ${tmpName} = ${value};`,
+      `const ${namify(tmpName)} = ${value};`,
       items.map(item => genItem(item, tmpName, context)));
   }
   else {
@@ -114,13 +125,16 @@ function genDemap({ items }, value, context) {
 
 function genDecomp(ast, value, context) {
   if (ast.type === "name") {
-    return `const ${namify(ast)} = ${value};`;
+    const name = namify(ast);
+    value = generate(value, context);
+    return `const ${name} = ${value};`;
   }
   else if (ast.type === "alias") {
     const name = namify(ast.name);
+    value = generate(value, context);
     return lines(
       `const ${name} = ${value};`,
-      genDecomp(ast.value, name, context));
+      genDecomp(ast.value, ast.name, context));
   }
   else if (ast.type === "demap") {
     return genDemap(ast, value, context);
@@ -172,7 +186,7 @@ function genMap({ items, location }, context) {
 }
 
 function genConstant({ name, value }, context) {
-  return genDecomp(name, generate(value, context), context);
+  return genDecomp(name, value, context);
 }
 
 function genFunction({ name, variants }, context) {
@@ -198,7 +212,7 @@ function genDefinition(ast, context) {
 
 function genVariant({ args, body }, context) {
   const variant = lines(
-    args.map((arg, i) => genDecomp(arg, `arguments[${i}]`, context)),
+    args.map((arg, i) => genDecomp(arg, { type: "js", code: `arguments[${i}]` }, context)),
     `return ${generate(body, context)};`);
   return lines(
     `if (arguments.length === ${args.length}) {`,
@@ -235,7 +249,7 @@ function genMonad({ items }, context) {
           lines(
             "($val) =>",
             __(lines(
-              genDecomp(via, "$val", context),
+              genDecomp(via, { type: "name", name: "$val" }, context),
               right))):
           lines(
             "() =>",
@@ -354,6 +368,10 @@ function genModule(ast, context) {
     genModuleExport(ast, context));
 }
 
+function genJS({ code }, context) {
+  return code;
+}
+
 function initContext({ autoImports }) {
   return new Context(autoImports);
 }
@@ -370,8 +388,6 @@ function generate(ast, context) {
     case "name": return genName(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
-    //case "constant": return genConstant(ast, context);
-    //case "function": return genFunction(ast, context);
     case "lambda": return genLambda(ast, context);
     case "monad": return genMonad(ast, context);
     case "case": return genCase(ast, context);
@@ -381,6 +397,7 @@ function generate(ast, context) {
     case "import": return genImport(ast, context);
     case "export": return genExport(ast, context);
     case "module": return genModule(ast, context);
+    case "js": return genJS(ast, context);
     default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }
