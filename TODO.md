@@ -43,7 +43,7 @@
 - template strings
 - `import (window, $) from _` -- `_` means outside world
 - `core.monad.toIterable` for lazy sequences?
-- use a third party js generator
+- use a third party js generator -- `astring`/`estree`
 - source maps
 - CLI interface
 - REPL

@@ -99,8 +99,8 @@ function isBuiltInOperator(name, arity) {
   }
 }
 
-function genDemap({ items }, value, context) {
-  function genItem({ key, name }, value, context) {
+function genMapDestruct({ items }, value, context) {
+  function genItem({ key, lvalue }, value, context) {
     value = {
       type: "call",
       fun: {
@@ -109,7 +109,7 @@ function genDemap({ items }, value, context) {
       },
       args: [value, key]
     };
-    return genDecomp(name, value, context);
+    return genLValue(lvalue, value, context);
   }
   if (items.length > 1) {
     const tmpName = context.oneOffName();
@@ -123,7 +123,7 @@ function genDemap({ items }, value, context) {
   }
 }
 
-function genDecomp(ast, value, context) {
+function genLValue(ast, value, context) {
   if (ast.type === "name") {
     const name = namify(ast);
     value = generate(value, context);
@@ -134,10 +134,10 @@ function genDecomp(ast, value, context) {
     value = generate(value, context);
     return lines(
       `const ${name} = ${value};`,
-      genDecomp(ast.value, ast.name, context));
+      genLValue(ast.lvalue, ast.name, context));
   }
-  else if (ast.type === "demap") {
-    return genDemap(ast, value, context);
+  else if (ast.type === "mapDestruct") {
+    return genMapDestruct(ast, value, context);
   }
 }
 
@@ -185,8 +185,8 @@ function genMap({ items, location }, context) {
   return `ImMap([${items}])`;
 }
 
-function genConstant({ name, value }, context) {
-  return genDecomp(name, value, context);
+function genConstant({ lvalue, value }, context) {
+  return genLValue(lvalue, value, context);
 }
 
 function genFunction({ name, variants }, context) {
@@ -212,7 +212,7 @@ function genDefinition(ast, context) {
 
 function genVariant({ args, body }, context) {
   const variant = lines(
-    args.map((arg, i) => genDecomp(arg, { type: "js", code: `arguments[${i}]` }, context)),
+    args.map((arg, i) => genLValue(arg, { type: "js", code: `arguments[${i}]` }, context)),
     `return ${generate(body, context)};`);
   return lines(
     `if (arguments.length === ${args.length}) {`,
@@ -249,7 +249,7 @@ function genMonad({ items }, context) {
           lines(
             "($val) =>",
             __(lines(
-              genDecomp(via, { type: "name", name: "$val" }, context),
+              genLValue(via, { type: "name", name: "$val" }, context),
               right))):
           lines(
             "() =>",

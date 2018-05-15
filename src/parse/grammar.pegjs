@@ -113,49 +113,51 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-demapKeyName = key:(key / number / string) _ name:decomp {
+mapDestructKey = key:(key / number / string) _ lvalue:lvalue {
   return {
     key: key,
-    name: name
+    lvalue: lvalue
   };
 }
 
-demapName = name:name {
+mapDestructName = name:name {
   return {
     key: {
       type: "key",
       name: name.name,
       location: name.location
     },
-    name: name
+    lvalue: name
   };
 }
 
-demapItem = demapKeyName / demapName
+mapDestructItem = mapDestructKey / mapDestructName
 
-demap = "{" _
-  items:(first:demapItem rest:(_ item:demapItem { return item; })* { return [first].concat(rest); })
+mapDestruct = "{" _
+  items:(first:mapDestructItem rest:(_ item:mapDestructItem { return item; })* { return [first].concat(rest); })
   alias:(_ ":" _ alias:name { return alias; })?
   _ "}" {
   if (alias) {
     return {
       type: "alias",
       name: alias,
-      value: {
-        type: "demap",
+      lvalue: {
+        type: "mapDestruct",
         items: items
       }
     };
   }
   else {
     return {
-      type: "demap",
+      type: "mapDestruct",
       items: items
     };
   }
 }
 
-decomp = name / demap
+destruct = mapDestruct
+
+lvalue = name / destruct
 
 keyChar = [0-9a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\.]
 key = chars:keyChar+ ":" {
@@ -198,7 +200,7 @@ map "map" =
 
 args =
   "(" _
-  args:(first:decomp rest:(_ arg:decomp { return arg; })* { return [first].concat(rest); })?
+  args:(first:lvalue rest:(_ arg:lvalue { return arg; })* { return [first].concat(rest); })?
   _ ")" {
     return args || [];
   }
@@ -336,10 +338,10 @@ invoke =
   };
 }
 
-constantDefinition = "(" _ wordDef _ name:decomp _ value:value _ ")" {
+constantDefinition = "(" _ wordDef _ lvalue:lvalue _ value:value _ ")" {
   return {
     type: "constant",
-    name: name,
+    lvalue: lvalue,
     value: value,
     location: location()
   };

@@ -61,7 +61,7 @@ function checkLambda({ variants }, context) {
       definedVariants[arity] = variant;
       const _context = context.spawn();
       for(let arg of args) {
-        checkDecomp(arg, _context);
+        checkLValue(arg, _context);
       }
       check(body, _context);
     }
@@ -75,7 +75,7 @@ function checkMonad({ items }, context) {
       check(value, context);
       if (via) {
         context = context.spawn();
-        checkDecomp(via, context);
+        checkLValue(via, context);
       }
       _check(items.slice(1), context);
     }
@@ -85,13 +85,13 @@ function checkMonad({ items }, context) {
 
 function checkDefinitions(definitions, context) {
   for(let definition of definitions) {
-    const { type, name } = definition;
+    const { type } = definition;
     if(type === "function") {
-      context.define(name);
+      context.define(definition.name);
     }
     else if (type === "constant") {
       check(definition.value, context);
-      checkDecomp(name, context);
+      checkLValue(definition.lvalue, context);
     }
   }
   for(let definition of definitions) {
@@ -130,18 +130,18 @@ function checkInvoke({ object, args }, context) {
   }
 }
 
-function checkDecomp(ast, context) {
+function checkLValue(ast, context) {
   if (ast.type === "name") {
     context.define(ast);
   }
   else if (ast.type === "alias") {
     context.define(ast.name);
-    checkDecomp(ast.value, context);
+    checkLValue(ast.lvalue, context);
   }
-  else if (ast.type === "demap") {
-    for(let { key, name } of ast.items) {
+  else if (ast.type === "mapDestruct") {
+    for(let { key, lvalue } of ast.items) {
       check(key, context);
-      checkDecomp(name, context);
+      checkLValue(lvalue, context);
     }
   }
 }
