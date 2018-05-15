@@ -103,7 +103,7 @@ function genMapDestruct({ items }, value, context) {
   function genItem({ key, lvalue }, value, context) {
     value = {
       type: "call",
-      fun: {
+      callee: {
         type: "name",
         name: "get"
       },
@@ -220,10 +220,8 @@ function genVariant({ args, body }, context) {
     "}");
 }
 
-function genLambda({ variants }, context) {
-  const body = variants
-    .map(variant => genVariant(variant, context))
-    .join("\nelse ");
+function genLambda({ args, body }, context) {
+  body = genVariant({ args, body }, context);
   return lines(
     `() => {`,
     __(body),
@@ -290,9 +288,9 @@ function genScope({ definitions, body }, context) {
 }
 
 function genCall(ast, context) {
-  const { fun, args } = ast;
-  if (fun.type === "name" &&
-      isBuiltInOperator(fun.name, args.length)) {
+  const { callee, args } = ast;
+  if (callee.type === "name" &&
+      isBuiltInOperator(callee.name, args.length)) {
     return genOperatorCall(ast, context);
   }
   else {
@@ -300,7 +298,7 @@ function genCall(ast, context) {
   }
 }
 
-function genOperatorCall({ fun: { name }, args }, context) {
+function genOperatorCall({ callee: { name }, args }, context) {
   if (args.length === 1) {
     const left = generate(args[0], context);
     return `${name}${left}`;
@@ -312,11 +310,11 @@ function genOperatorCall({ fun: { name }, args }, context) {
   }
 }
 
-function genFunctionCall({ fun, args }, context) {
+function genFunctionCall({ callee, args }, context) {
   // TODO wrap in braces values that js won't call
-  fun = generate(fun, context);
+  callee = generate(callee, context);
   args = args.map((arg) => generate(arg, context)).join(", ");
-  return `${fun}(${args})`;
+  return `${callee}(${args})`;
 }
 
 function genInvoke({ object, method, args }, context) {

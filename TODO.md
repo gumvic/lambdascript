@@ -1,6 +1,3 @@
-- operator generation
-- `decomp` -> `assignment` or something
-
 - `transduce` -> `for`
 ```
 (for users
@@ -8,34 +5,10 @@
   (map :name)
   (join ", "))
 ```
-- `(get x:)`/`(get-in [x: y: :z])` versions instead of getters, the same for setters
+- `(get x:)`/`(get-in [x: y: z:])` versions instead of getters, the same for setters
 
-- monad -- not `def`, something else
-- what about this monad syntax:
-```
-(do
-  (write
-    (+ @(read) @(read))))
-(do
-  (let
-    (def a @(read))
-    (def b @(read))
-    (+ a b)))
-```
-
-- records
-```
-(defrec Point
-  () (Point 0 0)
-  (x) (Point x 0)
-  (x y) { x: x
-          y: y })
-```
-- methods
-```
-(defmeth Point sum ({ x y })
-  (+ x y))
-```
+- alias syntax
+- map literal syntax and keywords
 
 - map/filter/etc with indexes
 - js module should be able to declare its name

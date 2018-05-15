@@ -49,7 +49,15 @@ function checkList({ items }, context) {
   }
 }
 
-function checkLambda({ variants }, context) {
+function checkLambda({ args, body }, context) {
+  const _context = context.spawn();
+  for(let arg of args) {
+    checkLValue(arg, _context);
+  }
+  check(body, _context);
+}
+
+function checkFunction({ variants }, context) {
   let definedVariants = {};
   for(let variant of variants) {
     const { args, body, location } = variant;
@@ -59,11 +67,7 @@ function checkLambda({ variants }, context) {
     }
     else {
       definedVariants[arity] = variant;
-      const _context = context.spawn();
-      for(let arg of args) {
-        checkLValue(arg, _context);
-      }
-      check(body, _context);
+      checkLambda({ args, body }, context);
     }
   }
 }
@@ -97,7 +101,7 @@ function checkDefinitions(definitions, context) {
   for(let definition of definitions) {
     const { type } = definition;
     if(type === "function") {
-      checkLambda(definition, context);
+      checkFunction(definition, context);
     }
   }
 }
@@ -116,8 +120,8 @@ function checkScope({ definitions, body }, context) {
   check(body, context);
 }
 
-function checkCall({ fun, args }, context) {
-  check(fun, context);
+function checkCall({ callee, args }, context) {
+  check(callee, context);
   for(let arg of args) {
     check(arg, context);
   }

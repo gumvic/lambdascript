@@ -10,13 +10,13 @@ module.exports = {
           "name": "type"
         },
         {
-          "name": "is?"
+          "name": "isa"
         },
         {
           "name": "try"
         },
         {
-          "name": "="
+          "name": "=="
         },
         {
           "name": "+"
@@ -79,10 +79,10 @@ module.exports = {
           "name": "size"
         },
         {
-          "name": "js<-"
+          "name": "fromJS"
         },
         {
-          "name": "js->"
+          "name": "toJS"
         },
         {
           "name": "ImMap"
@@ -94,16 +94,16 @@ module.exports = {
           "name": "get"
         },
         {
-          "name": "get-in"
+          "name": "getIn"
         },
         {
-          "name": "transduce"
+          "name": "for"
         },
         {
           "name": "monad"
         },
         {
-          "name": "monad?"
+          "name": "isMonad"
         }
       ]
     }
