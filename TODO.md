@@ -1,5 +1,3 @@
-- monad -- not `def`, something else
-- method calls like `(.foo obj 42)`
 - operator generation
 - `decomp` -> `assignment` or something
 
@@ -11,6 +9,19 @@
   (join ", "))
 ```
 - `(get x:)`/`(get-in [x: y: :z])` versions instead of getters, the same for setters
+
+- monad -- not `def`, something else
+- what about this monad syntax:
+```
+(do
+  (write
+    (+ @(read) @(read))))
+(do
+  (let
+    (def a @(read))
+    (def b @(read))
+    (+ a b)))
+```
 
 - records
 ```
