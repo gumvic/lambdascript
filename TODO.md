@@ -11,6 +11,19 @@
 ```
 - `(get x:)`/`(get-in [x: y: :z])` versions instead of getters, the same for setters
 
+- records
+```
+(defrec Point
+  () (Point 0 0)
+  (x) (Point x 0)
+  (x y) { x: x
+          y: y })
+```
+- methods
+```
+(defmeth Point sum ({ x y })
+  (+ x y))
+```
 
 - map/filter/etc with indexes
 - js module should be able to declare its name

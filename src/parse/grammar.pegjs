@@ -30,7 +30,6 @@ wordExport "export" = "export" !beginNameChar
 beginNameChar = [a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
 nameChar = [0-9a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\.]
 name "name" =
-  !reservedWord
   first:beginNameChar
   rest:(nameChar+)?
   {
@@ -306,8 +305,10 @@ value =
   / invoke
   / call
 
+fun = (!reservedWord name:name { return name; }) / lambda / call
+
 call =
-  "(" _ fun:value
+  "(" _ fun:fun
   _
   args:(first:value rest:(_ arg:value { return arg; })* { return [first].concat(rest); })?
   _
