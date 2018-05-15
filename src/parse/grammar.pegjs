@@ -4,9 +4,8 @@ ast = _ ast:(module / value) _ {
 
 _ "whitespace" = [ \t\n\r]*
 
-reservedWord "reserved word" =
-  wordAs
-  / wordFn
+reservedWord "special word" =
+  wordFn
   / wordCase
   / wordLet
   / wordDo
@@ -16,7 +15,6 @@ reservedWord "reserved word" =
   / wordImport
   / wordExport
 
-wordAs "as" = "as" !beginNameChar
 wordFn "fn" = "fn" !beginNameChar
 wordDef "def" = "def" !beginNameChar
 wordDefn "defn" = "defn" !beginNameChar
@@ -137,7 +135,7 @@ demapItem = demapKeyName / demapName
 
 demap = "{" _
   items:(first:demapItem rest:(_ item:demapItem { return item; })* { return [first].concat(rest); })
-  alias:(_ wordAs _ alias:name { return alias; })?
+  alias:(_ ":" _ alias:name { return alias; })?
   _ "}" {
   if (alias) {
     return {
