@@ -183,6 +183,25 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
+where = wordWhere _ definitions:definitions _ wordEnd {
+  return {
+    type: "where",
+    definitions: definitions
+  };
+}
+
+end = wordEnd {
+  return null;
+}
+
+noArgs "()" = "(" _ ")" {
+  return [];
+}
+
+argsList = args:(noArgs / (arg:lvalue _ { return arg; })+) {
+  return args;
+}
+
 list "list" =
   "[" _
   items:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })?
@@ -220,17 +239,6 @@ map "map" =
       location: location()
     };
   }
-
-where = wordWhere _ definitions:definitions _ wordEnd {
-  return {
-    type: "where",
-    definitions: definitions
-  };
-}
-
-end = wordEnd {
-  return null;
-}
 
 lambda = "\\" _ args:argsList _ "->" _ body:expression {
   return {
@@ -300,17 +308,7 @@ atom =
   / case
   / subExpression
 
-noArgs "()" = "(" _ ")" {
-  return [];
-}
-
-argsList = args:(noArgs / (arg:lvalue _ { return arg; })+) {
-  return args;
-}
-
-unaryOperand = atom
-
-unary = operator:operator __ operand:unaryOperand {
+unary = operator:operator __ operand:atom {
   return {
     type: "call",
     callee: operator,
@@ -319,9 +317,9 @@ unary = operator:operator __ operand:unaryOperand {
   };
 }
 
-callee = unary / unaryOperand
+callee = unary / atom
 
-call = callee:callee __ args:(noArgs / (arg:unaryOperand __ { return arg; })+) {
+call = callee:callee __ args:(noArgs / (arg:atom __ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -330,7 +328,21 @@ call = callee:callee __ args:(noArgs / (arg:unaryOperand __ { return arg; })+) {
   };
 }
 
-binaryOperand = call / callee
+method = "." name:name {
+  return name;
+}
+
+invoke = method:method __ object:atom __ args:(arg:atom __ { return arg; })* {
+  return {
+    type: "invoke",
+    object: object,
+    method: method,
+    args: args || [],
+    location: location()
+  };
+}
+
+binaryOperand = call / invoke / callee
 
 binary =
   first:binaryOperand

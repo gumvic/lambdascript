@@ -1,5 +1,4 @@
 - map literal syntax and keywords
-- method invocation syntax
 
 - `(get x:)`/`(get-in [x: y: z:])` versions instead of getters, the same for setters
 
