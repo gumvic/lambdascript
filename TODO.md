@@ -1,17 +1,12 @@
-- `transduce` -> `for`
-```
-(for users
-  (filter adult?)
-  (map :name)
-  (join ", "))
-```
-- `(get x:)`/`(get-in [x: y: z:])` versions instead of getters, the same for setters
-
-- alias syntax
+- operator definition syntax
 - map literal syntax and keywords
+- method invocation syntax
+
+- `(get x:)`/`(get-in [x: y: z:])` versions instead of getters, the same for setters
 
 - map/filter/etc with indexes
 - js module should be able to declare its name
+- generated names clashes -- maybe use `$`, disallowing it for names
 - `#{ ... }` means set, `#[ ... ]` means stack
 - template strings
 - `import (window, $) from _` -- `_` means outside world

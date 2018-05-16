@@ -381,9 +381,15 @@ mapDestruct = "{" _
 
 destruct = mapDestruct
 
-alias = "alias"
+alias = name:name _ ":" _ lvalue:destruct {
+  return {
+    type: "alias",
+    name: name,
+    lvalue: lvalue
+  };
+}
 
-lvalue = name / alias / destruct
+lvalue = alias / name / destruct
 
 constantDefinition = lvalue:lvalue _ "=" _ value:expression _ where:where? {
   return {
