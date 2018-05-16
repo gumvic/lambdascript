@@ -100,24 +100,6 @@ function checkDefinitions(definitions, context) {
   for(let fun of functions) {
     checkFunction(fun, context);
   }
-
-  /*for(let definition of definitions) {
-    const { type } = definition;
-    if(type === "function") {
-      console.log(type, definition.name.name);
-      context.define(definition.name);
-    }
-    else if (type === "constant") {
-      check(definition.value, context);
-      checkLValue(definition.lvalue, context);
-    }
-  }
-  for(let definition of definitions) {
-    const { type } = definition;
-    if(type === "function") {
-      checkFunction(definition, context);
-    }
-  }*/
 }
 
 function checkCase({ branches, otherwise }, context) {
