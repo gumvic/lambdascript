@@ -27,17 +27,33 @@
     }
     return groupedDefinitions;
   }
+
+  function withWhere(body, where) {
+    if(where) {
+      return {
+        type: "scope",
+        definitions: where.definitions,
+        body: body
+      };
+    }
+    else {
+      return body;
+    }
+  }
 }
 
 ast = _ ast:(module / expression) _ {
   return ast;
 }
 
+__ "whitespace" = [ \t]*
 _ "whitespace" = [ \t\n\r]*
 
 reservedWord "special word" =
   wordWhen
   / wordElse
+  / wordDo
+  / wordEnd
   / wordWhere
   / wordModule
   / wordImport
@@ -45,6 +61,8 @@ reservedWord "special word" =
 
 wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
+wordDo "do" = "do" !beginNameChar
+wordEnd "end" = "end" !beginNameChar
 wordWhere "where" = "where" !beginNameChar
 wordModule "module" = "module" !beginNameChar
 wordImport "import" = "import" !beginNameChar
@@ -179,7 +197,7 @@ list "list" =
 mapKeyValueItem = key:expression _ ":" _ value:expression {
   return {
     key: name,
-    value: name
+    value: value
   };
 }
 
@@ -203,16 +221,16 @@ map "map" =
     };
   }
 
-lambda = "(" _ args:argsList _ "->" _ body:expression _ ")" {
+lambda = "(" _ args:argsList _ "->" _ body:expression _ where:where? _ ")" {
   return {
     type: "lambda",
     args: args,
-    body: body,
+    body: withWhere(body, where),
     location: location()
   };
 }
 
-monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression _ ";" {
+monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression _ {
   return {
     via: via,
     value: value,
@@ -220,12 +238,17 @@ monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression _ ";" {
   };
 }
 
-monad "monad" = "{" _ items:monadItem+ _ "}" {
-  return {
-    type: "monad",
-    items: items
-  };
-}
+monad "monad" =
+  wordDo _
+  branches:(first:monadItem rest:(_ item:monadItem { return item; })* { return [first].concat(rest); })
+  _ wordEnd
+  _
+  where:where? {
+    return withWhere({
+      type: "monad",
+      items: items
+    }, where);
+  }
 
 caseBranch = wordWhen _ condition:expression _ ":" _ value:expression {
   return {
@@ -235,13 +258,16 @@ caseBranch = wordWhen _ condition:expression _ ":" _ value:expression {
 }
 
 case "case" =
-  branches:(first:caseBranch rest:(_ "," _ branch:caseBranch { return branch; })* { return [first].concat(rest); })
-  _ wordElse _ otherwise:expression {
-    return {
+  branches:(first:caseBranch rest:(_ branch:caseBranch { return branch; })* { return [first].concat(rest); })
+  _
+  wordElse _ otherwise:expression
+  _
+  where:where? {
+    return withWhere({
       type: "case",
       branches: branches,
       otherwise: otherwise
-    };
+    }, where);
   }
 
 subExpression "sub-expression" = "(" _ expression:expression _ ")" {
@@ -263,12 +289,10 @@ atom =
   / case
   / subExpression
 
-where = wordWhere _
-  first:definition
-  rest:(_ "," _ definition:definition { return definition; })* {
+where = wordWhere _ definitions:definitions {
   return {
     type: "where",
-    definitions: groupDefinitions([first].concat(rest))
+    definitions: definitions
   };
 }
 
@@ -282,10 +306,10 @@ argsList = args:(noArgs / (arg:lvalue _ { return arg; })+) {
 
 unaryOperand = atom
 
-unary = operator:operator _ operand:unaryOperand {
+unary = operator:operator __ operand:unaryOperand {
   return {
     type: "call",
-    fun: operator,
+    callee: operator,
     args:[operand],
     location: location()
   };
@@ -293,7 +317,7 @@ unary = operator:operator _ operand:unaryOperand {
 
 callee = unary / unaryOperand
 
-call = callee:callee _ args:(noArgs / (arg:unaryOperand _ { return arg; })+) {
+call = callee:callee __ args:(noArgs / (arg:unaryOperand __ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -306,29 +330,18 @@ binaryOperand = call / callee
 
 binary =
   first:binaryOperand
-  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
+  rest:(__ operator:operator __ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
-      fun: operator,
+      callee: operator,
       args: [left, right],
       location: location()
     }),
     first);
   }
 
-expression = expression:(binary / binaryOperand / operator) _ where:where? {
-  if (where) {
-    return {
-      type: "scope",
-      definitions: where.definitions,
-      body: expression
-    };
-  }
-  else {
-    return expression;
-  }
-}
+expression = binary / binaryOperand / operator
 
 mapDestructKeyLValueItem = key:atom _ lvalue:lvalue {
   return {
@@ -386,18 +399,19 @@ functionDefinition = name:name _ args:argsList _ "=" _ body:expression {
 
 definition = constantDefinition / functionDefinition
 
-moduleDefinition = definition:definition _ ";" {
-  return definition;
-}
+definitions =
+  definitions:(first:definition rest:(_ definition:definition { return definition; })* { return [first].concat(rest); }) {
+    return groupDefinitions(definitions);
+  }
 
 module "module" =
-  wordModule _ name:moduleName _ ";" _
-  definitions:(first:moduleDefinition rest:(_ definition:moduleDefinition { return definition; })* { return [first].concat(rest); }) {
+  wordModule _ name:moduleName _
+  definitions:definitions {
   return {
     type: "module",
     name: name,
     imports: [],
     export: { names: [] },
-    definitions: groupDefinitions(definitions)
+    definitions: definitions
   };
 }
