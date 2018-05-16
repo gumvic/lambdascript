@@ -46,14 +46,13 @@ ast = _ ast:(module / expression) _ {
   return ast;
 }
 
+__ = [ \t]*
 _ "whitespace" = [ \t\n\r]*
 
 reservedWord "special word" =
   wordCase
-  / wordWhen
   / wordElse
   / wordDo
-  / wordLet
   / wordWhere
   / wordEnd
   / wordModule
@@ -61,10 +60,8 @@ reservedWord "special word" =
   / wordExport
 
 wordCase "case" = "case" !beginNameChar
-wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
-wordLet "let" = "let" !beginNameChar
 wordWhere "where" = "where" !beginNameChar
 wordEnd "end" = "end" !beginNameChar
 wordModule "module" = "module" !beginNameChar
@@ -244,7 +241,7 @@ lambda = "\\" _ args:argsList _ "->" _ body:expression {
   };
 }
 
-monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression _ ";" {
+monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression {
   return {
     via: via,
     value: value,
@@ -263,7 +260,7 @@ monad "monad" =
     }, where);
   }
 
-caseBranch = wordWhen _ condition:expression _ ":" _ value:expression {
+caseBranch = condition:expression _ ":" _ value:expression {
   return {
     condition: condition,
     value: value
@@ -313,7 +310,7 @@ argsList = args:(noArgs / (arg:lvalue _ { return arg; })+) {
 
 unaryOperand = atom
 
-unary = operator:operator _ operand:unaryOperand {
+unary = operator:operator __ operand:unaryOperand {
   return {
     type: "call",
     callee: operator,
@@ -324,7 +321,7 @@ unary = operator:operator _ operand:unaryOperand {
 
 callee = unary / unaryOperand
 
-call = callee:callee _ args:(noArgs / (arg:unaryOperand _ { return arg; })+) {
+call = callee:callee __ args:(noArgs / (arg:unaryOperand __ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -337,7 +334,7 @@ binaryOperand = call / callee
 
 binary =
   first:binaryOperand
-  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
+  rest:(__ operator:operator __ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -348,7 +345,9 @@ binary =
     first);
   }
 
-expression = binary / binaryOperand / operator
+expression = expression:(binary / binaryOperand / operator) __ where:where? {
+  return withWhere(expression, where);
+}
 
 mapDestructKeyLValueItem = key:atom _ lvalue:lvalue {
   return {
@@ -391,48 +390,48 @@ alias = name:name _ ":" _ lvalue:destruct {
 
 lvalue = alias / name / destruct
 
-constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression _ where:where? {
+constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression {
   return {
     type: "constant",
     lvalue: lvalue,
-    value: withWhere(value, where),
+    value: value,
     location: location()
   };
 }
 
-functionDefinition = name:name _ args:argsList _ "=" _ body:expression _ where:where? {
+functionDefinition = name:name _ args:argsList _ "=" _ body:expression {
   return {
     type: "function",
     name: name,
     args: args,
-    body: withWhere(body, where),
+    body: body,
     location: location()
   };
 }
 
-unaryOperatorDefinition = name:operator _ arg:lvalue _ "=" _ body:expression _ where:where? {
+unaryOperatorDefinition = name:operator _ arg:lvalue _ "=" _ body:expression {
   return {
     type: "function",
     name: name,
     args: [arg],
-    body: withWhere(body, where),
+    body: body,
     location: location()
   };
 }
 
-binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "=" _ body:expression _ where:where? {
+binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "=" _ body:expression {
   return {
     type: "function",
     name: name,
     args: [left, right],
-    body: withWhere(body, where),
+    body: body,
     location: location()
   };
 }
 
 operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 
-definition = wordLet _ definition:(constantDefinition / operatorDefinition / functionDefinition) {
+definition = definition:(constantDefinition / operatorDefinition / functionDefinition) {
   return definition;
 }
 
