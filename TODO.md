@@ -1,4 +1,3 @@
-- operator definition syntax
 - map literal syntax and keywords
 - method invocation syntax
 

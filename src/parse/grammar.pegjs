@@ -391,7 +391,7 @@ alias = name:name _ ":" _ lvalue:destruct {
 
 lvalue = alias / name / destruct
 
-constantDefinition = lvalue:lvalue _ "=" _ value:expression _ where:where? {
+constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression _ where:where? {
   return {
     type: "constant",
     lvalue: lvalue,
@@ -410,7 +410,29 @@ functionDefinition = name:name _ args:argsList _ "=" _ body:expression _ where:w
   };
 }
 
-definition = wordLet _ definition:(constantDefinition / functionDefinition) {
+unaryOperatorDefinition = name:operator _ arg:lvalue _ "=" _ body:expression _ where:where? {
+  return {
+    type: "function",
+    name: name,
+    args: [arg],
+    body: withWhere(body, where),
+    location: location()
+  };
+}
+
+binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "=" _ body:expression _ where:where? {
+  return {
+    type: "function",
+    name: name,
+    args: [left, right],
+    body: withWhere(body, where),
+    location: location()
+  };
+}
+
+operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
+
+definition = wordLet _ definition:(constantDefinition / operatorDefinition / functionDefinition) {
   return definition;
 }
 
