@@ -88,9 +88,23 @@ function checkMonad({ items }, context) {
 }
 
 function checkDefinitions(definitions, context) {
-  for(let definition of definitions) {
+  const constants = definitions.filter(({ type }) => type === "constant");
+  const functions = definitions.filter(({ type }) => type === "function");
+  for (let { name } of functions) {
+    context.define(name);
+  }
+  for(let { lvalue, value } of constants) {
+    check(value, context);
+    checkLValue(lvalue, context);
+  }
+  for(let fun of functions) {
+    checkFunction(fun, context);
+  }
+
+  /*for(let definition of definitions) {
     const { type } = definition;
     if(type === "function") {
+      console.log(type, definition.name.name);
       context.define(definition.name);
     }
     else if (type === "constant") {
@@ -103,7 +117,7 @@ function checkDefinitions(definitions, context) {
     if(type === "function") {
       checkFunction(definition, context);
     }
-  }
+  }*/
 }
 
 function checkCase({ branches, otherwise }, context) {

@@ -46,24 +46,27 @@ ast = _ ast:(module / expression) _ {
   return ast;
 }
 
-__ "whitespace" = [ \t]*
 _ "whitespace" = [ \t\n\r]*
 
 reservedWord "special word" =
-  wordWhen
+  wordCase
+  / wordWhen
   / wordElse
   / wordDo
-  / wordEnd
+  / wordLet
   / wordWhere
+  / wordEnd
   / wordModule
   / wordImport
   / wordExport
 
+wordCase "case" = "case" !beginNameChar
 wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
-wordEnd "end" = "end" !beginNameChar
+wordLet "let" = "let" !beginNameChar
 wordWhere "where" = "where" !beginNameChar
+wordEnd "end" = "end" !beginNameChar
 wordModule "module" = "module" !beginNameChar
 wordImport "import" = "import" !beginNameChar
 wordExport "export" = "export" !beginNameChar
@@ -221,16 +224,27 @@ map "map" =
     };
   }
 
-lambda = "(" _ args:argsList _ "->" _ body:expression _ where:where? _ ")" {
+where = wordWhere _ definitions:definitions _ wordEnd {
+  return {
+    type: "where",
+    definitions: definitions
+  };
+}
+
+end = wordEnd {
+  return null;
+}
+
+lambda = "\\" _ args:argsList _ "->" _ body:expression {
   return {
     type: "lambda",
     args: args,
-    body: withWhere(body, where),
+    body: body,
     location: location()
   };
 }
 
-monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression _ {
+monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression _ ";" {
   return {
     via: via,
     value: value,
@@ -240,10 +254,9 @@ monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression _ {
 
 monad "monad" =
   wordDo _
-  branches:(first:monadItem rest:(_ item:monadItem { return item; })* { return [first].concat(rest); })
-  _ wordEnd
+  items:(item:monadItem _ { return item; })+
   _
-  where:where? {
+  where:(where / end) {
     return withWhere({
       type: "monad",
       items: items
@@ -258,11 +271,12 @@ caseBranch = wordWhen _ condition:expression _ ":" _ value:expression {
 }
 
 case "case" =
-  branches:(first:caseBranch rest:(_ branch:caseBranch { return branch; })* { return [first].concat(rest); })
+  wordCase _
+  branches:(branch:caseBranch _ { return branch; })+
   _
   wordElse _ otherwise:expression
   _
-  where:where? {
+  where:(where / end) {
     return withWhere({
       type: "case",
       branches: branches,
@@ -289,13 +303,6 @@ atom =
   / case
   / subExpression
 
-where = wordWhere _ definitions:definitions {
-  return {
-    type: "where",
-    definitions: definitions
-  };
-}
-
 noArgs "()" = "(" _ ")" {
   return [];
 }
@@ -306,7 +313,7 @@ argsList = args:(noArgs / (arg:lvalue _ { return arg; })+) {
 
 unaryOperand = atom
 
-unary = operator:operator __ operand:unaryOperand {
+unary = operator:operator _ operand:unaryOperand {
   return {
     type: "call",
     callee: operator,
@@ -317,7 +324,7 @@ unary = operator:operator __ operand:unaryOperand {
 
 callee = unary / unaryOperand
 
-call = callee:callee __ args:(noArgs / (arg:unaryOperand __ { return arg; })+) {
+call = callee:callee _ args:(noArgs / (arg:unaryOperand _ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -330,7 +337,7 @@ binaryOperand = call / callee
 
 binary =
   first:binaryOperand
-  rest:(__ operator:operator __ right:binaryOperand { return { operator, right }; })+ {
+  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -378,29 +385,31 @@ alias = "alias"
 
 lvalue = name / alias / destruct
 
-constantDefinition = lvalue:lvalue _ "=" _ value:expression {
+constantDefinition = lvalue:lvalue _ "=" _ value:expression _ where:where? {
   return {
     type: "constant",
     lvalue: lvalue,
-    value: value,
+    value: withWhere(value, where),
     location: location()
   };
 }
 
-functionDefinition = name:name _ args:argsList _ "=" _ body:expression {
+functionDefinition = name:name _ args:argsList _ "=" _ body:expression _ where:where? {
   return {
     type: "function",
     name: name,
     args: args,
-    body: body,
+    body: withWhere(body, where),
     location: location()
   };
 }
 
-definition = constantDefinition / functionDefinition
+definition = wordLet _ definition:(constantDefinition / functionDefinition) {
+  return definition;
+}
 
 definitions =
-  definitions:(first:definition rest:(_ definition:definition { return definition; })* { return [first].concat(rest); }) {
+  definitions:(definition:definition _ { return definition; })+ {
     return groupDefinitions(definitions);
   }
 
