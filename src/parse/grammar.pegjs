@@ -404,50 +404,48 @@ alias = name:name _ ":" _ lvalue:destruct {
 
 lvalue = alias / name / destruct
 
-constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression {
+constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression _ where:where? {
   return {
     type: "constant",
     lvalue: lvalue,
-    value: value,
+    value: withWhere(value, where),
     location: location()
   };
 }
 
-functionDefinition = name:name _ args:argsList _ "=" _ body:expression {
+functionDefinition = name:name _ args:argsList _ "=" _ body:expression _ where:where? {
   return {
     type: "function",
     name: name,
     args: args,
-    body: body,
+    body: withWhere(body, where),
     location: location()
   };
 }
 
-unaryOperatorDefinition = name:operator _ arg:lvalue _ "=" _ body:expression {
+unaryOperatorDefinition = name:operator _ arg:lvalue _ "=" _ body:expression _ where:where? {
   return {
     type: "function",
     name: name,
     args: [arg],
-    body: body,
+    body: withWhere(body, where),
     location: location()
   };
 }
 
-binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "=" _ body:expression {
+binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "=" _ body:expression _ where:where? {
   return {
     type: "function",
     name: name,
     args: [left, right],
-    body: body,
+    body: withWhere(body, where),
     location: location()
   };
 }
 
 operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 
-definition = definition:(constantDefinition / operatorDefinition / functionDefinition) {
-  return definition;
-}
+definition = constantDefinition / operatorDefinition / functionDefinition
 
 definitions =
   definitions:(definition:definition _ { return definition; })+ {
