@@ -1,4 +1,8 @@
 {
+  let INDENT_STEP = 2;
+
+  let indentLevel = 0;
+
   function groupDefinitions(definitions) {
     let groupedDefinitions = [];
     let functions = {};
@@ -32,7 +36,7 @@
     if(where) {
       return {
         type: "scope",
-        definitions: where.definitions,
+        definitions: where,
         body: body
       };
     }
@@ -42,37 +46,37 @@
   }
 }
 
-ast = _ ast:(module / expression) _ {
+ast = __ ast:(expression / module) __ {
   return ast;
 }
 
-escapedN = "\\" "\n"
-escapedNR = "\\" "\n\r"
-__ = (escapedNR / escapedN / [ \t])*
-_ "whitespace" = [ \t\n\r]*
+_ "whitespace" = [ \t]*
+__ = (_ nl)*
+samedent "correct indentation" = spaces:" "* &{ return spaces.length === indentLevel * INDENT_STEP; }
+indent = &{ indentLevel++; return true; }
+dedent = &{ indentLevel--; return true; }
+nl = "\n\r" / "\n"
+eof = !.
+end = nl / eof
 
 reservedWord "special word" =
   wordCase
-  / wordElse
   / wordDo
   / wordWhere
-  / wordEnd
   / wordModule
   / wordImport
   / wordExport
 
 wordCase "case" = "case" !beginNameChar
-wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
 wordWhere "where" = "where" !beginNameChar
-wordEnd "end" = "end" !beginNameChar
 wordModule "module" = "module" !beginNameChar
 wordImport "import" = "import" !beginNameChar
 wordExport "export" = "export" !beginNameChar
 
 beginNameChar = [a-z_]
 nameChar = [0-9a-zA-Z_]
-name "function name" =
+name "name" =
   !reservedWord
   first:beginNameChar
   rest:(nameChar+)?
@@ -185,15 +189,11 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-where = wordWhere _ definitions:definitions _ wordEnd {
+key "key" = key:name ":" {
   return {
-    type: "where",
-    definitions: definitions
+    type: "key",
+    value: key.name
   };
-}
-
-end = wordEnd {
-  return null;
 }
 
 noArgs "()" = "(" _ ")" {
@@ -204,43 +204,67 @@ argsList = args:(noArgs / (arg:lvalue _ { return arg; })+) {
   return args;
 }
 
-list "list" =
-  "[" _
-  items:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })?
-  _ "]" {
-    return {
-      type: "list",
-      items: items || [],
-      location: location()
-    };
-  }
-
-mapKeyValueItem = key:expression _ ":" _ value:expression {
+singlelineList = "[" _
+items:(first:expression rest:("," _ item:expression { return item; })* { return [first].concat(rest); })?
+_ "]" {
   return {
-    key: name,
+    type: "list",
+    items: items || [],
+    location: location()
+  };
+}
+
+multilineList = "[" _ nl indent
+  items:(samedent item:expression "," __ { return item; })*
+  last:(samedent item:expression nl { return item; })?
+dedent _ "]" {
+  return {
+    type: "list",
+    items: last ? items.concat(last) : items,
+    location: location()
+  };
+}
+
+list "list" = singlelineList / multilineList
+
+mapKeyValueItem = key:atom _ value:expression {
+  return {
+    key: key,
     value: value
   };
 }
 
 mapKeyItem = key:name {
   return {
-    key: name,
-    value: name
+    key: key,
+    value: key
   };
 }
 
 mapItem = mapKeyValueItem / mapKeyItem
 
-map "map" =
-  "{" _
-  items:(first:mapItem rest:(_ "," _ item:mapItem { return item; })* { return [first].concat(rest); })?
-  _ "}" {
-    return {
-      type: "map",
-      items: items || [],
-      location: location()
-    };
-  }
+singlelineMap = "{" _
+items:(first:mapItem rest:("," _ item:mapItem { return item; })* { return [first].concat(rest); })?
+_ "}" {
+  return {
+    type: "map",
+    items: items || [],
+    location: location()
+  };
+}
+
+multilineMap = "{" _ nl indent
+  items:(samedent item:mapItem "," __ { return item; })*
+  last:(samedent item:mapItem nl { return item; })?
+dedent _ "}" {
+  return {
+    type: "map",
+    items: last ? items.concat(last) : items,
+    location: location()
+  };
+}
+
+map "map" = singlelineMap / multilineMap
 
 lambda = "\\" _ args:argsList _ "->" _ body:expression {
   return {
@@ -251,6 +275,13 @@ lambda = "\\" _ args:argsList _ "->" _ body:expression {
   };
 }
 
+where = wordWhere _ nl indent
+  __
+  definitions:(samedent definition:definition end? __ { return definition; })+
+  dedent {
+  return groupDefinitions(definitions);
+}
+
 monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression {
   return {
     via: via,
@@ -259,37 +290,43 @@ monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression {
   };
 }
 
-monad "monad" =
-  wordDo _
-  items:(item:monadItem _ { return item; })+
-  _
-  where:(where / end) {
-    return withWhere({
-      type: "monad",
-      items: items
-    }, where);
-  }
+monad "monad" = wordDo _ nl indent
+  __
+  items:(samedent item:monadItem end? __ { return item; })+
+  __
+  where:(samedent where:where { return where; })?
+  dedent {
+  return withWhere({
+    type: "monad",
+    items: items
+  }, where);
+}
 
-caseBranch = condition:expression _ ":" _ value:expression {
+caseBranch = condition:expression _ "->" _ value:expression {
   return {
     condition: condition,
     value: value
   };
 }
 
-case "case" =
-  wordCase _
-  branches:(branch:caseBranch _ { return branch; })+
-  _
-  wordElse _ otherwise:expression
-  _
-  where:(where / end) {
-    return withWhere({
-      type: "case",
-      branches: branches,
-      otherwise: otherwise
-    }, where);
-  }
+caseOtherwise = "->" _ value:expression {
+  return value;
+}
+
+case "case" = wordCase _ nl indent
+  __
+  branches:(samedent branch:caseBranch end? __ { return branch; })+
+  __
+  otherwise:(samedent otherwise:caseOtherwise end? __ { return otherwise; })
+  __
+  where:(samedent where:where { return where; })?
+  dedent {
+  return withWhere({
+    type: "case",
+    branches: branches,
+    otherwise: otherwise
+  }, where);
+}
 
 subExpression "sub-expression" = "(" _ expression:expression _ ")" {
   return expression;
@@ -302,15 +339,14 @@ atom =
   / true
   / number
   / string
+  / key
   / list
   / map
   / lambda
-  / monad
   / name
-  / case
   / subExpression
 
-unary = operator:operator __ operand:atom {
+unary = operator:operator _ operand:atom {
   return {
     type: "call",
     callee: operator,
@@ -321,7 +357,11 @@ unary = operator:operator __ operand:atom {
 
 callee = unary / atom
 
-call = callee:callee __ args:(noArgs / (arg:atom __ { return arg; })+) {
+inlinedArgs = (arg:atom _ { return arg; })+
+
+args = noArgs / inlinedArgs
+
+call = callee:callee _ args:args {
   return {
     type: "call",
     callee: callee,
@@ -334,7 +374,7 @@ method = "." name:name {
   return name;
 }
 
-invoke = method:method __ object:atom __ args:(arg:atom __ { return arg; })* {
+invoke = method:method _ object:atom _ args:args? {
   return {
     type: "invoke",
     object: object,
@@ -348,7 +388,7 @@ binaryOperand = call / invoke / callee
 
 binary =
   first:binaryOperand
-  rest:(__ operator:operator __ right:binaryOperand { return { operator, right }; })+ {
+  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -359,9 +399,9 @@ binary =
     first);
   }
 
-expression = expression:(binary / binaryOperand / operator) __ where:where? {
+expression = expression:(binary / binaryOperand / operator) _ where:where? {
   return withWhere(expression, where);
-}
+} / monad / case
 
 mapDestructKeyLValueItem = key:atom _ lvalue:lvalue {
   return {
@@ -394,7 +434,7 @@ mapDestruct = "{" _
 
 destruct = mapDestruct
 
-alias = name:name _ ":" _ lvalue:destruct {
+alias = name:name _ "@" _ lvalue:destruct {
   return {
     type: "alias",
     name: name,
@@ -404,41 +444,45 @@ alias = name:name _ ":" _ lvalue:destruct {
 
 lvalue = alias / name / destruct
 
-constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression _ where:where? {
+definitionExpression =
+  (nl indent samedent expression:expression dedent { return expression; })
+  / expression
+
+constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:definitionExpression {
   return {
     type: "constant",
     lvalue: lvalue,
-    value: withWhere(value, where),
+    value: value,
     location: location()
   };
 }
 
-functionDefinition = name:name _ args:argsList _ "=" _ body:expression _ where:where? {
+functionDefinition = name:name _ args:argsList _ "=" _ body:definitionExpression {
   return {
     type: "function",
     name: name,
     args: args,
-    body: withWhere(body, where),
+    body: body,
     location: location()
   };
 }
 
-unaryOperatorDefinition = name:operator _ arg:lvalue _ "=" _ body:expression _ where:where? {
+unaryOperatorDefinition = name:operator _ arg:lvalue _ "=" _ body:definitionExpression {
   return {
     type: "function",
     name: name,
     args: [arg],
-    body: withWhere(body, where),
+    body: body,
     location: location()
   };
 }
 
-binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "=" _ body:expression _ where:where? {
+binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "=" _ body:definitionExpression {
   return {
     type: "function",
     name: name,
     args: [left, right],
-    body: withWhere(body, where),
+    body: body,
     location: location()
   };
 }
@@ -447,19 +491,15 @@ operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 
 definition = constantDefinition / operatorDefinition / functionDefinition
 
-definitions =
-  definitions:(definition:definition _ { return definition; })+ {
-    return groupDefinitions(definitions);
-  }
-
 module "module" =
-  wordModule _ name:moduleName _
-  definitions:definitions {
+  wordModule _ name:moduleName _ nl
+  __
+  definitions:(samedent definition:definition end? __ { return definition; })+ {
   return {
     type: "module",
     name: name,
     imports: [],
     export: { names: [] },
-    definitions: definitions
+    definitions: groupDefinitions(definitions)
   };
 }

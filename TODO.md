@@ -1,20 +1,9 @@
-- map literal syntax and keywords
+- `nl*` -> emptylines
+- multiline destructuring
+- multiline expressions
+- disable caching for the parser as that will screw up indentation parsing
 
 - `(get x:)`/`(get-in [x: y: z:])` versions instead of getters, the same for setters
-
-- make wrapping expression in `()` prevent it from breaking by a new line, and also making the `end` not mandatory:
-```
-(for users
-  (filter isAdult)
-  (map (get :name)))
-
-\r -> (r_
-  where
-    r_() = r()
-    ...)
-```
-- greedy expressions in maps and lists?
-
 - poor syntax error descriptions, parser fails too early
 - map/filter/etc with indexes
 - js module should be able to declare its name
