@@ -245,10 +245,11 @@ function genMonad({ items }, context) {
       else {
         const next = via ?
           lines(
-            "($val) =>",
+            "($val) => {",
             __(lines(
               genLValue(via, { type: "name", name: "$val" }, context),
-              right))):
+              `return ${right};`)),
+            "}"):
           lines(
             "() =>",
             __(right));
