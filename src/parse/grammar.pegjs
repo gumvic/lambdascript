@@ -46,7 +46,9 @@ ast = _ ast:(module / expression) _ {
   return ast;
 }
 
-__ = [ \t]*
+escapedN = "\\" "\n"
+escapedNR = "\\" "\n\r"
+__ = (escapedNR / escapedN / [ \t])*
 _ "whitespace" = [ \t\n\r]*
 
 reservedWord "special word" =
