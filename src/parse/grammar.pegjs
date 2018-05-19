@@ -26,19 +26,6 @@
     }
     return groupedDefinitions;
   }
-
-  function withWhere(body, where) {
-    if(where) {
-      return {
-        type: "scope",
-        definitions: where.definitions,
-        body: body
-      };
-    }
-    else {
-      return body;
-    }
-  }
 }
 
 ast = _ ast:(module / expression) _ {
@@ -46,7 +33,6 @@ ast = _ ast:(module / expression) _ {
 }
 
 _ "whitespace" = [ \t\n\r]*
-__ "whitespace" = [ \t]*
 
 reservedWord "special word" =
   wordCase
@@ -54,6 +40,7 @@ reservedWord "special word" =
   / wordElse
   / wordDo
   / wordWhere
+  / wordLet
   / wordEnd
   / wordModule
   / wordImport
@@ -64,6 +51,7 @@ wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
 wordWhere "where" = "where" !beginNameChar
+wordLet "let" = "let" !beginNameChar
 wordEnd "end" = "end" !beginNameChar
 wordModule "module" = "module" !beginNameChar
 wordImport "import" = "import" !beginNameChar
@@ -195,15 +183,11 @@ property "property" = "." name:name {
   return name;
 }
 
-where = wordWhere _ definitions:definitions _ end {
+where = wordWhere _ definitions:definitions _ wordEnd {
   return {
     type: "where",
     definitions: definitions
   };
-}
-
-end = wordEnd {
-  return null;
 }
 
 list "list" =
@@ -253,7 +237,7 @@ lambda = "\\" _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression {
   };
 }
 
-monadItem = via:(via:lvalue _ "=" _ { return via; })? value:expression {
+monadItem = via:(via:lvalue _ "=" _ { return via; })? value:expression _ ";" {
   return {
     via: via,
     value: value,
@@ -264,11 +248,11 @@ monadItem = via:(via:lvalue _ "=" _ { return via; })? value:expression {
 monad "monad" =
   wordDo _
   items:(item:monadItem _ { return item; })+
-  where:(where / end) {
-    return withWhere({
+  wordEnd {
+    return {
       type: "monad",
       items: items
-    }, where);
+    };
   }
 
 caseBranch = wordWhen _ condition:expression _ "->" _ value:expression {
@@ -278,7 +262,7 @@ caseBranch = wordWhen _ condition:expression _ "->" _ value:expression {
   };
 }
 
-caseOtherwise = wordElse _ "->" _ value:expression {
+caseOtherwise = wordElse _ value:expression {
   return value;
 }
 
@@ -286,15 +270,15 @@ case "case" =
   wordCase _
   branches:(branch:caseBranch _ { return branch; })+
   otherwise:caseOtherwise _
-  where:(where / end) {
-    return withWhere({
+  wordEnd {
+    return {
       type: "case",
       branches: branches,
       otherwise: otherwise
-    }, where);
+    };
   }
 
-subExpression "sub-expression" = "(" _ expression:multilineExpression _ ")" {
+subExpression "sub-expression" = "(" _ expression:expression _ ")" {
   return expression;
 }
 
@@ -314,7 +298,7 @@ atom =
   / case
   / subExpression
 
-unary = operator:operator __ operand:atom {
+unary = operator:operator _ operand:atom {
   return {
     type: "call",
     callee: operator,
@@ -325,9 +309,9 @@ unary = operator:operator __ operand:atom {
 
 callee = unary / atom
 
-args = ("(" __ ")" { return []; } / (arg:atom __ { return arg; })+)
+args = ("(" _ ")" { return []; } / (arg:atom _ { return arg; })+)
 
-call = callee:callee __ args:args {
+call = callee:callee _ args:args {
   return {
     type: "call",
     callee: callee,
@@ -336,7 +320,7 @@ call = callee:callee __ args:args {
   };
 }
 
-invoke = method:property __ object:atom __ args:args {
+invoke = method:property _ object:atom _ args:args {
   return {
     type: "invoke",
     object: object,
@@ -350,7 +334,7 @@ binaryOperand = call / invoke / callee
 
 binary =
   first:binaryOperand
-  rest:(__ operator:operator __ right:binaryOperand { return { operator, right }; })+ {
+  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -361,59 +345,17 @@ binary =
     first);
   }
 
-expression = expression:(binary / binaryOperand / operator) __ where:where? {
-  return withWhere(expression, where);
-}
-
-multilineUnary = operator:operator _ operand:atom {
-  return {
-    type: "call",
-    callee: operator,
-    args:[operand],
-    location: location()
-  };
-}
-
-multilineCallee = multilineUnary / atom
-
-multilineArgs = ("(" _ ")" { return []; } / (arg:atom _ { return arg; })+)
-
-multilineCall = callee:multilineCallee _ args:multilineArgs {
-  return {
-    type: "call",
-    callee: callee,
-    args: args,
-    location: location()
-  };
-}
-
-multilineInvoke = method:property _ object:atom _ args:multilineArgs {
-  return {
-    type: "invoke",
-    object: object,
-    method: method,
-    args: args,
-    location: location()
-  };
-}
-
-multilineBinaryOperand = multilineCall / multilineInvoke / multilineCallee
-
-multilineBinary =
-  first:multilineBinaryOperand
-  rest:(_ operator:operator _ right:multilineBinaryOperand { return { operator, right }; })+ {
-  return rest.reduce(
-    (left, { operator, right }) => ({
-      type: "call",
-      callee: operator,
-      args: [left, right],
-      location: location()
-    }),
-    first);
+expression = expression:(binary / binaryOperand / operator) _ where:where? {
+  if(where) {
+    return {
+      type: "scope",
+      definitions: where.definitions,
+      body: expression
+    };
   }
-
-multilineExpression = expression:(multilineBinary / multilineBinaryOperand / operator) _ where:where? {
-  return withWhere(expression, where);
+  else {
+    return expression;
+  }
 }
 
 mapDestructKeyLValueItem = key:atom _ lvalue:lvalue {
@@ -457,7 +399,7 @@ alias = name:name _ "@" _ lvalue:destruct {
 
 lvalue = alias / name / destruct
 
-constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression {
+constantDefinition = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:expression {
   return {
     type: "constant",
     lvalue: lvalue,
@@ -466,7 +408,7 @@ constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression {
   };
 }
 
-functionDefinition = name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression {
+functionDefinition = wordLet _ name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression {
   return {
     type: "function",
     name: name,
@@ -476,7 +418,7 @@ functionDefinition = name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ b
   };
 }
 
-unaryOperatorDefinition = name:operator _ arg:lvalue _ "->" _ body:expression {
+unaryOperatorDefinition = wordLet _ name:operator _ arg:lvalue _ "->" _ body:expression {
   return {
     type: "function",
     name: name,
@@ -486,7 +428,7 @@ unaryOperatorDefinition = name:operator _ arg:lvalue _ "->" _ body:expression {
   };
 }
 
-binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "->" _ body:expression {
+binaryOperatorDefinition = wordLet _ left:lvalue _ name:operator _ right:lvalue _ "->" _ body:expression {
   return {
     type: "function",
     name: name,
