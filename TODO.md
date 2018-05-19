@@ -1,4 +1,6 @@
-- get rid of native access in syntax, implement and use a native `get` to bootstrap if need be
+- monad syntax -- maybe use `{ a; b; }`?
+- check `get`/`getIn` if destructuring, `ImMap` on a map literal etc.
+- guards?
 - `nil`?
 - `end where` -> `ende`?
 - `(get x:)`/`(get-in [x: y: z:])` versions instead of getters, the same for setters
