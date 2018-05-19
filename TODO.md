@@ -1,3 +1,4 @@
+- `end where` -> `ende`?
 - `(get x:)`/`(get-in [x: y: z:])` versions instead of getters, the same for setters
 - poor syntax error descriptions, parser fails too early
 - map/filter/etc with indexes

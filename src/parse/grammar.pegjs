@@ -320,6 +320,15 @@ call = callee:callee _ args:args {
   };
 }
 
+access = property:property _ object:atom {
+  return {
+    type: "access",
+    object: object,
+    property: property,
+    location: location()
+  };
+}
+
 invoke = method:property _ object:atom _ args:args {
   return {
     type: "invoke",
@@ -330,7 +339,7 @@ invoke = method:property _ object:atom _ args:args {
   };
 }
 
-binaryOperand = call / invoke / callee
+binaryOperand = call / invoke / access / callee
 
 binary =
   first:binaryOperand

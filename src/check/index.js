@@ -123,6 +123,10 @@ function checkCall({ callee, args }, context) {
   }
 }
 
+function checkAccess({ object }, context) {
+  check(object, context);
+}
+
 function checkInvoke({ object, args }, context) {
   check(object, context);
   for(let arg of args) {
@@ -210,6 +214,7 @@ function check(ast, context) {
     case "case": return checkCase(ast, context);
     case "scope": return checkScope(ast, context);
     case "call": return checkCall(ast, context);
+    case "access": return checkAccess(ast, context);
     case "invoke": return checkInvoke(ast, context);
     case "import": return checkImport(ast, context);
     case "export": return checkExport(ast, context);

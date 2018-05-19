@@ -318,6 +318,12 @@ function genFunctionCall({ callee, args }, context) {
   return `${callee}(${args})`;
 }
 
+function genAccess({ object, property }, context) {
+  object = generate(object, context);
+  property = namify(property);
+  return `${object}.${property}`;
+}
+
 function genInvoke({ object, method, args }, context) {
   object = generate(object, context);
   method = namify(method);
@@ -392,6 +398,7 @@ function generate(ast, context) {
     case "case": return genCase(ast, context);
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
+    case "access": return genAccess(ast, context);
     case "invoke": return genInvoke(ast, context);
     case "import": return genImport(ast, context);
     case "export": return genExport(ast, context);
