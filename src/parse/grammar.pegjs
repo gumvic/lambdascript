@@ -96,7 +96,7 @@ moduleName "module name" =
     };
   }
 
-reservedOperator = ("=" / "->" / "<-") !operatorChar
+reservedOperator = ("=" / "->") !operatorChar
 operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
 operator "operator" =
   !reservedOperator
@@ -201,14 +201,6 @@ end = wordEnd {
   return null;
 }
 
-noArgs "()" = "(" _ ")" {
-  return [];
-}
-
-argsList = args:(noArgs / (arg:lvalue _ { return arg; })+) {
-  return args;
-}
-
 list "list" =
   "[" _
   items:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })?
@@ -247,7 +239,7 @@ map "map" =
     };
   }
 
-lambda = "\\" _ args:argsList _ "->" _ body:expression {
+lambda = "\\" _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression {
   return {
     type: "lambda",
     args: args,
@@ -256,7 +248,7 @@ lambda = "\\" _ args:argsList _ "->" _ body:expression {
   };
 }
 
-monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression {
+monadItem = via:(via:lvalue _ "=" _ { return via; })? value:expression {
   return {
     via: via,
     value: value,
@@ -327,7 +319,7 @@ unary = operator:operator __ operand:atom {
 
 callee = unary / atom
 
-call = callee:callee __ args:(noArgs / (arg:atom __ { return arg; })+) {
+call = callee:callee __ args:("(" __ ")" { return []; } / (arg:atom __ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -419,7 +411,7 @@ constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression _ where
   };
 }
 
-functionDefinition = name:name _ args:argsList _ "=" _ body:expression _ where:where? {
+functionDefinition = name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression _ where:where? {
   return {
     type: "function",
     name: name,
@@ -429,7 +421,7 @@ functionDefinition = name:name _ args:argsList _ "=" _ body:expression _ where:w
   };
 }
 
-unaryOperatorDefinition = name:operator _ arg:lvalue _ "=" _ body:expression _ where:where? {
+unaryOperatorDefinition = name:operator _ arg:lvalue _ "->" _ body:expression _ where:where? {
   return {
     type: "function",
     name: name,
@@ -439,7 +431,7 @@ unaryOperatorDefinition = name:operator _ arg:lvalue _ "=" _ body:expression _ w
   };
 }
 
-binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "=" _ body:expression _ where:where? {
+binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "->" _ body:expression _ where:where? {
   return {
     type: "function",
     name: name,
