@@ -2,7 +2,6 @@
   function groupDefinitions(definitions) {
     let groupedDefinitions = [];
     let functions = {};
-    let methods = {};
     for(let definition of definitions) {
       const { type, args, body, location } = definition;
       if (type === "function") {
@@ -192,6 +191,10 @@ key "key" = key:name ":" {
   };
 }
 
+property "property" = "." name:name {
+  return name;
+}
+
 where = wordWhere _ definitions:definitions _ end {
   return {
     type: "where",
@@ -291,7 +294,7 @@ case "case" =
     }, where);
   }
 
-subExpression "sub-expression" = "(" _ expression:expression _ ")" {
+subExpression "sub-expression" = "(" _ expression:multilineExpression _ ")" {
   return expression;
 }
 
@@ -322,7 +325,9 @@ unary = operator:operator __ operand:atom {
 
 callee = unary / atom
 
-call = callee:callee __ args:("(" __ ")" { return []; } / (arg:atom __ { return arg; })+) {
+args = ("(" __ ")" { return []; } / (arg:atom __ { return arg; })+)
+
+call = callee:callee __ args:args {
   return {
     type: "call",
     callee: callee,
@@ -331,11 +336,7 @@ call = callee:callee __ args:("(" __ ")" { return []; } / (arg:atom __ { return 
   };
 }
 
-method = "." name:name {
-  return name;
-}
-
-invoke = method:method __ object:atom __ args:(arg:atom __ { return arg; })* {
+invoke = method:property __ object:atom __ args:args {
   return {
     type: "invoke",
     object: object,
@@ -361,6 +362,57 @@ binary =
   }
 
 expression = expression:(binary / binaryOperand / operator) __ where:where? {
+  return withWhere(expression, where);
+}
+
+multilineUnary = operator:operator _ operand:atom {
+  return {
+    type: "call",
+    callee: operator,
+    args:[operand],
+    location: location()
+  };
+}
+
+multilineCallee = multilineUnary / atom
+
+multilineArgs = ("(" _ ")" { return []; } / (arg:atom _ { return arg; })+)
+
+multilineCall = callee:multilineCallee _ args:multilineArgs {
+  return {
+    type: "call",
+    callee: callee,
+    args: args,
+    location: location()
+  };
+}
+
+multilineInvoke = method:property _ object:atom _ args:multilineArgs {
+  return {
+    type: "invoke",
+    object: object,
+    method: method,
+    args: args,
+    location: location()
+  };
+}
+
+multilineBinaryOperand = multilineCall / multilineInvoke / multilineCallee
+
+multilineBinary =
+  first:multilineBinaryOperand
+  rest:(_ operator:operator _ right:multilineBinaryOperand { return { operator, right }; })+ {
+  return rest.reduce(
+    (left, { operator, right }) => ({
+      type: "call",
+      callee: operator,
+      args: [left, right],
+      location: location()
+    }),
+    first);
+  }
+
+multilineExpression = expression:(multilineBinary / multilineBinaryOperand / operator) _ where:where? {
   return withWhere(expression, where);
 }
 
