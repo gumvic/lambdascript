@@ -1,7 +1,4 @@
-- `nl*` -> emptylines
-- multiline destructuring
 - multiline expressions
-- disable caching for the parser as that will screw up indentation parsing
 
 - `(get x:)`/`(get-in [x: y: z:])` versions instead of getters, the same for setters
 - poor syntax error descriptions, parser fails too early
