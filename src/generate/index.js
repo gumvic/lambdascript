@@ -36,27 +36,27 @@ function namify({ name }) {
     .replace(
       /^(do|if|in|for|let|new|try|var|case|else|enum|eval|null|this|true|void|with|await|break|catch|class|const|false|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/g,
       function(match) {
-        return `_${match}_`;
+        return `$${match}`;
       })
     .replace(
       /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?\.]/g,
       function(match) {
         switch(match) {
-          case "+": return "_plus_";
-          case "-": return "_dash_";
-          case "*": return "_star_";
-          case "/": return "_slash_";
-          case ">": return "_right_";
-          case "<": return "_left_";
-          case "=": return "_equals_";
-          case "%": return "_percent_";
-          case "!": return "_bang_";
-          case "|": return "_pipe_";
-          case "&": return "_and_";
-          case "^": return "_caret_";
-          case "~": return "_tilda_";
-          case "?": return "_question_";
-          case ".": return "_dot_";
+          case "+": return "$plus";
+          case "-": return "$dash";
+          case "*": return "$star";
+          case "/": return "$slash";
+          case ">": return "$right";
+          case "<": return "$left";
+          case "=": return "$equals";
+          case "%": return "$percent";
+          case "!": return "$bang";
+          case "|": return "$pipe";
+          case "&": return "$and";
+          case "^": return "$caret";
+          case "~": return "$tilda";
+          case "?": return "$question";
+          case ".": return "$dot";
         }
       });
 }
