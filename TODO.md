@@ -1,3 +1,5 @@
+- get rid of native access in syntax, implement and use a native `get` to bootstrap if need be
+- `nil`?
 - `end where` -> `ende`?
 - `(get x:)`/`(get-in [x: y: z:])` versions instead of getters, the same for setters
 - poor syntax error descriptions, parser fails too early
