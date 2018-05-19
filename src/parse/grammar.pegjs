@@ -52,6 +52,8 @@ _ "whitespace" = [ \t\n\r]*
 
 reservedWord "special word" =
   wordCase
+  / wordWhen
+  / wordElse
   / wordDo
   / wordWhere
   / wordEnd
@@ -60,6 +62,8 @@ reservedWord "special word" =
   / wordExport
 
 wordCase "case" = "case" !beginNameChar
+wordWhen "when" = "when" !beginNameChar
+wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
 wordWhere "where" = "where" !beginNameChar
 wordEnd "end" = "end" !beginNameChar
@@ -265,17 +269,21 @@ monad "monad" =
     }, where);
   }
 
-caseBranch = condition:expression _ "->" _ value:scope {
+caseBranch = wordWhen _ condition:expression _ "->" _ value:expression {
   return {
     condition: condition,
     value: value
   };
 }
 
+caseOtherwise = wordElse _ "->" _ value:expression {
+  return value;
+}
+
 case "case" =
   wordCase _
   branches:(branch:caseBranch _ ";"? _ { return branch; })+
-  "->" _ otherwise:scope _ ";"? _
+  otherwise:caseOtherwise _ ";"? _
   where:(where / end) {
     return withWhere({
       type: "case",
