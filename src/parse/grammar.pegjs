@@ -46,9 +46,8 @@ ast = _ ast:(module / expression) _ {
   return ast;
 }
 
-escapedN = "\\" "\n"
-escapedNR = "\\" "\n\r"
 _ "whitespace" = [ \t\n\r]*
+__ "whitespace" = [ \t]*
 
 reservedWord "special word" =
   wordCase
@@ -261,7 +260,7 @@ monadItem = via:(via:lvalue _ "=" _ { return via; })? value:expression {
 
 monad "monad" =
   wordDo _
-  items:(item:monadItem _ ";"? _ { return item; })+
+  items:(item:monadItem _ { return item; })+
   where:(where / end) {
     return withWhere({
       type: "monad",
@@ -282,8 +281,8 @@ caseOtherwise = wordElse _ "->" _ value:expression {
 
 case "case" =
   wordCase _
-  branches:(branch:caseBranch _ ";"? _ { return branch; })+
-  otherwise:caseOtherwise _ ";"? _
+  branches:(branch:caseBranch _ { return branch; })+
+  otherwise:caseOtherwise _
   where:(where / end) {
     return withWhere({
       type: "case",
@@ -308,9 +307,11 @@ atom =
   / list
   / map
   / lambda
+  / monad
+  / case
   / subExpression
 
-unary = operator:operator _ operand:atom {
+unary = operator:operator __ operand:atom {
   return {
     type: "call",
     callee: operator,
@@ -321,7 +322,7 @@ unary = operator:operator _ operand:atom {
 
 callee = unary / atom
 
-call = callee:callee _ args:("(" _ ")" { return []; } / (arg:atom _ { return arg; })+) {
+call = callee:callee __ args:("(" __ ")" { return []; } / (arg:atom __ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -334,12 +335,12 @@ method = "." name:name {
   return name;
 }
 
-invoke = method:method _ object:atom _ args:(arg:atom _ { return arg; })* {
+invoke = method:method __ object:atom __ args:(arg:atom __ { return arg; })* {
   return {
     type: "invoke",
     object: object,
     method: method,
-    args: args || [],
+    args: args,
     location: location()
   };
 }
@@ -348,7 +349,7 @@ binaryOperand = call / invoke / callee
 
 binary =
   first:binaryOperand
-  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
+  rest:(__ operator:operator __ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -359,9 +360,7 @@ binary =
     first);
   }
 
-expression = binary / binaryOperand / operator / monad / case
-
-scope = expression:expression _ where:where? {
+expression = expression:(binary / binaryOperand / operator) __ where:where? {
   return withWhere(expression, where);
 }
 
@@ -406,7 +405,7 @@ alias = name:name _ "@" _ lvalue:destruct {
 
 lvalue = alias / name / destruct
 
-constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:scope {
+constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression {
   return {
     type: "constant",
     lvalue: lvalue,
@@ -415,7 +414,7 @@ constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:scope {
   };
 }
 
-functionDefinition = name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:scope {
+functionDefinition = name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression {
   return {
     type: "function",
     name: name,
@@ -425,7 +424,7 @@ functionDefinition = name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ b
   };
 }
 
-unaryOperatorDefinition = name:operator _ arg:lvalue _ "->" _ body:scope {
+unaryOperatorDefinition = name:operator _ arg:lvalue _ "->" _ body:expression {
   return {
     type: "function",
     name: name,
@@ -435,7 +434,7 @@ unaryOperatorDefinition = name:operator _ arg:lvalue _ "->" _ body:scope {
   };
 }
 
-binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "->" _ body:scope {
+binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "->" _ body:expression {
   return {
     type: "function",
     name: name,
@@ -449,10 +448,9 @@ operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 
 definition = constantDefinition / operatorDefinition / functionDefinition
 
-definitions =
-  definitions:(definition:definition _ ";"? _ { return definition; })+ {
-    return groupDefinitions(definitions);
-  }
+definitions = definitions:(definition:definition _ { return definition; })+ {
+  return groupDefinitions(definitions);
+}
 
 module "module" =
   wordModule _ name:moduleName _
