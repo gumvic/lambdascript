@@ -48,7 +48,6 @@ ast = _ ast:(module / expression) _ {
 
 escapedN = "\\" "\n"
 escapedNR = "\\" "\n\r"
-__ = (escapedNR / escapedN / [ \t])*
 _ "whitespace" = [ \t\n\r]*
 
 reservedWord "special word" =
@@ -212,9 +211,9 @@ list "list" =
     };
   }
 
-mapKeyValueItem = key:expression _ ":" _ value:expression {
+mapKeyValueItem = key:atom _ value:expression {
   return {
-    key: name,
+    key: key,
     value: value
   };
 }
@@ -258,8 +257,7 @@ monadItem = via:(via:lvalue _ "=" _ { return via; })? value:expression {
 
 monad "monad" =
   wordDo _
-  items:(item:monadItem _ { return item; })+
-  _
+  items:(item:monadItem _ ";"? _ { return item; })+
   where:(where / end) {
     return withWhere({
       type: "monad",
@@ -267,7 +265,7 @@ monad "monad" =
     }, where);
   }
 
-caseBranch = condition:expression _ "->" _ value:expression {
+caseBranch = condition:expression _ "->" _ value:scope {
   return {
     condition: condition,
     value: value
@@ -276,10 +274,8 @@ caseBranch = condition:expression _ "->" _ value:expression {
 
 case "case" =
   wordCase _
-  branches:(branch:caseBranch _ { return branch; })+
-  _
-  "->" _ otherwise:expression
-  _
+  branches:(branch:caseBranch _ ";"? _ { return branch; })+
+  "->" _ otherwise:scope _ ";"? _
   where:(where / end) {
     return withWhere({
       type: "case",
@@ -304,11 +300,9 @@ atom =
   / list
   / map
   / lambda
-  / monad
-  / case
   / subExpression
 
-unary = operator:operator __ operand:atom {
+unary = operator:operator _ operand:atom {
   return {
     type: "call",
     callee: operator,
@@ -319,7 +313,7 @@ unary = operator:operator __ operand:atom {
 
 callee = unary / atom
 
-call = callee:callee __ args:("(" __ ")" { return []; } / (arg:atom __ { return arg; })+) {
+call = callee:callee _ args:("(" _ ")" { return []; } / (arg:atom _ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -332,7 +326,7 @@ method = "." name:name {
   return name;
 }
 
-invoke = method:method __ object:atom __ args:(arg:atom __ { return arg; })* {
+invoke = method:method _ object:atom _ args:(arg:atom _ { return arg; })* {
   return {
     type: "invoke",
     object: object,
@@ -346,7 +340,7 @@ binaryOperand = call / invoke / callee
 
 binary =
   first:binaryOperand
-  rest:(__ operator:operator __ right:binaryOperand { return { operator, right }; })+ {
+  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -357,7 +351,9 @@ binary =
     first);
   }
 
-expression = expression:(binary / binaryOperand / operator) __ where:where? {
+expression = binary / binaryOperand / operator / monad / case
+
+scope = expression:expression _ where:where? {
   return withWhere(expression, where);
 }
 
@@ -402,41 +398,41 @@ alias = name:name _ "@" _ lvalue:destruct {
 
 lvalue = alias / name / destruct
 
-constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:expression _ where:where? {
+constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:scope {
   return {
     type: "constant",
     lvalue: lvalue,
-    value: withWhere(value, where),
+    value: value,
     location: location()
   };
 }
 
-functionDefinition = name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression _ where:where? {
+functionDefinition = name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:scope {
   return {
     type: "function",
     name: name,
     args: args,
-    body: withWhere(body, where),
+    body: body,
     location: location()
   };
 }
 
-unaryOperatorDefinition = name:operator _ arg:lvalue _ "->" _ body:expression _ where:where? {
+unaryOperatorDefinition = name:operator _ arg:lvalue _ "->" _ body:scope {
   return {
     type: "function",
     name: name,
     args: [arg],
-    body: withWhere(body, where),
+    body: body,
     location: location()
   };
 }
 
-binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "->" _ body:expression _ where:where? {
+binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "->" _ body:scope {
   return {
     type: "function",
     name: name,
     args: [left, right],
-    body: withWhere(body, where),
+    body: body,
     location: location()
   };
 }
@@ -446,7 +442,7 @@ operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 definition = constantDefinition / operatorDefinition / functionDefinition
 
 definitions =
-  definitions:(definition:definition _ { return definition; })+ {
+  definitions:(definition:definition _ ";"? _ { return definition; })+ {
     return groupDefinitions(definitions);
   }
 
