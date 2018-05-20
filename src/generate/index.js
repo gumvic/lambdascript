@@ -325,21 +325,6 @@ function genInvoke({ object, method, args }, context) {
   return `${object}.${method}(${args})`;
 }
 
-function genImport({ module, value }, context) {
-  const alias = namify(module);
-  if (value.type === "names") {
-    value = value.items
-      .map(({ key, name }) => ({ key: namify(key), name: namify(name) }))
-      .map(({ key, name }) => `const ${name} = ${alias}.${key};`);
-  }
-  else {
-    value = namify(value);
-  }
-  return lines(
-    `const ${alias} = require("${module.name}");`,
-    value);
-}
-
 function genAutoImport({ module, value }, context) {
   module = {
     type: "name",
@@ -377,6 +362,26 @@ function genAutoImport({ module, value }, context) {
 
 function genAutoImports(imports, context) {
   return lines(imports.map(_import => genAutoImport(_import, context)));
+}
+
+function genImport({ module, value }, context) {
+  if (!module) {
+    return "";
+  }
+  else {
+    const alias = namify(module);
+    if (value.type === "names") {
+      value = value.items
+        .map(({ key, name }) => ({ key: namify(key), name: namify(name) }))
+        .map(({ key, name }) => `const ${name} = ${alias}.${key};`);
+    }
+    else {
+      value = namify(value);
+    }
+    return lines(
+      `const ${alias} = require("${module.name}");`,
+      value);
+  }
 }
 
 function genModuleImports({ imports }, context) {

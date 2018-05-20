@@ -168,7 +168,9 @@ function checkAutoImport({ module, value }, context) {
 }
 
 function checkImport({ module, value }, context) {
-  context.define(module);
+  if (module) {
+    context.define(module);
+  }
   if (value.type === "names") {
     let imported = {};
     for(let { key, name } of value.items) {
@@ -184,18 +186,20 @@ function checkImport({ module, value }, context) {
   }
 }
 
-function checkModuleImports({ name, imports }, context) {
+function checkModuleImports({ name: { name: moduleName }, imports }, context) {
   let imported = {};
   for(let _import of imports) {
-    const { module: { name: importName }, location } = _import;
-    if (importName === name) {
-      throw new CheckError(`Module ${name} imports itself`, location);
-    }
-    if (imported[importName]) {
-      throw new CheckError(`Duplicate import: ${importName}`, location);
+    const { module: importedModule, location } = _import;
+    if (importedModule) {
+      if (importedModule.name === moduleName) {
+        throw new CheckError(`Module ${moduleName} imports itself`, location);
+      }
+      if (imported[importedModule.name]) {
+        throw new CheckError(`Duplicate import: ${importName}`, location);
+      }
+      imported[importedModule.name] = true;
     }
     check(_import, context);
-    imported[importName] = true;
   }
 }
 

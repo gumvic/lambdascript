@@ -71,16 +71,14 @@ name "name" =
     };
   }
 
-beginModuleNameChar = [a-zA-Z_]
 moduleNameChar = [0-9a-zA-Z_\.\/\-]
 moduleName "module name" =
   !reservedWord
-  first:beginModuleNameChar
-  rest:(moduleNameChar+)?
+  chars:moduleNameChar+
   {
     return {
       type: "name",
-      name: [first].concat(rest || []).join(""),
+      name: chars.join(""),
       location: location()
     };
   }
@@ -478,7 +476,7 @@ names = "{" _
   };
 }
 
-import "import" = wordImport _ module:moduleName _ value:(name / names) {
+import "import" = wordImport _ module:moduleName? _ value:(name / names) {
   return {
     type: "import",
     module: module,

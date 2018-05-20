@@ -1,3 +1,4 @@
+- use `$get`, `$ImMap`, `$run` etc when compiling so that the user wouldn't shadow them
 - check `get`/`getIn` if destructuring, `ImMap` on a map literal etc.
 - guards?
 - `nil`?
