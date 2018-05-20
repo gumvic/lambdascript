@@ -340,6 +340,53 @@ function genImport({ module, value }, context) {
     value);
 }
 
+function genAutoImport({ module, value }, context) {
+  module = {
+    type: "name",
+    name: module
+  };
+  if (typeof value === "string") {
+    value = {
+      type: "name",
+      name: value
+    };
+  }
+  else {
+    const items = Object.keys(value)
+      .map(k => ({
+        key: {
+          type: "name",
+          name: k
+        },
+        name: {
+          type: "name",
+          name: value[k]
+        }
+      }));
+    value = {
+      type: "names",
+      items: items
+    };
+  }
+  return generate({
+    type: "import",
+    module: module,
+    value: value
+  });
+}
+
+function genAutoImports(imports, context) {
+  return lines(imports.map(_import => genAutoImport(_import, context)));
+}
+
+function genModuleImports({ imports }, context) {
+  return lines(imports.map(_import => generate(_import, context)));
+}
+
+function genModuleDefinitions({ definitions }, context) {
+  return lines(definitions.map(definition => genDefinition(definition, context)));
+}
+
 function genExport({ value }, context) {
   if (value.type === "names") {
     const items = value.items
@@ -356,21 +403,13 @@ function genExport({ value }, context) {
   return `module.exports = ${value};`
 }
 
-function genModuleImports({ imports }, context) {
-  return lines(imports.map(_import => generate(_import, context)));
-}
-
-function genModuleDefinitions({ definitions }, context) {
-  return lines(definitions.map(definition => genDefinition(definition, context)));
-}
-
 function genModuleExport({ export: _export }, context) {
   return generate(_export, context);
 }
 
 function genModule(ast, context) {
-  ast.imports = context.autoImports.concat(ast.imports);
   return lines(
+    genAutoImports(context.autoImports, context),
     genModuleImports(ast, context),
     genModuleDefinitions(ast, context),
     genModuleExport(ast, context));
@@ -381,7 +420,7 @@ function genJS({ code }, context) {
 }
 
 function initContext({ autoImports }) {
-  return new Context(autoImports);
+  return new Context(autoImports || []);
 }
 
 function generate(ast, context) {

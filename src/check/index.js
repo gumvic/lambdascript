@@ -146,6 +146,27 @@ function checkLValue(ast, context) {
   }
 }
 
+function checkAutoImport({ module, value }, context) {
+  context.define({
+    type: "name",
+    name: module
+  });
+  if (typeof value === "string") {
+    context.define({
+      type: "name",
+      name: value
+    });
+  }
+  else {
+    for(let k in value) {
+      context.define({
+        type: "name",
+        name: value[k]
+      });
+    }
+  }
+}
+
 function checkImport({ module, value }, context) {
   context.define(module);
   if (value.type === "names") {
@@ -160,22 +181,6 @@ function checkImport({ module, value }, context) {
   }
   else {
     context.define(value);
-  }
-}
-
-function checkExport({ value }, context) {
-  if (value.type === "names") {
-    let exported = {};
-    for(let { key, name } of value.items) {
-      if (exported[key.name]) {
-        throw new CheckError(`Already exported: ${key.name}`, key.location);
-      }
-      check(name, context);
-      exported[key.name] = true;
-    }
-  }
-  else {
-    check(value, context);
   }
 }
 
@@ -198,6 +203,22 @@ function checkModuleDefinitions({ definitions }, context) {
   checkDefinitions(definitions, context);
 }
 
+function checkExport({ value }, context) {
+  if (value.type === "names") {
+    let exported = {};
+    for(let { key, name } of value.items) {
+      if (exported[key.name]) {
+        throw new CheckError(`Already exported: ${key.name}`, key.location);
+      }
+      check(name, context);
+      exported[key.name] = true;
+    }
+  }
+  else {
+    check(value, context);
+  }
+}
+
 function checkModuleExport({ export: _export }, context) {
   check(_export, context);
 }
@@ -210,9 +231,9 @@ function checkModule(ast, context) {
 }
 
 function initContext({ autoImports }) {
-  const context = new Context()
-  for (let _import of autoImports) {
-    checkImport(_import, context);
+  const context = new Context();
+  for (let _import of autoImports || []) {
+    checkAutoImport(_import, context);
   }
   return context;
 }
