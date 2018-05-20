@@ -223,7 +223,7 @@ function genVariant({ args, body }, context) {
 function genLambda({ args, body }, context) {
   body = genVariant({ args, body }, context);
   return lines(
-    `() => {`,
+    `function() {`,
     __(body),
     __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
     "}");
@@ -282,10 +282,10 @@ function genScope({ definitions, body }, context) {
   definitions = lines(definitions.map(definition => genDefinition(definition, context)));
   body = generate(body, context);
   return lines(
-    "(() => {",
+    "((() => {",
     __(definitions),
     __(`return ${body};`),
-    "}())");
+    "})())");
 }
 
 function genCall(ast, context) {
