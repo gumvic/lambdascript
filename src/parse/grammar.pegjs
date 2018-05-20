@@ -446,14 +446,60 @@ definitions = definitions:(definition:definition _ { return definition; })+ {
   return groupDefinitions(definitions);
 }
 
+namesKeyNameItem = key:key _ name:(name / operator) {
+  return {
+    key: {
+      type: "name",
+      name: key.value,
+      location: key.location
+    },
+    name: name
+  };
+}
+
+namesKeyItem = name:(name / operator) {
+  return {
+    key: name,
+    name: name
+  };
+}
+
+namesItem = namesKeyNameItem / namesKeyItem
+
+names = "{" _
+  items:(first:namesItem rest:(_ "," _ item:namesItem { return item; })* { return [first].concat(rest); })
+  _ "}" {
+  return {
+    type: "names",
+    items: items
+  };
+}
+
+import "import" = wordImport _ module:moduleName _ value:(name / names) {
+  return {
+    type: "import",
+    module: module,
+    value: value
+  };
+}
+
+export "export" = wordExport _ value:(name / names) {
+  return {
+    type: "export",
+    value: value
+  };
+}
+
 module "module" =
   wordModule _ name:moduleName _
-  definitions:definitions {
+  imports:(_import:import _ { return _import; })*
+  definitions:definitions _
+  _export:export {
   return {
     type: "module",
     name: name,
-    imports: [],
-    export: { names: [] },
+    imports: imports,
+    export: _export,
     definitions: definitions
   };
 }

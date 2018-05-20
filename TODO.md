@@ -1,3 +1,4 @@
+- keys like `+:`
 - monad syntax -- maybe use `{ a; b; }`?
 - check `get`/`getIn` if destructuring, `ImMap` on a map literal etc.
 - guards?

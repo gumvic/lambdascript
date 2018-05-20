@@ -325,14 +325,35 @@ function genInvoke({ object, method, args }, context) {
   return `${object}.${method}(${args})`;
 }
 
-function genImport({ module, names }, context) {
+function genImport({ module, value }, context) {
   const alias = namify(module);
-  names = names
-    .map(namify)
-    .map(name => `const ${name} = ${alias}.${name};`);
+  if (value.type === "names") {
+    value = value.items
+      .map(({ key, name }) => ({ key: namify(key), name: namify(name) }))
+      .map(({ key, name }) => `const ${name} = ${alias}.${key};`);
+  }
+  else {
+    value = namify(value);
+  }
   return lines(
     `const ${alias} = require("${module.name}");`,
-    names);
+    value);
+}
+
+function genExport({ value }, context) {
+  if (value.type === "names") {
+    const items = value.items
+      .map(({ key, name }) => ({ key: namify(key), name: namify(name) }))
+      .map(({ key, name }) => `${key}: ${name}`)
+      .join(",");
+    value = lines("{",
+    __(items),
+    "}");
+  }
+  else {
+    value = generate(value);
+  }
+  return `module.exports = ${value};`
 }
 
 function genModuleImports({ imports }, context) {
@@ -343,20 +364,8 @@ function genModuleDefinitions({ definitions }, context) {
   return lines(definitions.map(definition => genDefinition(definition, context)));
 }
 
-function genModuleExport({ export: { names } }, context) {
-  if (names.length === 1) {
-    return `module.exports = ${namify(names[0])};`;
-  }
-  else {
-    names = names
-      .map(namify)
-      .map(name => `"${name}": ${name}`)
-      .join(",\n");
-    return lines(
-      'module.exports = {',
-      __(names),
-      '}');
-  }
+function genModuleExport({ export: _export }, context) {
+  return generate(_export, context);
 }
 
 function genModule(ast, context) {

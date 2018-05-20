@@ -17,10 +17,10 @@ class Context {
     }
   }
 
-  assertDefined(name, location) {
+  assertDefined({ name, location }) {
     if (this.defined.indexOf(name) >= 0) {}
     else if (this.parent) {
-      this.parent.assertDefined(name, location);
+      this.parent.assertDefined({ name, location });
     }
     else {
       throw new CheckError(`Name not defined: ${name}`, location);
@@ -32,8 +32,8 @@ class Context {
   }
 }
 
-function checkName({ name, location }, context) {
-  context.assertDefined(name, location);
+function checkName(ast, context) {
+  context.assertDefined(ast);
 }
 
 function checkMap({ items }, context) {
@@ -146,10 +146,36 @@ function checkLValue(ast, context) {
   }
 }
 
-function checkImport({ module, names, location }, context) {
+function checkImport({ module, value }, context) {
   context.define(module);
-  for(let name of names) {
-    context.define(name);
+  if (value.type === "names") {
+    let imported = {};
+    for(let { key, name } of value.items) {
+      if (imported[key.name]) {
+        throw new CheckError(`Already imported: ${key.name}`, key.location);
+      }
+      context.define(name);
+      imported[key.name] = true;
+    }
+  }
+  else {
+    context.define(value);
+  }
+}
+
+function checkExport({ value }, context) {
+  if (value.type === "names") {
+    let exported = {};
+    for(let { key, name } of value.items) {
+      if (exported[key.name]) {
+        throw new CheckError(`Already exported: ${key.name}`, key.location);
+      }
+      check(name, context);
+      exported[key.name] = true;
+    }
+  }
+  else {
+    check(value, context);
   }
 }
 
@@ -172,10 +198,8 @@ function checkModuleDefinitions({ definitions }, context) {
   checkDefinitions(definitions, context);
 }
 
-function checkModuleExport({ export: { names } }, context) {
-  for(let name of names) {
-    check(name, context);
-  }
+function checkModuleExport({ export: _export }, context) {
+  check(_export, context);
 }
 
 function checkModule(ast, context) {
