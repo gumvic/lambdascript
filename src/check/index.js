@@ -227,11 +227,29 @@ function checkModuleExport({ export: _export }, context) {
   check(_export, context);
 }
 
-function checkModule(ast, context) {
-  const { definitions } = ast;
+function checkModuleMain(ast, context) {
+  context.assertDefined({ name: "run" });
+}
+
+function checkApp(ast, context) {
+  checkModuleImports(ast, context);
+  checkModuleDefinitions(ast, context);
+  checkModuleMain(ast, context);
+}
+
+function checkLib(ast, context) {
   checkModuleImports(ast, context);
   checkModuleDefinitions(ast, context);
   checkModuleExport(ast, context);
+}
+
+function checkModule(ast, context) {
+  if (!ast.export) {
+    return checkApp(ast, context);
+  }
+  else {
+    return checkLib(ast, context);
+  }
 }
 
 function initContext({ autoImports }) {

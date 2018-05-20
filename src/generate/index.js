@@ -412,18 +412,33 @@ function genModuleExport({ export: _export }, context) {
   return generate(_export, context);
 }
 
-function genModuleMain({ definitions }, context) {
-  const main = definitions.filter(({ name: { name } }) => name === "main")[0];
-  return main ? "run(main);" : "";
+function genModuleMain(ast, context) {
+  return "run(main);";
 }
 
-function genModule(ast, context) {
+function genApp(ast, context) {
   return lines(
     genAutoImports(context.autoImports, context),
     genModuleImports(ast, context),
     genModuleDefinitions(ast, context),
-    genModuleExport(ast, context),
     genModuleMain(ast, context));
+}
+
+function genLib(ast, context) {
+  return lines(
+    genAutoImports(context.autoImports, context),
+    genModuleImports(ast, context),
+    genModuleDefinitions(ast, context),
+    genModuleExport(ast, context));
+}
+
+function genModule(ast, context) {
+  if (!ast.export) {
+    return genApp(ast, context);
+  }
+  else {
+    return genLib(ast, context);
+  }
 }
 
 function genJS({ code }, context) {

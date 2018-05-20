@@ -497,7 +497,7 @@ module "module" =
   wordModule _ name:moduleName _
   imports:(_import:import _ { return _import; })*
   definitions:definitions? _
-  _export:export {
+  _export:export? {
   return {
     type: "module",
     name: name,

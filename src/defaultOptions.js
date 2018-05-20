@@ -35,7 +35,8 @@ module.exports = {
         "getIn": "getIn",
         "for": "for",
         "monad": "monad",
-        "isMonad": "isMonad"
+        "isMonad": "isMonad",
+        "run": "run"
       }
     }
   ]
