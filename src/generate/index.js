@@ -412,12 +412,18 @@ function genModuleExport({ export: _export }, context) {
   return generate(_export, context);
 }
 
+function genModuleMain({ definitions }, context) {
+  const main = definitions.filter(({ name: { name } }) => name === "main")[0];
+  return main ? "run(main);" : "";
+}
+
 function genModule(ast, context) {
   return lines(
     genAutoImports(context.autoImports, context),
     genModuleImports(ast, context),
     genModuleDefinitions(ast, context),
-    genModuleExport(ast, context));
+    genModuleExport(ast, context),
+    genModuleMain(ast, context));
 }
 
 function genJS({ code }, context) {
