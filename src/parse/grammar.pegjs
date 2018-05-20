@@ -172,10 +172,11 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-key "key" = key:name ":" {
+key "key" = key:(name / operator) ":" {
   return {
     type: "key",
-    value: key.name
+    value: key.name,
+    location: location()
   };
 }
 
@@ -383,7 +384,8 @@ mapDestruct = "{" _
   _ "}" {
   return {
     type: "mapDestruct",
-    items: items
+    items: items,
+    location: location()
   };
 }
 
@@ -393,7 +395,8 @@ alias = name:name _ "@" _ lvalue:destruct {
   return {
     type: "alias",
     name: name,
-    lvalue: lvalue
+    lvalue: lvalue,
+    location: location()
   };
 }
 
@@ -479,14 +482,16 @@ import "import" = wordImport _ module:moduleName _ value:(name / names) {
   return {
     type: "import",
     module: module,
-    value: value
+    value: value,
+    location: location()
   };
 }
 
 export "export" = wordExport _ value:(name / names) {
   return {
     type: "export",
-    value: value
+    value: value,
+    location: location()
   };
 }
 
@@ -500,6 +505,7 @@ module "module" =
     name: name,
     imports: imports,
     export: _export,
-    definitions: definitions
+    definitions: definitions,
+    location: location()
   };
 }
