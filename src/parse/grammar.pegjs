@@ -368,7 +368,7 @@ mapDestructKeyItem = name:name {
   return {
     key: {
       type: "key",
-      name: name.name,
+      value: name.name,
       location: name.location
     },
     lvalue: name

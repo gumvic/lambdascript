@@ -1,3 +1,11 @@
+- `ReferenceError: users is not defined`:
+```
+let main = do
+  print users;
+end where
+  let users = users
+end
+```
 - use `$get`, `$ImMap`, `$run` etc when compiling so that the user wouldn't shadow them
 - check `get`/`getIn` if destructuring, `ImMap` on a map literal etc.
 - guards?

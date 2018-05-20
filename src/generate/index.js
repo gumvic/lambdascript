@@ -165,8 +165,8 @@ function genString({ value }, context) {
   return `"${value}"`;
 }
 
-function genKey(ast, context) {
-  return `"${namify(ast)}"`;
+function genKey({ value, location }, context) {
+  return `"${namify({ name: value, location: location })}"`;
 }
 
 function genName(ast, context) {

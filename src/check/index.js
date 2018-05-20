@@ -227,14 +227,11 @@ function checkModuleExport({ export: _export }, context) {
   check(_export, context);
 }
 
-function checkModuleMain(ast, context) {
-  context.assertDefined({ name: "run" });
-}
-
 function checkApp(ast, context) {
   checkModuleImports(ast, context);
   checkModuleDefinitions(ast, context);
-  checkModuleMain(ast, context);
+  context.assertDefined({ name: "run" });
+  context.assertDefined({ name: "main" });
 }
 
 function checkLib(ast, context) {
