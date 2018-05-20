@@ -1,3 +1,6 @@
+- allow `:keys/like.this`
+- `'` in names
+- `nil` which is `undefined`, `undefined`, `null`, `true` and `false` should be in `core.native`
 - `ReferenceError: users is not defined`:
 ```
 let main = do
@@ -9,7 +12,6 @@ end
 - use `$get`, `$ImMap`, `$run` etc when compiling so that the user wouldn't shadow them
 - check `get`/`getIn` if destructuring, `ImMap` on a map literal etc.
 - guards?
-- `nil`?
 - `end where` -> `ende`?
 - `(get x:)`/`(get-in [x: y: z:])` versions instead of getters, the same for setters
 - poor syntax error descriptions, parser fails too early
