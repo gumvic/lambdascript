@@ -392,7 +392,7 @@ function genExport({ value }, context) {
     const items = value.items
       .map(({ key, name }) => ({ key: namify(key), name: namify(name) }))
       .map(({ key, name }) => `${key}: ${name}`)
-      .join(",");
+      .join(",\n");
     value = lines("{",
     __(items),
     "}");

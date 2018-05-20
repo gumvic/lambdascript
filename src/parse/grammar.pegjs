@@ -57,9 +57,9 @@ wordModule "module" = "module" !beginNameChar
 wordImport "import" = "import" !beginNameChar
 wordExport "export" = "export" !beginNameChar
 
-beginNameChar = [a-z_]
+beginNameChar = [a-zA-Z_]
 nameChar = [0-9a-zA-Z_]
-name "function name" =
+name "name" =
   !reservedWord
   first:beginNameChar
   rest:(nameChar+)?
@@ -498,14 +498,14 @@ export "export" = wordExport _ value:(name / names) {
 module "module" =
   wordModule _ name:moduleName _
   imports:(_import:import _ { return _import; })*
-  definitions:definitions _
+  definitions:definitions? _
   _export:export {
   return {
     type: "module",
     name: name,
     imports: imports,
     export: _export,
-    definitions: definitions,
+    definitions: definitions || [],
     location: location()
   };
 }
