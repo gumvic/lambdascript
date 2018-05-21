@@ -95,6 +95,15 @@ operator "operator" =
   };
 }
 
+keyChar = [0-9a-zA-Z_\.\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
+key "key" = chars:keyChar+ ":" {
+  return {
+    type: "key",
+    value: chars.join(""),
+    location: location()
+  };
+}
+
 nil "nil" = "nil" {
   return {
     type: "nil",
@@ -145,14 +154,6 @@ string "string" = quotation_mark chars:char* quotation_mark {
   return {
     type: "string",
     value: chars.join(""),
-    location: location()
-  };
-}
-
-key "key" = key:(name / operator) ":" {
-  return {
-    type: "key",
-    value: key.name,
     location: location()
   };
 }

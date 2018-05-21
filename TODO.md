@@ -1,6 +1,4 @@
-- allow `:keys/like.this`
 - `'` in names
-- `nil` which is `undefined`, `undefined`, `null`, `true` and `false` should be in `core.native`
 - `ReferenceError: users is not defined`:
 ```
 let main = do
