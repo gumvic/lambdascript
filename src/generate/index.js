@@ -39,7 +39,7 @@ function namify({ name }) {
         return `$${match}`;
       })
     .replace(
-      /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?\.]/g,
+      /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?\.\']/g,
       function(match) {
         switch(match) {
           case "+": return "$plus";
@@ -57,6 +57,7 @@ function namify({ name }) {
           case "~": return "$tilda";
           case "?": return "$question";
           case ".": return "$dot";
+          case "'": return "$quote";
         }
       });
 }

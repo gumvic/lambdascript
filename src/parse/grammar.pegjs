@@ -58,7 +58,7 @@ wordImport "import" = "import" !beginNameChar
 wordExport "export" = "export" !beginNameChar
 
 beginNameChar = [a-zA-Z_]
-nameChar = [0-9a-zA-Z_]
+nameChar = [0-9a-zA-Z_']
 name "name" =
   !reservedWord
   first:beginNameChar
@@ -95,7 +95,7 @@ operator "operator" =
   };
 }
 
-keyChar = [0-9a-zA-Z_\.\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
+keyChar = [0-9a-zA-Z_'\.\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
 key "key" = chars:keyChar+ ":" {
   return {
     type: "key",
