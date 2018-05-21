@@ -2,6 +2,8 @@ const GenerationError = require("./error");
 
 const defaultOptions = require("../defaultOptions");
 
+const BAD_ARITY = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
+
 class Context {
   constructor(autoImports) {
     this.autoImports = autoImports;
@@ -11,7 +13,7 @@ class Context {
   oneOffName() {
     return {
       type: "name",
-      name: `$${this.oneOffCount++}`
+      name: `$tmp${this.oneOffCount++}`
     };
   }
 }
@@ -34,7 +36,7 @@ function __(str) {
 function namify({ name }) {
   return name
     .replace(
-      /^(do|if|in|for|let|new|try|var|case|else|enum|eval|null|this|true|void|with|await|break|catch|class|const|false|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/g,
+      /^(do|if|in|for|let|new|try|var|case|else|enum|eval|null|undefined|this|true|void|with|await|break|catch|class|const|false|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/g,
       function(match) {
         return `$${match}`;
       })
@@ -113,11 +115,16 @@ function genMapDestruct({ items }, value, context) {
     return genLValue(lvalue, value, context);
   }
   if (items.length > 1) {
-    const tmpName = context.oneOffName();
-    value = generate(value, context);
-    return lines(
-      `const ${namify(tmpName)} = ${value};`,
-      items.map(item => genItem(item, tmpName, context)));
+    if (value.type === "name") {
+      return items.map(item => genItem(item, value, context));
+    }
+    else {
+      const tmpName = context.oneOffName();
+      value = generate(value, context);
+      return lines(
+        `const ${namify(tmpName)} = ${value};`,
+        items.map(item => genItem(item, tmpName, context)));
+    }
   }
   else {
     return genItem(items[0], value, context);
@@ -178,14 +185,63 @@ function genConstant({ lvalue, value }, context) {
   return genLValue(lvalue, value, context);
 }
 
-function genFunction({ name, variants }, context) {
-  const body = variants
-    .map(variant => genVariant(variant, context))
-    .join("\nelse ");
+function pregenFunctionVariant({ name, args, body }, context) {
+  const arity = args.length;
+  name = name ? `${name}$${arity}` : "";
+  const argsList = args
+    .map((arg, i) =>
+      arg.type === "name" ?
+        arg :
+        { type: "name", name: `$arg${i}` });
+  const initArgs = lines(args
+    .map((arg, i) =>
+      arg.type === "name" ?
+        null :
+        genLValue(arg, argsList[i], context)));
+  args = argsList.map(arg => generate(arg, context)).join(", ");
+  body = lines(
+    initArgs,
+    `return ${generate(body, context)};`);
+  return {
+    arity: arity,
+    name: name,
+    args: args,
+    body: body
+  };
+}
+
+function genFunctionVariant(ast, context) {
+  const { name, args, body } = pregenFunctionVariant(ast, context);
   return lines(
-    `function ${namify(name)}() {`,
+    `function ${name}(${args}) {`,
     __(body),
-    __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
+    "}");
+}
+
+function genFunction({ name, variants }, context) {
+  name = namify(name);
+  const functions = variants
+    .map(({ args, body }) =>
+      genFunctionVariant({ name, args, body }, context));
+  const arities = variants.map(({ args }) => {
+    const arity = args.length;
+    args = args.map((arg, i) => `arguments[${i}]`);
+    return lines(
+      `case ${arity}:`,
+      __(`return ${name}$${arity}(${args.join(", ")});`));
+  });
+  const badArity = lines(
+    "default:",
+    __(BAD_ARITY));
+  const body = lines(
+    "switch(arguments.length) {",
+      arities,
+      badArity,
+    "}");
+  return lines(
+    functions,
+    `function ${name}() {`,
+    __(body),
     "}");
 }
 
@@ -199,22 +255,16 @@ function genDefinition(ast, context) {
   }
 }
 
-function genVariant({ args, body }, context) {
-  const variant = lines(
-    args.map((arg, i) => genLValue(arg, { type: "js", code: `arguments[${i}]` }, context)),
-    `return ${generate(body, context)};`);
-  return lines(
-    `if (arguments.length === ${args.length}) {`,
-    __(variant),
+function genLambda(ast, context) {
+  const { arity, args, body } = pregenFunctionVariant(ast, context);
+  const badArity = lines(
+    `if(arguments.length !== ${arity}) {`,
+    __(BAD_ARITY),
     "}");
-}
-
-function genLambda({ args, body }, context) {
-  body = genVariant({ args, body }, context);
   return lines(
-    `function() {`,
+    `function(${args}) {`,
+    __(badArity),
     __(body),
-    __("throw new TypeError(\"Arity not supported: \" + arguments.length.toString());"),
     "}");
 }
 
@@ -430,10 +480,6 @@ function genModule(ast, context) {
   }
 }
 
-function genJS({ code }, context) {
-  return code;
-}
-
 function initContext({ autoImports }) {
   return new Context(autoImports || []);
 }
@@ -456,7 +502,6 @@ function generate(ast, context) {
     case "import": return genImport(ast, context);
     case "export": return genExport(ast, context);
     case "module": return genModule(ast, context);
-    case "js": return genJS(ast, context);
     default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }
