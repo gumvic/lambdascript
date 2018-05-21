@@ -259,10 +259,7 @@ function initContext({ autoImports }) {
 
 function check(ast, context) {
   switch (ast.type) {
-    case "undefined":
-    case "null":
-    case "false":
-    case "true":
+    case "nil":
     case "number":
     case "string":
     case "key": return;

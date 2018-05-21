@@ -95,30 +95,9 @@ operator "operator" =
   };
 }
 
-undefined "undefined" = "undefined" {
+nil "nil" = "nil" {
   return {
-    type: "undefined",
-    location: location()
-  };
-}
-
-null "null" = "null" {
-  return {
-    type: "null",
-    location: location()
-  };
-}
-
-false "false" = "false" {
-  return {
-    type: "false",
-    location: location()
-  };
-}
-
-true "true" = "true" {
-  return {
-    type: "true",
+    type: "nil",
     location: location()
   };
 }
@@ -282,10 +261,7 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
 }
 
 atom =
-  undefined
-  / null
-  / false
-  / true
+  nil
   / number
   / string
   / key

@@ -141,20 +141,8 @@ function genLValue(ast, value, context) {
   }
 }
 
-function genUndefined(ast, context) {
+function genNil(ast, context) {
   return "undefined";
-}
-
-function genNull(ast, context) {
-  return "null";
-}
-
-function genFalse(ast, context) {
-  return "false";
-}
-
-function genTrue(ast, context) {
-  return "true";
 }
 
 function genNumber({ value }, context) {
@@ -451,10 +439,7 @@ function initContext({ autoImports }) {
 
 function generate(ast, context) {
   switch (ast.type) {
-    case "undefined": return genUndefined(ast, context);
-    case "null": return genNull(ast, context);
-    case "false": return genFalse(ast, context);
-    case "true": return genTrue(ast, context);
+    case "nil": return genNil(ast, context);
     case "number": return genNumber(ast, context);
     case "string": return genString(ast, context);
     case "key": return genKey(ast, context);
