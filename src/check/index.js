@@ -138,11 +138,19 @@ function checkLValue(ast, context) {
     context.define(ast.name);
     checkLValue(ast.lvalue, context);
   }
+  else if (ast.type === "listDestruct") {
+    for(let lvalue of ast.items) {
+      checkLValue(lvalue, context);
+    }
+  }
   else if (ast.type === "mapDestruct") {
     for(let { key, lvalue } of ast.items) {
       check(key, context);
       checkLValue(lvalue, context);
     }
+  }
+  else {
+    new CheckError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }
 

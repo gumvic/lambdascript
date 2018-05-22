@@ -102,6 +102,43 @@ function isBuiltInOperator(name, arity) {
   }
 }
 
+function genListDestruct({ items }, value, context) {
+  function genItem({ key, lvalue }, value, context) {
+    key = {
+      type: "number",
+      value: key.toString()
+    }
+    value = {
+      type: "call",
+      callee: {
+        type: "name",
+        name: "get"
+      },
+      args: [value, key]
+    };
+    return genLValue(lvalue, value, context);
+  }
+  if (items.length > 1) {
+    if (value.type === "name") {
+      return items
+        .map((item, i) =>
+          genItem({ key: i, lvalue: item }, value, context));
+    }
+    else {
+      const tmpName = context.oneOffName();
+      value = generate(value, context);
+      return lines(
+        `const ${namify(tmpName)} = ${value};`,
+        items
+          .map((item, i) =>
+            genItem({ key: i, lvalue: item }, tmpName, context)));
+    }
+  }
+  else {
+    return genItem({ key: 0, lvalue: items[0] }, value, context);
+  }
+}
+
 function genMapDestruct({ items }, value, context) {
   function genItem({ key, lvalue }, value, context) {
     value = {
@@ -144,8 +181,14 @@ function genLValue(ast, value, context) {
       `const ${name} = ${value};`,
       genLValue(ast.lvalue, ast.name, context));
   }
+  else if (ast.type === "listDestruct") {
+    return genListDestruct(ast, value, context);
+  }
   else if (ast.type === "mapDestruct") {
     return genMapDestruct(ast, value, context);
+  }
+  else {
+    new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }
 

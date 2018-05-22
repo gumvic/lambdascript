@@ -339,6 +339,18 @@ expression = expression:(binary / binaryOperand / operator) _ where:where? {
   }
 }
 
+listDestructItem = lvalue
+
+listDestruct = "[" _
+  items:(first:listDestructItem rest:(_ "," _ item:listDestructItem { return item; })* { return [first].concat(rest); })
+  _ "]" {
+  return {
+    type: "listDestruct",
+    items: items,
+    location: location()
+  };
+}
+
 mapDestructKeyLValueItem = key:expression _ "->" _ lvalue:lvalue {
   return {
     key: key,
@@ -369,7 +381,7 @@ mapDestruct = "{" _
   };
 }
 
-destruct = mapDestruct
+destruct = listDestruct / mapDestruct
 
 alias = name:name _ "@" _ lvalue:destruct {
   return {
