@@ -371,7 +371,7 @@ function genAutoImport({ module, value }, context) {
   };
   if (typeof value === "string") {
     value = {
-      type: "name",
+      type: "symbol",
       name: value
     };
   }
@@ -379,16 +379,16 @@ function genAutoImport({ module, value }, context) {
     const items = Object.keys(value)
       .map(k => ({
         key: {
-          type: "name",
+          type: "symbol",
           name: k
         },
         name: {
-          type: "name",
+          type: "symbol",
           name: value[k]
         }
       }));
     value = {
-      type: "names",
+      type: "symbols",
       items: items
     };
   }
@@ -409,13 +409,16 @@ function genImport({ module, value }, context) {
   }
   else {
     const alias = namify(module);
-    if (value.type === "names") {
+    if (value.type === "symbols") {
       value = value.items
         .map(({ key, name }) => ({ key: namify(key), name: namify(name) }))
         .map(({ key, name }) => `const ${name} = ${alias}.${key};`);
     }
-    else {
+    else if (value.type === "symbol") {
       value = namify(value);
+    }
+    else {
+      new GenerationError(`Internal error: unknown AST type ${value.type}.`, value.location);
     }
     return lines(
       `const ${alias} = require("${module.name}");`,
@@ -432,7 +435,7 @@ function genModuleDefinitions({ definitions }, context) {
 }
 
 function genExport({ value }, context) {
-  if (value.type === "names") {
+  if (value.type === "symbols") {
     const items = value.items
       .map(({ key, name }) => ({ key: namify(key), name: namify(name) }))
       .map(({ key, name }) => `${key}: ${name}`)
@@ -441,8 +444,11 @@ function genExport({ value }, context) {
     __(items),
     "}");
   }
-  else {
+  else if (value.type === "symbol") {
     value = generate(value);
+  }
+  else {
+    new GenerationError(`Internal error: unknown AST type ${value.type}.`, value.location);
   }
   return `module.exports = ${value};`
 }

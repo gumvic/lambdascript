@@ -96,7 +96,7 @@ operator "operator" =
 }
 
 keyChar = [0-9a-zA-Z_'\.\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
-key "key" = chars:keyChar+ ":" {
+key "key" = ":" chars:keyChar+ {
   return {
     type: "key",
     value: chars.join(""),
@@ -180,7 +180,7 @@ list "list" =
     };
   }
 
-mapKeyValueItem = key:atom _ value:expression {
+mapKeyValueItem = key:expression _ "->" _ value:expression {
   return {
     key: key,
     value: value
@@ -334,7 +334,7 @@ expression = expression:(binary / binaryOperand / operator) _ where:where? {
   }
 }
 
-mapDestructKeyLValueItem = key:atom _ lvalue:lvalue {
+mapDestructKeyLValueItem = key:expression _ "->" _ lvalue:lvalue {
   return {
     key: key,
     lvalue: lvalue
@@ -424,36 +424,40 @@ definitions = definitions:(definition:definition _ { return definition; })+ {
   return groupDefinitions(definitions);
 }
 
-namesKeyNameItem = key:key _ name:(name / operator) {
+symbol = name:(name / operator) {
   return {
-    key: {
-      type: "name",
-      name: key.value,
-      location: key.location
-    },
+    type: "symbol",
+    name: name.name,
+    location: name.location
+  };
+}
+
+symbolsKeyNameItem = key:symbol _ "->" _ name:symbol {
+  return {
+    key: key,
     name: name
   };
 }
 
-namesKeyItem = name:(name / operator) {
+symbolsKeyItem = name:symbol {
   return {
     key: name,
     name: name
   };
 }
 
-namesItem = namesKeyNameItem / namesKeyItem
+symbolsItem = symbolsKeyNameItem / symbolsKeyItem
 
-names = "{" _
-  items:(first:namesItem rest:(_ "," _ item:namesItem { return item; })* { return [first].concat(rest); })
+symbols = "{" _
+  items:(first:symbolsItem rest:(_ "," _ item:symbolsItem { return item; })* { return [first].concat(rest); })
   _ "}" {
   return {
-    type: "names",
+    type: "symbols",
     items: items
   };
 }
 
-import "import" = wordImport _ module:moduleName? _ value:(name / names) {
+import "import" = wordImport _ module:moduleName? _ value:(symbol / symbols) {
   return {
     type: "import",
     module: module,
@@ -462,7 +466,7 @@ import "import" = wordImport _ module:moduleName? _ value:(name / names) {
   };
 }
 
-export "export" = wordExport _ value:(name / names) {
+export "export" = wordExport _ value:(symbol / symbols) {
   return {
     type: "export",
     value: value,

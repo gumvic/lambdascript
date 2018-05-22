@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-//const cli = require("commander");
 const cli = require("yargs");
 
 const { formatError } = require("./src/utils");
@@ -34,7 +33,7 @@ function run() {
   const context = { srcDir, distDir };
   build(srcDir, distDir, opts || defaultOptions).then(
     () => outputSuccess(context),
-    error => outputError(error, context));
+    error => outputError(error, context).then(() => process.exit(1)));
 }
 
 run();

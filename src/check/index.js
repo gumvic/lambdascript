@@ -171,7 +171,7 @@ function checkImport({ module, value }, context) {
   if (module) {
     context.define(module);
   }
-  if (value.type === "names") {
+  if (value.type === "symbols") {
     let imported = {};
     for(let { key, name } of value.items) {
       if (imported[key.name]) {
@@ -181,8 +181,11 @@ function checkImport({ module, value }, context) {
       imported[key.name] = true;
     }
   }
-  else {
+  else if (value.type === "symbol") {
     context.define(value);
+  }
+  else {
+    new CheckError(`Internal error: unknown AST type ${value.type}.`, value.location);
   }
 }
 
@@ -207,19 +210,22 @@ function checkModuleDefinitions({ definitions }, context) {
   checkDefinitions(definitions, context);
 }
 
-function checkExport({ value }, context) {
-  if (value.type === "names") {
+function checkExport({ value, location }, context) {
+  if (value.type === "symbols") {
     let exported = {};
     for(let { key, name } of value.items) {
-      if (exported[key.name]) {
-        throw new CheckError(`Already exported: ${key.name}`, key.location);
+      context.assertDefined(key);
+      if (exported[name.name]) {
+        throw new CheckError(`Already exported: ${name.name}`, key.location);
       }
-      check(name, context);
-      exported[key.name] = true;
+      exported[name.name] = true;
     }
   }
+  else if (value.type === "symbol") {
+    context.assertDefined(value);
+  }
   else {
-    check(value, context);
+    new CheckError(`Internal error: unknown AST type ${value.type}.`, value.location);
   }
 }
 

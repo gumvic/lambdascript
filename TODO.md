@@ -9,7 +9,7 @@ end
 - use `$get`, `$ImMap`, `$run` etc when compiling so that the user wouldn't shadow them
 - check `get`/`getIn` if destructuring, `ImMap` on a map literal etc.
 - guards?
-- lambda syntax: `($a + $b)`? `(get _ foo:)`
+- lambda syntax: `\($a + $b)`? `#(get _ :foo)`? `\(get $x :foo)`, `\($x + $y)`?
 - poor syntax error descriptions, parser fails too early
 - map/filter/etc with indexes
 - js module should be able to declare its name
