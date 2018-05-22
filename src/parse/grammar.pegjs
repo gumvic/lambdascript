@@ -32,7 +32,12 @@ ast = _ ast:(module / expression) _ {
   return ast;
 }
 
-_ "whitespace" = [ \t\n\r]*
+_ "whitespace" = [ \t\n\r]* comment* [ \t\n\r]*
+
+nl = [\n\r] / [\n]
+oneLineComment = "#" (!nl .)*
+multilineComment = "#" "{" (multilineComment / (!"}" .))* "}"
+comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
   wordCase
