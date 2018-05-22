@@ -32,7 +32,7 @@ ast = _ ast:(module / expression) _ {
   return ast;
 }
 
-_ "whitespace" = [ \t\n\r]* comment* [ \t\n\r]*
+_ "whitespace" = ([ \t\n\r] / comment)*
 
 nl = [\n\r] / [\n]
 oneLineComment = "#" (!nl .)*
