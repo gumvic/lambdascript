@@ -38,14 +38,12 @@ function checkName(ast, context) {
 }
 
 function checkList({ items }, context) {
-  // TODO check for ImList
   for(let item of items) {
     check(item, context);
   }
 }
 
 function checkMap({ items }, context) {
-  // TODO check for ImMap
   for(let { key, value } of items) {
     check(key, context);
     check(value, context);
@@ -76,7 +74,6 @@ function checkFunction({ variants }, context) {
 }
 
 function checkRecord({ args }, context) {
-  // TODO check for Record
   const _context = context.spawn();
   for(let arg of args) {
     checkLValue(arg, _context);
@@ -84,7 +81,6 @@ function checkRecord({ args }, context) {
 }
 
 function checkMonad({ items }, context) {
-  // TODO check for Monad
   function _check(items, context) {
     if (items.length) {
       const { via, value, location } = items[0];
@@ -165,13 +161,11 @@ function checkLValue(ast, context) {
     checkLValue(ast.lvalue, context);
   }
   else if (ast.type === "listDestruct") {
-    // TODO check for get
     for(let lvalue of ast.items) {
       checkLValue(lvalue, context);
     }
   }
   else if (ast.type === "mapDestruct") {
-    // TODO check for get
     for(let { key, lvalue } of ast.items) {
       check(key, context);
       checkLValue(lvalue, context);
@@ -181,27 +175,6 @@ function checkLValue(ast, context) {
     new CheckError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }
-
-/*function checkAutoImport({ module, value }, context) {
-  context.define({
-    type: "name",
-    name: module
-  });
-  if (typeof value === "string") {
-    context.define({
-      type: "name",
-      name: value
-    });
-  }
-  else {
-    for(let k in value) {
-      context.define({
-        type: "name",
-        name: value[k]
-      });
-    }
-  }
-}*/
 
 function checkImport({ module, value }, context) {
   if (module) {
@@ -225,13 +198,6 @@ function checkImport({ module, value }, context) {
   }
 }
 
-function checkAutoImports(context) {
-  const { options: { autoImports } } = context;
-  for(let _import of autoImports) {
-    checkAutoImport(_import, context);
-  }
-}
-
 function checkModuleImports({ name: { name: moduleName }, imports }, context) {
   let imported = {};
   for(let _import of imports) {
@@ -247,6 +213,7 @@ function checkModuleImports({ name: { name: moduleName }, imports }, context) {
     }
     check(_import, context);
   }
+  checkEssentials(context);
 }
 
 function checkModuleDefinitions({ definitions }, context) {
@@ -276,16 +243,29 @@ function checkModuleExport({ export: _export }, context) {
   check(_export, context);
 }
 
+function checkEssentials(context) {
+  const { options: { essentials } } = context;
+  const _essentials = [
+    "list",
+    "map",
+    "get",
+    "record",
+    "monad"
+  ];
+  for(let name of _essentials) {
+    context.assertDefined({ name: essentials[name] });
+  }
+}
+
 function checkApp(ast, context) {
-  const { options: { main } } = context;
-  checkAutoImports(context);
+  const { options: { app: { main, run } } } = context;
   checkModuleImports(ast, context);
   checkModuleDefinitions(ast, context);
   context.assertDefined({ name: main });
+  context.assertDefined({ name: run });
 }
 
 function checkLib(ast, context) {
-  checkAutoImports(context);
   checkModuleImports(ast, context);
   checkModuleDefinitions(ast, context);
   checkModuleExport(ast, context);

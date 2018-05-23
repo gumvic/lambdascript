@@ -6,9 +6,8 @@ const BAD_ARITY = "throw new TypeError(\"Arity not supported: \" + arguments.len
 const LIST = "$ImList";
 const MAP = "$ImMap";
 const GET = "$get";
-const GET_IN = "$getIn";
+const RECORD = "$Record";
 const MONAD = "$Monad";
-const RUN = "$run";
 const SELF = "$self";
 const TMP = "$tmp";
 
@@ -308,7 +307,7 @@ function genRecord({ name, args }, context) {
     "{",
     __(args.map(arg => `${arg}: ${arg}`).join(",\n")),
     "}");;
-  const factory = `const ${name}$Factory = record(${factoryArgs});`;
+  const factory = `const ${name}$Factory = ${RECORD}(${factoryArgs});`;
   const badArity = lines(
     `if(arguments.length !== ${arity}) {`,
     __(BAD_ARITY),
@@ -455,57 +454,6 @@ function genInvoke({ object, method, args }, context) {
   return `${object}.${method}(${args})`;
 }
 
-function genAutoImport({ module, value }, context) {
-  module = {
-    type: "name",
-    name: module
-  };
-  if (typeof value === "string") {
-    value = {
-      type: "symbol",
-      name: value
-    };
-  }
-  else {
-    const items = Object.keys(value)
-      .map(k => ({
-        key: {
-          type: "symbol",
-          name: k
-        },
-        name: {
-          type: "symbol",
-          name: value[k]
-        }
-      }));
-    value = {
-      type: "symbols",
-      items: items
-    };
-  }
-  return generate({
-    type: "import",
-    module: module,
-    value: value
-  });
-}
-
-function genAutoImports(context) {
-  const { options: { essentials, autoImports } } = context;
-  autoImports = lines(
-    autoImports.map(_import => genAutoImport(_import, context)));
-  essentials = Object.entries({
-    list: LIST,
-    map: MAP,
-    get: GET,
-    monad: MONAD,
-    run: RUN
-  }).map(([k, v]) => `const ${v} = ${essentials[k]};`);
-  return lines(
-    autoImports,
-    essentials);
-}
-
 function genImport({ module, value }, context) {
   if (!module) {
     return "";
@@ -529,8 +477,20 @@ function genImport({ module, value }, context) {
   }
 }
 
+function genEssentials({ options: { essentials } }) {
+  return Object.entries({
+    list: LIST,
+    map: MAP,
+    get: GET,
+    record: RECORD,
+    monad: MONAD
+  }).map(([k, v]) => `const ${v} = ${essentials[k]};`);
+}
+
 function genModuleImports({ imports }, context) {
-  return lines(imports.map(_import => generate(_import, context)));
+  return lines(
+    imports.map(_import => generate(_import, context)),
+    genEssentials(context));
 }
 
 function genModuleDefinitions({ definitions }, context) {
@@ -560,13 +520,12 @@ function genModuleExport({ export: _export }, context) {
   return generate(_export, context);
 }
 
-function genModuleMain(ast, { options: { main } }) {
-  return `${RUN}(${main});`;
+function genModuleMain(ast, { options: { app: { main, run } } }) {
+  return `${run}(${main});`;
 }
 
 function genApp(ast, context) {
   return lines(
-    genAutoImports(context),
     genModuleImports(ast, context),
     genModuleDefinitions(ast, context),
     genModuleMain(ast, context));
@@ -574,7 +533,6 @@ function genApp(ast, context) {
 
 function genLib(ast, context) {
   return lines(
-    genAutoImports(context),
     genModuleImports(ast, context),
     genModuleDefinitions(ast, context),
     genModuleExport(ast, context));

@@ -1,16 +1,25 @@
 module.exports = {
-  essentials: {
-    list: "ImList",
-    map: "ImMap",
-    get: "get",
-    monad: "Monad",
-    run: "run"
+  "essentials": {
+    "list": "ImList",
+    "map": "ImMap",
+    "get": "get",
+    "record": "Record",
+    "monad": "Monad"
   },
-  main: "main",
-  autoImports: [
+  "app": {
+    "main": "main",
+    "run": "run"
+  },
+  "autoImports": [
     {
-      module: "monada-core",
-      value: {
+      "module": "monada-core",
+      "value": {
+        "ImMap": "ImMap",
+        "ImList": "ImList",
+        "get": "get",
+        "Record": "Record",
+        "Monad": "Monad",
+
         "type": "type",
         "isa": "isa",
         "panic": "panic",
@@ -40,17 +49,13 @@ module.exports = {
         "!": "!",
         "||": "||",
         "&&": "&&",
-        "iterate": "iterate",
 
+        "iterate": "iterate",
         "Done": "Done",
-        "Monad": "Monad",
 
         "size": "size",
         "fromJS": "fromJS",
         "toJS": "toJS",
-        "ImMap": "ImMap",
-        "ImList": "ImList",
-        "get": "get",
         "getIn": "getIn",
 
         "map": "map",

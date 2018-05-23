@@ -14,6 +14,7 @@ let b = a where
   let a = a
 end
 ```
+- validate options
 - generate `isa`, `type` as `instanceof` and `typeof`
 - `seq :: monad -> iterable` -- just walks through the monad, returning the points until it's exhausted
 - use `$get`, `$ImMap`, `$run` etc when compiling so that the user wouldn't shadow them?
