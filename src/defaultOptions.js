@@ -5,7 +5,13 @@ module.exports = {
       value: {
         "type": "type",
         "isa": "isa",
-        "try": "try",
+        "panic": "panic",
+        "dontPanic": "dontPanic",
+        "undefined": "undefined",
+        "null": "null",
+        "true": "true",
+        "false": "false",
+
         "==": "==",
         "+": "+",
         "-": "-",
@@ -26,6 +32,14 @@ module.exports = {
         "!": "!",
         "||": "||",
         "&&": "&&",
+
+        "done": "done",
+        "isDone": "isDone",
+        "iterate": "iterate",
+
+        "monad": "monad",
+        "isMonad": "isMonad",
+
         "size": "size",
         "fromJS": "fromJS",
         "toJS": "toJS",
@@ -33,9 +47,13 @@ module.exports = {
         "ImList": "ImList",
         "get": "get",
         "getIn": "getIn",
-        "for": "for",
-        "monad": "monad",
-        "isMonad": "isMonad",
+
+        "map": "map",
+        "filter": "filter",
+
+        "~>": "~>",
+        "<~": "<~",
+
         "run": "run"
       }
     }
