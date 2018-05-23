@@ -3,7 +3,8 @@ const CheckError = require("./error");
 const defaultOptions = require("../defaultOptions");
 
 class Context {
-  constructor(parent) {
+  constructor(options, parent) {
+    this.options = options;
     this.parent = parent;
     this.defined = [];
   }
@@ -28,7 +29,7 @@ class Context {
   }
 
   spawn() {
-    return new Context(this);
+    return new Context(this.options, this);
   }
 }
 
@@ -36,16 +37,18 @@ function checkName(ast, context) {
   context.assertDefined(ast);
 }
 
-function checkMap({ items }, context) {
-  for(let { key, value } of items) {
-    check(key, context);
-    check(value, context);
+function checkList({ items }, context) {
+  // TODO check for ImList
+  for(let item of items) {
+    check(item, context);
   }
 }
 
-function checkList({ items }, context) {
-  for(let item of items) {
-    check(item, context);
+function checkMap({ items }, context) {
+  // TODO check for ImMap
+  for(let { key, value } of items) {
+    check(key, context);
+    check(value, context);
   }
 }
 
@@ -73,6 +76,7 @@ function checkFunction({ variants }, context) {
 }
 
 function checkRecord({ args }, context) {
+  // TODO check for Record
   const _context = context.spawn();
   for(let arg of args) {
     checkLValue(arg, _context);
@@ -80,6 +84,7 @@ function checkRecord({ args }, context) {
 }
 
 function checkMonad({ items }, context) {
+  // TODO check for Monad
   function _check(items, context) {
     if (items.length) {
       const { via, value, location } = items[0];
@@ -160,11 +165,13 @@ function checkLValue(ast, context) {
     checkLValue(ast.lvalue, context);
   }
   else if (ast.type === "listDestruct") {
+    // TODO check for get
     for(let lvalue of ast.items) {
       checkLValue(lvalue, context);
     }
   }
   else if (ast.type === "mapDestruct") {
+    // TODO check for get
     for(let { key, lvalue } of ast.items) {
       check(key, context);
       checkLValue(lvalue, context);
@@ -175,7 +182,7 @@ function checkLValue(ast, context) {
   }
 }
 
-function checkAutoImport({ module, value }, context) {
+/*function checkAutoImport({ module, value }, context) {
   context.define({
     type: "name",
     name: module
@@ -194,7 +201,7 @@ function checkAutoImport({ module, value }, context) {
       });
     }
   }
-}
+}*/
 
 function checkImport({ module, value }, context) {
   if (module) {
@@ -215,6 +222,13 @@ function checkImport({ module, value }, context) {
   }
   else {
     new CheckError(`Internal error: unknown AST type ${value.type}.`, value.location);
+  }
+}
+
+function checkAutoImports(context) {
+  const { options: { autoImports } } = context;
+  for(let _import of autoImports) {
+    checkAutoImport(_import, context);
   }
 }
 
@@ -263,13 +277,15 @@ function checkModuleExport({ export: _export }, context) {
 }
 
 function checkApp(ast, context) {
+  const { options: { main } } = context;
+  checkAutoImports(context);
   checkModuleImports(ast, context);
   checkModuleDefinitions(ast, context);
-  context.assertDefined({ name: "run" });
-  context.assertDefined({ name: "main" });
+  context.assertDefined({ name: main });
 }
 
 function checkLib(ast, context) {
+  checkAutoImports(context);
   checkModuleImports(ast, context);
   checkModuleDefinitions(ast, context);
   checkModuleExport(ast, context);
@@ -282,14 +298,6 @@ function checkModule(ast, context) {
   else {
     return checkLib(ast, context);
   }
-}
-
-function initContext({ autoImports }) {
-  const context = new Context();
-  for (let _import of autoImports || []) {
-    checkAutoImport(_import, context);
-  }
-  return context;
 }
 
 function check(ast, context) {
@@ -317,5 +325,5 @@ function check(ast, context) {
 
 module.exports = function(ast, options) {
   options = options || defaultOptions;
-  return check(ast, initContext(options));
+  return check(ast, new Context(options));
 };

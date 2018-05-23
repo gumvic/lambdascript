@@ -6,7 +6,7 @@ match a, b
   else b
 end
 ```
-- matching -- introduce primitives as lvalues, too
+- matching -- introduce primitives as lvalues, too; optimize matching against primitives as `===`
 - `ReferenceError: a is not defined`:
 ```
 let a = 42

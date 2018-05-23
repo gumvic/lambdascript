@@ -8,14 +8,13 @@ const MAP = "$ImMap";
 const GET = "$get";
 const GET_IN = "$getIn";
 const MONAD = "$Monad";
+const RUN = "$run";
 const SELF = "$self";
 const TMP = "$tmp";
-const RUN = "$run";
-const MAIN = "main";
 
 class Context {
-  constructor(autoImports) {
-    this.autoImports = autoImports;
+  constructor(options) {
+    this.options = options;
     this.oneOffCount = 0;
   }
 
@@ -310,8 +309,13 @@ function genRecord({ name, args }, context) {
     __(args.map(arg => `${arg}: ${arg}`).join(",\n")),
     "}");;
   const factory = `const ${name}$Factory = record(${factoryArgs});`;
+  const badArity = lines(
+    `if(arguments.length !== ${arity}) {`,
+    __(BAD_ARITY),
+    "}");
   const constructor = lines(
     `function ${name}(${constructorArgs}) {`,
+    __(badArity),
     __(`const ${SELF} = Object.create(${name}.prototype);`),
     __(`${name}$Factory.call(${SELF}, ${mkArgs});`),
     __(`return ${SELF};`),
@@ -486,8 +490,20 @@ function genAutoImport({ module, value }, context) {
   });
 }
 
-function genAutoImports(imports, context) {
-  return lines(imports.map(_import => genAutoImport(_import, context)));
+function genAutoImports(context) {
+  const { options: { essentials, autoImports } } = context;
+  autoImports = lines(
+    autoImports.map(_import => genAutoImport(_import, context)));
+  essentials = Object.entries({
+    list: LIST,
+    map: MAP,
+    get: GET,
+    monad: MONAD,
+    run: RUN
+  }).map(([k, v]) => `const ${v} = ${essentials[k]};`);
+  return lines(
+    autoImports,
+    essentials);
 }
 
 function genImport({ module, value }, context) {
@@ -544,13 +560,13 @@ function genModuleExport({ export: _export }, context) {
   return generate(_export, context);
 }
 
-function genModuleMain(ast, context) {
-  return `${RUN}(${MAIN});`;
+function genModuleMain(ast, { options: { main } }) {
+  return `${RUN}(${main});`;
 }
 
 function genApp(ast, context) {
   return lines(
-    genAutoImports(context.autoImports, context),
+    genAutoImports(context),
     genModuleImports(ast, context),
     genModuleDefinitions(ast, context),
     genModuleMain(ast, context));
@@ -558,7 +574,7 @@ function genApp(ast, context) {
 
 function genLib(ast, context) {
   return lines(
-    genAutoImports(context.autoImports, context),
+    genAutoImports(context),
     genModuleImports(ast, context),
     genModuleDefinitions(ast, context),
     genModuleExport(ast, context));
@@ -571,10 +587,6 @@ function genModule(ast, context) {
   else {
     return genLib(ast, context);
   }
-}
-
-function initContext({ autoImports }) {
-  return new Context(autoImports || []);
 }
 
 function generate(ast, context) {
@@ -602,5 +614,5 @@ function generate(ast, context) {
 
 module.exports = function(ast, options) {
   options = options || defaultOptions;
-  return generate(ast, initContext(options));
+  return generate(ast, new Context(options));
 };

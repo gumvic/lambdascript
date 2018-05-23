@@ -1,4 +1,12 @@
 module.exports = {
+  essentials: {
+    list: "ImList",
+    map: "ImMap",
+    get: "get",
+    monad: "Monad",
+    run: "run"
+  },
+  main: "main",
   autoImports: [
     {
       module: "monada-core",
@@ -32,13 +40,10 @@ module.exports = {
         "!": "!",
         "||": "||",
         "&&": "&&",
-
-        "done": "done",
-        "isDone": "isDone",
         "iterate": "iterate",
 
-        "monad": "monad",
-        "isMonad": "isMonad",
+        "Done": "Done",
+        "Monad": "Monad",
 
         "size": "size",
         "fromJS": "fromJS",
