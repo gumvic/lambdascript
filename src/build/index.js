@@ -95,15 +95,20 @@ function readModule(file, context) {
 function resolveImportPath({ file }, { file: importFile }) {
   const { dir } = parsePath(file);
   const { dir: importDir, base: importBase } = parsePath(importFile);
-  return replaceExt(joinPath(relativePath(dir, importDir), importBase), ".js");
+  const dirPath = relativePath(dir, importDir);
+  importFile = replaceExt(importBase, ".js");
+  return dirPath ? joinPath(dirPath, importFile) : `./${importFile}`;
 }
 
 function normalizeModuleImports(module, context) {
   const { ast: { imports } } = module;
   for(let _import of imports) {
-    const importedModule = context.getModule(_import.module);
+    if (!_import.module) {
+      continue
+    }
+    const importedModule = context.getModule(_import.module.name);
     if (importedModule) {
-      _import.module = resolveImportPath(module, importedModule);
+      _import.module.name = resolveImportPath(module, importedModule);
     }
   }
   return module;
