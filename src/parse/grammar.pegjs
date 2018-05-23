@@ -485,7 +485,15 @@ symbols = "{" _
   };
 }
 
-import "import" = wordImport _ module:moduleName _ value:(symbol / symbols) {
+importFromNowhere "import" = wordImport _ value:symbols {
+  return {
+    type: "import",
+    value: value,
+    location: location()
+  };
+}
+
+importFromSomewhere "import" = wordImport _ module:moduleName _ value:(symbol / symbols) {
   return {
     type: "import",
     module: module,
@@ -493,6 +501,8 @@ import "import" = wordImport _ module:moduleName _ value:(symbol / symbols) {
     location: location()
   };
 }
+
+import = importFromSomewhere / importFromNowhere
 
 export "export" = wordExport _ value:(symbol / symbols) {
   return {
