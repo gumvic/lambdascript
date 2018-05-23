@@ -290,7 +290,9 @@ unary = operator:operator _ operand:atom {
 
 callee = unary / atom
 
-args = ("(" _ ")" { return []; } / (arg:atom _ { return arg; })+)
+arg = atom
+
+args = ("(" _ ")" { return []; } / (arg:arg _ { return arg; })+)
 
 call = callee:callee _ args:args {
   return {
@@ -301,7 +303,16 @@ call = callee:callee _ args:args {
   };
 }
 
-invoke = method:property _ object:atom _ args:args {
+access = property:property _ object:arg {
+  return {
+    type: "access",
+    object: object,
+    property: property,
+    location: location()
+  };
+}
+
+invoke = method:property _ object:arg _ args:args {
   return {
     type: "invoke",
     object: object,
@@ -311,7 +322,7 @@ invoke = method:property _ object:atom _ args:args {
   };
 }
 
-binaryOperand = call / invoke / callee
+binaryOperand = call / invoke / access / callee
 
 binary =
   first:binaryOperand
@@ -474,7 +485,7 @@ symbols = "{" _
   };
 }
 
-import "import" = wordImport _ module:moduleName? _ value:(symbol / symbols) {
+import "import" = wordImport _ module:moduleName _ value:(symbol / symbols) {
   return {
     type: "import",
     module: module,
