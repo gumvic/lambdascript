@@ -76,6 +76,20 @@ name "name" =
     };
   }
 
+beginRecordNameChar = [A-Z]
+recordNameChar = [0-9a-zA-Z_']
+recordName "record name" =
+  !reservedWord
+  first:beginRecordNameChar
+  rest:(recordNameChar+)?
+  {
+    return {
+      type: "name",
+      name: [first].concat(rest || []).join(""),
+      location: location()
+    };
+  }
+
 moduleNameChar = [0-9a-zA-Z_\.\/\-]
 moduleName "module name" =
   !reservedWord
@@ -414,6 +428,15 @@ constantDefinition = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:expressi
   };
 }
 
+recordDefinition = wordLet _ name:recordName _ args:(arg:name _ { return arg; })* {
+  return {
+    type: "record",
+    name: name,
+    args: args,
+    location: location()
+  };
+}
+
 functionDefinition = wordLet _ name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression {
   return {
     type: "function",
@@ -446,7 +469,7 @@ binaryOperatorDefinition = wordLet _ left:lvalue _ name:operator _ right:lvalue 
 
 operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 
-definition = constantDefinition / operatorDefinition / functionDefinition
+definition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition
 
 definitions = definitions:(definition:definition _ { return definition; })+ {
   return groupDefinitions(definitions);

@@ -3,6 +3,15 @@ const GenerationError = require("./error");
 const defaultOptions = require("../defaultOptions");
 
 const BAD_ARITY = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
+const LIST = "$ImList";
+const MAP = "$ImMap";
+const GET = "$get";
+const GET_IN = "$getIn";
+const MONAD = "$Monad";
+const SELF = "$self";
+const TMP = "$tmp";
+const RUN = "$run";
+const MAIN = "main";
 
 class Context {
   constructor(autoImports) {
@@ -13,7 +22,7 @@ class Context {
   oneOffName() {
     return {
       type: "name",
-      name: `$tmp${this.oneOffCount++}`
+      name: `${TMP}${this.oneOffCount++}`
     };
   }
 }
@@ -112,7 +121,7 @@ function genListDestruct({ items }, value, context) {
       type: "call",
       callee: {
         type: "name",
-        name: "get"
+        name: GET
       },
       args: [value, key]
     };
@@ -145,7 +154,7 @@ function genMapDestruct({ items }, value, context) {
       type: "call",
       callee: {
         type: "name",
-        name: "get"
+        name: GET
       },
       args: [value, key]
     };
@@ -214,14 +223,14 @@ function genName(ast, context) {
 
 function genList({ items, location }, context) {
   items = items.map(item => generate(item, context)).join(", ");
-  return `ImList([${items}])`;
+  return `${LIST}([${items}])`;
 }
 
 function genMap({ items, location }, context) {
   items = items
     .map(({ key, value }) => `[${generate(key, context)}, ${generate(value, context)}]`)
     .join(", ");
-  return `ImMap([${items}])`;
+  return `${MAP}([${items}])`;
 }
 
 function genConstant({ lvalue, value }, context) {
@@ -288,6 +297,32 @@ function genFunction({ name, variants }, context) {
     "}");
 }
 
+function genRecord({ name, args }, context) {
+  name = namify(name);
+  args = args.map(namify);
+  const constructorArgs = args.join(", ");
+  const factoryArgs = lines(
+    "{",
+    __(args.map(arg => `${arg}: undefined`).join(",\n")),
+    "}");
+  const mkArgs = lines(
+    "{",
+    __(args.map(arg => `${arg}: ${arg}`).join(",\n")),
+    "}");;
+  const factory = `const ${name}$Factory = record(${factoryArgs});`;
+  const constructor = lines(
+    `function ${name}(${constructorArgs}) {`,
+    __(`const ${SELF} = Object.create(${name}.prototype);`),
+    __(`${name}$Factory.call(${SELF}, ${mkArgs});`),
+    __(`return ${SELF};`),
+    `}`);
+  const inherit = `${name}.prototype = Object.create(${name}$Factory.prototype);`
+  return lines(
+    factory,
+    constructor,
+    inherit);
+}
+
 function genDefinition(ast, context) {
   const { type } = ast;
   if (type === "constant") {
@@ -295,6 +330,9 @@ function genDefinition(ast, context) {
   }
   else if (type === "function") {
     return genFunction(ast, context);
+  }
+  else if (type === "record") {
+    return genRecord(ast, context);
   }
 }
 
@@ -335,7 +373,7 @@ function genMonad({ items }, context) {
           lines(
             "() =>",
             __(right));
-        return `monad(${value}, ${next})`;
+        return `${MONAD}(${value}, ${next})`;
       }
     }
   }
@@ -507,7 +545,7 @@ function genModuleExport({ export: _export }, context) {
 }
 
 function genModuleMain(ast, context) {
-  return "run(main);";
+  return `${RUN}(${MAIN});`;
 }
 
 function genApp(ast, context) {

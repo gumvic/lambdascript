@@ -1,3 +1,12 @@
+- record destructuring like `Done { value }`
+- `match` case:
+```
+match a, b
+  when 0, 1 -> a
+  else b
+end
+```
+- matching -- introduce primitives as lvalues, too
 - `ReferenceError: a is not defined`:
 ```
 let a = 42

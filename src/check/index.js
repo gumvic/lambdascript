@@ -72,6 +72,13 @@ function checkFunction({ variants }, context) {
   }
 }
 
+function checkRecord({ args }, context) {
+  const _context = context.spawn();
+  for(let arg of args) {
+    checkLValue(arg, _context);
+  }
+}
+
 function checkMonad({ items }, context) {
   function _check(items, context) {
     if (items.length) {
@@ -88,8 +95,15 @@ function checkMonad({ items }, context) {
 }
 
 function checkDefinitions(definitions, context) {
-  const constants = definitions.filter(({ type }) => type === "constant");
-  const functions = definitions.filter(({ type }) => type === "function");
+  const constants = definitions
+    .filter(({ type }) => type === "constant");
+  const functions = definitions
+    .filter(({ type }) => type === "function");
+  const records = definitions
+    .filter(({ type }) => type === "record");
+  for (let { name } of records) {
+    context.define(name);
+  }
   for (let { name } of functions) {
     context.define(name);
   }
@@ -99,6 +113,9 @@ function checkDefinitions(definitions, context) {
   }
   for(let fun of functions) {
     checkFunction(fun, context);
+  }
+  for(let fun of records) {
+    checkRecord(fun, context);
   }
 }
 
