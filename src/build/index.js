@@ -169,20 +169,18 @@ function autoImportToAST({ module, value }) {
     };
   }
   else {
-    const items = Object.keys(value)
-      .map(k => ({
+    value = {
+      type: "symbols",
+      items: value.map(name => ({
         key: {
           type: "symbol",
-          name: k
+          name: name
         },
         name: {
           type: "symbol",
-          name: value[k]
+          name: name
         }
-      }));
-    value = {
-      type: "symbols",
-      items: items
+      }))
     };
   }
   return {

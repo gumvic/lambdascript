@@ -1,73 +1,54 @@
 module.exports = {
-  "essentials": {
-    "list": "ImList",
-    "map": "ImMap",
-    "get": "get",
-    "has": "has",
-    "record": "Record",
-    "monad": "Monad"
-  },
-  "app": {
-    "main": "main",
-    "run": "run"
-  },
   "autoImports": [
     {
       "module": "monada-core",
-      "value": {
-        "ImMap": "ImMap",
-        "ImList": "ImList",
-        "get": "get",
-        "has": "has",
-        "Record": "Record",
-        "Monad": "Monad",
+      "value": [
+        "type",
+        "isa",
+        "panic",
+        "dontPanic",
+        "undefined",
+        "null",
+        "true",
+        "false",
+        "==",
+        "+",
+        "-",
+        "*",
+        "/",
+        "%",
+        ">",
+        "<",
+        ">=",
+        "<=",
+        "~",
+        "|",
+        "&",
+        "^",
+        ">>",
+        "<<",
+        ">>>",
+        "!",
+        "||",
+        "&&",
+        "ImMap",
+        "ImList",
+        "ImRecord",
+        "size",
+        "fromJS",
+        "toJS",
+        "get",
+        "getIn",
+        "Monad",
 
-        "type": "type",
-        "isa": "isa",
-        "panic": "panic",
-        "dontPanic": "dontPanic",
-        "undefined": "undefined",
-        "null": "null",
-        "true": "true",
-        "false": "false",
-
-        "==": "==",
-        "+": "+",
-        "-": "-",
-        "*": "*",
-        "/": "/",
-        "%": "%",
-        ">": ">",
-        "<": "<",
-        ">=": ">=",
-        "<=": "<=",
-        "~": "~",
-        "|": "|",
-        "&": "&",
-        "^": "^",
-        ">>": ">>",
-        "<<": "<<",
-        ">>>": ">>>",
-        "!": "!",
-        "||": "||",
-        "&&": "&&",
-
-        "iterate": "iterate",
-        "Done": "Done",
-
-        "size": "size",
-        "fromJS": "fromJS",
-        "toJS": "toJS",
-        "getIn": "getIn",
-
-        "map": "map",
-        "filter": "filter",
-
-        "~>": "~>",
-        "<~": "<~",
-
-        "run": "run"
-      }
+        "iterate",
+        "Done",
+        "map",
+        "filter",
+        "~>",
+        "<~",
+        "run"
+      ]
     }
   ]
 };

@@ -2,6 +2,36 @@ const CheckError = require("./error");
 
 const defaultOptions = require("../defaultOptions");
 
+ESSENTIALS = [
+  "ImList",
+  "ImMap",
+  "ImRecord",
+  "Monad",
+  "get",
+  "==",
+  "~",
+  "!",
+  "+",
+  "-",
+  "*",
+  "/",
+  "%",
+  ">",
+  "<",
+  ">=",
+  "<=",
+  "|",
+  "&",
+  "^",
+  ">>",
+  "<<",
+  ">>>",
+  "||",
+  "&&"
+];
+
+const MAIN = "main";
+
 class Context {
   constructor(options, parent) {
     this.options = options;
@@ -10,7 +40,11 @@ class Context {
   }
 
   define({ name, location }) {
-    if (this.defined.indexOf(name) >= 0) {
+    if (ESSENTIALS.indexOf(name) >= 0 &&
+        this.isDefined({ name, location })) {
+      throw new CheckError(`Builtin redefinition: ${name}`, location);
+    }
+    else if (this.isDefinedLocally({ name, location })) {
       throw new CheckError(`Duplicate definition: ${name}`, location);
     }
     else {
@@ -18,12 +52,24 @@ class Context {
     }
   }
 
-  assertDefined({ name, location }) {
-    if (this.defined.indexOf(name) >= 0) {}
+  isDefinedLocally({ name }) {
+    return this.defined.indexOf(name) >= 0;
+  }
+
+  isDefined(ast) {
+    if (this.isDefinedLocally(ast)) {
+      return true;
+    }
     else if (this.parent) {
-      this.parent.assertDefined({ name, location });
+      return this.parent.isDefined(ast);
     }
     else {
+      return false;
+    }
+  }
+
+  assertDefined({ name, location }) {
+    if (!this.isDefined({ name, location })) {
       throw new CheckError(`Name not defined: ${name}`, location);
     }
   }
@@ -211,9 +257,8 @@ function checkModuleImports({ name: { name: moduleName }, imports }, context) {
       }
       imported[importedModule.name] = true;
     }
-    check(_import, context);
+    checkImport(_import, context);
   }
-  checkEssentials(context);
 }
 
 function checkModuleDefinitions({ definitions }, context) {
@@ -226,7 +271,7 @@ function checkExport({ value, location }, context) {
     for(let { key, name } of value.items) {
       context.assertDefined(key);
       if (exported[name.name]) {
-        throw new CheckError(`Already exported: ${name.name}`, key.location);
+        throw new CheckError(`Already exported: ${name.name}`, name.location);
       }
       exported[name.name] = true;
     }
@@ -240,33 +285,25 @@ function checkExport({ value, location }, context) {
 }
 
 function checkModuleExport({ export: _export }, context) {
-  check(_export, context);
+  checkExport(_export, context);
 }
 
 function checkEssentials(context) {
-  const { options: { essentials } } = context;
-  const _essentials = [
-    "list",
-    "map",
-    "get",
-    "record",
-    "monad"
-  ];
-  for(let name of _essentials) {
-    context.assertDefined({ name: essentials[name] });
+  for(let name of ESSENTIALS) {
+    context.assertDefined({ name: name });
   }
 }
 
 function checkApp(ast, context) {
-  const { options: { app: { main, run } } } = context;
   checkModuleImports(ast, context);
+  checkEssentials(context);
   checkModuleDefinitions(ast, context);
-  context.assertDefined({ name: main });
-  context.assertDefined({ name: run });
+  context.assertDefined({ name: MAIN });
 }
 
 function checkLib(ast, context) {
   checkModuleImports(ast, context);
+  checkEssentials(context);
   checkModuleDefinitions(ast, context);
   checkModuleExport(ast, context);
 }
@@ -296,8 +333,6 @@ function check(ast, context) {
     case "call": return checkCall(ast, context);
     case "access": return checkAccess(ast, context);
     case "invoke": return checkInvoke(ast, context);
-    case "import": return checkImport(ast, context);
-    case "export": return checkExport(ast, context);
     case "module": return checkModule(ast, context);
     default: throw new CheckError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }

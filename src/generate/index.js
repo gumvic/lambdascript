@@ -3,13 +3,15 @@ const GenerationError = require("./error");
 const defaultOptions = require("../defaultOptions");
 
 const BAD_ARITY = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
-const LIST = "$ImList";
-const MAP = "$ImMap";
-const GET = "$get";
-const RECORD = "$Record";
-const MONAD = "$Monad";
+const LIST = "ImList";
+const MAP = "ImMap";
+const RECORD = "ImRecord";
+const MONAD = "Monad";
+const GET = "get";
 const SELF = "$self";
+const ARG = "$arg";
 const TMP = "$tmp";
+const MAIN = "main";
 
 class Context {
   constructor(options) {
@@ -197,10 +199,6 @@ function genMapDestructLValue({ items }, value, context) {
 
 function genLValue(ast, value, context) {
   switch(ast.type) {
-    case "nil":
-    case "number":
-    case "string":
-    case "key": return genPrimitiveLValue(ast, value, context);
     case "name": return genNameLValue(ast, value, context);
     case "alias": return genAliasLValue(ast, value, context);
     case "listDestruct": return genListDestructLValue(ast, value, context);
@@ -252,7 +250,7 @@ function pregenFunctionVariant({ name, args, body }, context) {
     .map((arg, i) =>
       arg.type === "name" ?
         arg :
-        { type: "name", name: `$arg${i}` });
+        { type: "name", name: `${ARG}${i}` });
   const initArgs = lines(args
     .map((arg, i) =>
       arg.type === "name" ?
@@ -480,31 +478,20 @@ function genImport({ module, value }, context) {
   }
 }
 
-function genEssentials({ options: { essentials } }) {
-  return Object.entries({
-    list: LIST,
-    map: MAP,
-    get: GET,
-    record: RECORD,
-    monad: MONAD
-  }).map(([k, v]) => `const ${v} = ${essentials[k]};`);
-}
-
 function genModuleImports({ imports }, context) {
   return lines(
-    imports.map(_import => generate(_import, context)),
-    genEssentials(context));
+    imports.map(_import => generate(_import, context)));
 }
 
 function genModuleDefinitions({ definitions }, context) {
-  return lines(definitions.map(definition => genDefinition(definition, context)));
+  return lines(
+    definitions.map(definition => genDefinition(definition, context)));
 }
 
 function genExport({ value }, context) {
   if (value.type === "symbols") {
     const items = value.items
-      .map(({ key, name }) => ({ key: namify(key), name: namify(name) }))
-      .map(({ key, name }) => `${key}: ${name}`)
+      .map(({ key, name }) => `${namify(name)}: ${namify(key)}`)
       .join(",\n");
     value = lines("{",
     __(items),
@@ -523,15 +510,11 @@ function genModuleExport({ export: _export }, context) {
   return generate(_export, context);
 }
 
-function genModuleMain(ast, { options: { app: { main, run } } }) {
-  return `${run}(${main});`;
-}
-
 function genApp(ast, context) {
   return lines(
     genModuleImports(ast, context),
     genModuleDefinitions(ast, context),
-    genModuleMain(ast, context));
+    `${MAIN}();`);
 }
 
 function genLib(ast, context) {
