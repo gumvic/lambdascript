@@ -19,9 +19,10 @@ function outputSuccess(context) {
 
 function _build(srcDir, distDir, options) {
   const context = { srcDir, distDir };
-  return build(srcDir, distDir, options).then(
-    () => outputSuccess(context),
-    error => outputError(error, context).then(() => process.exit(1)));
+  return build(srcDir, distDir, options)
+    .then(
+      () => outputSuccess(context),
+      error => outputError(error, context).then(() => process.exit(1)));
 }
 
 function run() {
@@ -38,7 +39,7 @@ function run() {
   if (!distDir) {
     throw "dist is required";
   }
-  if args.opts {
+  if (args.opts) {
     return readFile(args.opts, "utf8")
       .then(options => _build(srcDir, distDir, JSON.parse(options)));
   }

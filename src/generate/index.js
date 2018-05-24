@@ -303,10 +303,10 @@ function genRecord({ name, args }, context) {
     "{",
     __(args.map(arg => `${arg}: undefined`).join(",\n")),
     "}");
-  const mkArgs = lines(
+  const init = lines(
     "{",
-    __(args.map(arg => `${arg}: ${arg}`).join(",\n")),
-    "}");;
+    __(args.map(arg => `.set("${arg}", ${arg})`).join(",\n")),
+    "}");
   const factory = `const ${name}$Factory = ${RECORD}(${factoryArgs});`;
   const badArity = lines(
     `if(arguments.length !== ${arity}) {`,
@@ -316,8 +316,8 @@ function genRecord({ name, args }, context) {
     `function ${name}(${constructorArgs}) {`,
     __(badArity),
     __(`const ${SELF} = Object.create(${name}.prototype);`),
-    __(`${name}$Factory.call(${SELF}, ${mkArgs});`),
-    __(`return ${SELF};`),
+    __(`${name}$Factory.call(${SELF});`),
+    __(`return ${SELF}.withMutations(${SELF} => ${SELF}.${init});`),
     `}`);
   const inherit = `${name}.prototype = Object.create(${name}$Factory.prototype);`
   return lines(
