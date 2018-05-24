@@ -2,6 +2,8 @@
 
 const cli = require("yargs");
 
+const { readFile } = require("fs-extra");
+
 const { formatError } = require("./src/utils");
 const build = require("./src/build");
 
@@ -15,6 +17,13 @@ function outputSuccess(context) {
   console.log("Done.");
 }
 
+function _build(srcDir, distDir, options) {
+  const context = { srcDir, distDir };
+  return build(srcDir, distDir, options).then(
+    () => outputSuccess(context),
+    error => outputError(error, context).then(() => process.exit(1)));
+}
+
 function run() {
   const args = cli
     .usage("monada <src> <dist>")
@@ -23,17 +32,19 @@ function run() {
       default: null
     }).parse(process.argv);
   const [$0, $1, srcDir, distDir] = args._;
-  let opts = args.opts ? JSON.parse(args.opts) : defaultOptions;
   if (!srcDir) {
     throw "src is required";
   }
   if (!distDir) {
     throw "dist is required";
   }
-  const context = { srcDir, distDir };
-  build(srcDir, distDir, opts || defaultOptions).then(
-    () => outputSuccess(context),
-    error => outputError(error, context).then(() => process.exit(1)));
+  if args.opts {
+    return readFile(args.opts, "utf8")
+      .then(options => _build(srcDir, distDir, JSON.parse(options)));
+  }
+  else {
+    return _build(srcDir, distDir, defaultOptions);
+  }
 }
 
 run();
