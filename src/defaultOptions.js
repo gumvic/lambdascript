@@ -3,6 +3,7 @@ module.exports = {
     "list": "ImList",
     "map": "ImMap",
     "get": "get",
+    "has": "has",
     "record": "Record",
     "monad": "Monad"
   },
@@ -17,6 +18,7 @@ module.exports = {
         "ImMap": "ImMap",
         "ImList": "ImList",
         "get": "get",
+        "has": "has",
         "Record": "Record",
         "Monad": "Monad",
 

@@ -1,12 +1,6 @@
-- record destructuring like `Done { value }`
-- `match` case:
-```
-match a, b
-  when 0, 1 -> a
-  else b
-end
-```
-- matching -- introduce primitives as lvalues, too; optimize matching against primitives as `===`
+- `match`
+- `has` to essentials
+- `record` destructuring
 - `ReferenceError: a is not defined`:
 ```
 let a = 42
@@ -14,11 +8,11 @@ let b = a where
   let a = a
 end
 ```
+- check that count of patterns match count of expressions in `match` on parsing stage
+- drop `isBuiltinOperator` for now, since the user might redefine operators
+- operator optimization including `==`, `isa` and `typeof`
 - validate options
-- generate `isa`, `type` as `instanceof` and `typeof`
 - `seq :: monad -> iterable` -- just walks through the monad, returning the points until it's exhausted
-- use `$get`, `$ImMap`, `$run` etc when compiling so that the user wouldn't shadow them?
-- check `get`/`getIn` if destructuring, `ImMap` on a map literal etc.
 - lambda syntax: `\($a + $b)`? `#(get _ :foo)`? `\(get $x :foo)`, `\($x + $y)`?
 - poor syntax error descriptions, parser fails too early
 - map/filter/etc with indexes
