@@ -1,6 +1,3 @@
-- `match`
-- `has` to essentials
-- `record` destructuring
 - `ReferenceError: a is not defined`:
 ```
 let a = 42
@@ -8,7 +5,6 @@ let b = a where
   let a = a
 end
 ```
-- check that count of patterns match count of expressions in `match` on parsing stage
 - drop `isBuiltinOperator` for now, since the user might redefine operators
 - operator optimization including `==`, `isa` and `typeof`
 - validate options

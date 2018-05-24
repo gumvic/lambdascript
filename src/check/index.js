@@ -128,20 +128,6 @@ function checkCase({ branches, otherwise }, context) {
   check(otherwise, context);
 }
 
-function checkMatch({ values, branches, otherwise }, context) {
-  for(let value of values) {
-    check(value, context);
-  }
-  for(let { patterns, value } of branches) {
-    const _context = context.spawn();
-    for(let pattern of patterns) {
-      checkLValue(pattern, _context);
-    }
-    check(value, _context);
-  }
-  check(otherwise, context);
-}
-
 function checkScope({ definitions, body }, context) {
   context = context.spawn();
   checkDefinitions(definitions, context);
@@ -263,7 +249,6 @@ function checkEssentials(context) {
     "list",
     "map",
     "get",
-    "has",
     "record",
     "monad"
   ];
@@ -307,7 +292,6 @@ function check(ast, context) {
     case "lambda": return checkLambda(ast, context);
     case "monad": return checkMonad(ast, context);
     case "case": return checkCase(ast, context);
-    case "match": return checkMatch(ast, context);
     case "scope": return checkScope(ast, context);
     case "call": return checkCall(ast, context);
     case "access": return checkAccess(ast, context);

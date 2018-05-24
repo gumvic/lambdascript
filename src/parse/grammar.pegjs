@@ -41,7 +41,6 @@ comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
   wordCase
-  / wordMatch
   / wordWhen
   / wordElse
   / wordDo
@@ -53,7 +52,6 @@ reservedWord "special word" =
   / wordExport
 
 wordCase "case" = "case" !beginNameChar
-wordMatch "match" = "match" !beginNameChar
 wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
@@ -179,8 +177,6 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-primitive = nil / number / string / key
-
 property "property" = "." name:name {
   return name;
 }
@@ -280,47 +276,21 @@ case "case" =
     };
   }
 
-matchBranch = wordWhen _
-  patterns:(first:lvalue rest:(_ "," _ item:lvalue { return item; })* { return [first].concat(rest); })
-  _ "->" _
-  value:expression {
-  return {
-    patterns: patterns,
-    value: value
-  };
-}
-
-matchOtherwise = wordElse _ value:expression {
-    return value;
-}
-
-match "match" =
-  wordMatch _
-  values:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })
-  branches:(branch:matchBranch _ { return branch; })+
-  otherwise:matchOtherwise _
-  wordEnd {
-    return {
-      type: "match",
-      values: values,
-      branches: branches,
-      otherwise: otherwise
-    };
-  }
-
 subExpression "sub-expression" = "(" _ expression:expression _ ")" {
   return expression;
 }
 
 atom =
-  primitive
+  nil
+  / number
+  / string
+  / key
   / name
   / list
   / map
   / lambda
   / monad
   / case
-  / match
   / subExpression
 
 unary = operator:operator _ operand:atom {
@@ -449,7 +419,7 @@ alias = name:name _ "@" _ lvalue:lvalue {
   };
 }
 
-lvalue = alias / primitive / name / destruct
+lvalue = alias / name / destruct
 
 constantDefinition = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:expression {
   return {

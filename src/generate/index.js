@@ -6,7 +6,6 @@ const BAD_ARITY = "throw new TypeError(\"Arity not supported: \" + arguments.len
 const LIST = "$ImList";
 const MAP = "$ImMap";
 const GET = "$get";
-const HAS = "$has";
 const RECORD = "$Record";
 const MONAD = "$Monad";
 const SELF = "$self";
@@ -405,163 +404,6 @@ function genCase({ branches, otherwise }, context) {
   return _generate(branches, context);
 }
 
-function genPrimitivePattern(ast, value, nextBranch, context) {
-  return lines(
-    `if(${generate(ast, context)} !== ${generate(value, context)}) {`,
-      __(nextBranch),
-    "}");
-}
-
-function genNamePattern(ast, value, nextBranch, context) {
-  return `const ${namify(ast)} = ${generate(value, context)}`;
-}
-
-function genAliasPattern({ name, pattern }, value, nextBranch, context) {
-  return lines(
-    `const ${namify(name)} = ${generate(value, context)}`,
-    genPattern(pattern, name, nextBranch, context));
-}
-
-function genListDestructPattern({ items }, value, nextBranch, context) {
-  function genItem({ key, lvalue }, value, context) {
-    key = {
-      type: "number",
-      value: key.toString()
-    }
-    const guard = lines(
-      `if(!${HAS}(${generate(value, context)}, ${generate(key, context)})) {`,
-        __(nextBranch),
-      "}");
-    value = {
-      type: "call",
-      callee: {
-        type: "name",
-        name: GET
-      },
-      args: [value, key]
-    };
-    return lines(
-      guard,
-      genPattern(lvalue, value, nextBranch, context));
-  }
-  if (items.length > 1) {
-    // TODO or primitive
-    if (value.type === "name") {
-      return items
-        .map((item, i) =>
-          genItem({ key: i, lvalue: item }, value, context));
-    }
-    else {
-      const tmpName = context.oneOffName();
-      value = generate(value, context);
-      return lines(
-        `const ${namify(tmpName)} = ${value};`,
-        items
-          .map((item, i) =>
-            genItem({ key: i, lvalue: item }, tmpName, context)));
-    }
-  }
-  else {
-    return genItem({ key: 0, lvalue: items[0] }, value, context);
-  }
-}
-
-function genMapDestructPattern({ items }, value, nextBranch, context) {
-  function genItem({ key, lvalue }, value, context) {
-    const guard = lines(
-      `if(!${HAS}(${generate(value, context)}, ${generate(key, context)})) {`,
-        __(nextBranch),
-      "}");
-    value = {
-      type: "call",
-      callee: {
-        type: "name",
-        name: GET
-      },
-      args: [value, key]
-    };
-    return lines(
-      guard,
-      genPattern(lvalue, value, nextBranch, context));
-  }
-  if (items.length > 1) {
-    // TODO or primitive
-    if (value.type === "name") {
-      return items.map(item => genItem(item, value, context));
-    }
-    else {
-      const tmpName = context.oneOffName();
-      value = generate(value, context);
-      return lines(
-        `const ${namify(tmpName)} = ${value};`,
-        items.map(item => genItem(item, tmpName, context)));
-    }
-  }
-  else {
-    return genItem(items[0], value, context);
-  }
-}
-
-function genPattern(ast, value, nextBranch, context) {
-  switch(ast.type) {
-    case "nil":
-    case "number":
-    case "string":
-    case "key": return genPrimitivePattern(ast, value, nextBranch, context);
-    case "name": return genNamePattern(ast, value, nextBranch, context);
-    case "alias": return genAliasPattern(ast, value, nextBranch, context);
-    case "listDestruct": return genListDestructPattern(ast, value, nextBranch, context);
-    case "mapDestruct": return genMapDestructPattern(ast, value, nextBranch, context);
-    default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
-  }
-}
-
-function genMatchBranch(name, { patterns, value }, values, nextBranch, context) {
-  // TODO assert that patterns and values have the same length
-  patterns = lines(patterns
-    .map((pattern, i) => genPattern(pattern, values[i], nextBranch, context)));
-  return lines(
-    `function ${name}() {`,
-      __(patterns),
-      __(`return ${generate(value, context)};`),
-    "}");
-}
-
-function genMatch({ values, branches, otherwise }, context) {
-  const valuesList = values
-    .map((value, i) =>
-      value.type === "name" ?
-        value :
-        { type: "name", name: `$val${i}` });
-  const initValues = lines(values
-    .map((value, i) =>
-      value.type === "name" ?
-        null :
-        `const $val${i} = ${generate(value, context)}`));
-  const branchNames = branches
-    .map((_, i) => `$pattern${i}`).concat("$otherwise");
-  otherwise = lines(
-    "function $otherwise() {",
-      __(`return ${generate(otherwise, context)};`),
-    "}");
-  branches = lines(branches
-    .map((branch, i) =>
-      genMatchBranch(
-        branchNames[i],
-        branch,
-        valuesList,
-        `return ${branchNames[i + 1]}();`,
-        context)));
-  const match = `${branchNames[0]}();`
-  return lines(
-    "((() => {",
-    __(initValues),
-    __(branches),
-    __(otherwise),
-    __(match),
-    "})())");
-}
-
 function genScope({ definitions, body }, context) {
   definitions = lines(definitions.map(definition => genDefinition(definition, context)));
   body = generate(body, context);
@@ -643,7 +485,6 @@ function genEssentials({ options: { essentials } }) {
     list: LIST,
     map: MAP,
     get: GET,
-    has: HAS,
     record: RECORD,
     monad: MONAD
   }).map(([k, v]) => `const ${v} = ${essentials[k]};`);
@@ -721,7 +562,6 @@ function generate(ast, context) {
     case "lambda": return genLambda(ast, context);
     case "monad": return genMonad(ast, context);
     case "case": return genCase(ast, context);
-    case "match": return genMatch(ast, context);
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
     case "access": return genAccess(ast, context);
