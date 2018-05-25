@@ -5,11 +5,11 @@ let b where
   let a = a
 end
 ```
-- `&&` and `||` don't short circuit
+- guards
 - `seq :: monad -> iterable` -- just walks through the monad, returning the points until it's exhausted
 - records should be iterable
 - validate options
-- lambda syntax: `\($a + $b)`? `#(get _ :foo)`? `\(get $x :foo)`, `\($x + $y)`?
+- `&&` and `||` don't short circuit
 - poor syntax error descriptions, parser fails too early
 - map/filter/etc with indexes
 - js module should be able to declare its name
