@@ -38,6 +38,7 @@ module.exports = {
         "fromJS",
         "toJS",
         "get",
+        "getp",
         "getIn",
         "Monad",
 

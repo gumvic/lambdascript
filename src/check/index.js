@@ -7,7 +7,8 @@ ESSENTIALS = [
   "ImMap",
   "ImRecord",
   "Monad",
-  "get"
+  "get",
+  "getp"
 ];
 
 const MAIN = "main";
@@ -305,7 +306,9 @@ function check(ast, context) {
     case "true":
     case "number":
     case "string":
-    case "key": return;
+    case "key":
+    case "property":
+    return;
     case "name": return checkName(ast, context);
     case "map":  return checkMap(ast, context);
     case "list": return checkList(ast, context);

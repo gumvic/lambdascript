@@ -171,7 +171,11 @@ string "string" = quotation_mark chars:char* quotation_mark {
 }
 
 property "property" = "." name:name {
-  return name;
+  return {
+    type: "property",
+    name: name.name,
+    location: location()
+  };
 }
 
 where = wordWhere _ definitions:definitions _ wordEnd {
@@ -309,15 +313,6 @@ call = callee:callee _ args:args {
   };
 }
 
-access = property:property _ object:arg {
-  return {
-    type: "access",
-    object: object,
-    property: property,
-    location: location()
-  };
-}
-
 invoke = method:property _ object:arg _ args:args {
   return {
     type: "invoke",
@@ -328,7 +323,7 @@ invoke = method:property _ object:arg _ args:args {
   };
 }
 
-binaryOperand = call / invoke / access / callee
+binaryOperand = call / invoke / callee
 
 binary =
   first:binaryOperand
@@ -368,10 +363,21 @@ listDestruct = "[" _
   };
 }
 
-mapDestructKeyLValueItem = key:expression _ "->" _ lvalue:lvalue {
+mapDestructKeyLValueItem = key:(expression / property) _ "->" _ lvalue:lvalue {
   return {
     key: key,
     lvalue: lvalue
+  };
+}
+
+mapDestructPropertyItem = property:property {
+  return {
+    key: property,
+    lvalue: {
+      type: "name",
+      name: property.name,
+      location: property.location
+    }
   };
 }
 
@@ -386,7 +392,7 @@ mapDestructKeyItem = name:name {
   };
 }
 
-mapDestructItem = mapDestructKeyLValueItem / mapDestructKeyItem
+mapDestructItem = mapDestructKeyLValueItem / mapDestructPropertyItem / mapDestructKeyItem
 
 mapDestruct = "{" _
   items:(first:mapDestructItem rest:(_ "," _ item:mapDestructItem { return item; })* { return [first].concat(rest); })

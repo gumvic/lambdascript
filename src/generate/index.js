@@ -8,12 +8,14 @@ const MAP = "$ImMap";
 const RECORD = "$ImRecord";
 const MONAD = "$Monad";
 const GET = "$get";
+const GETP = "$getp";
 const ESSENTIALS = {
   [LIST]: "ImList",
   [MAP]: "ImMap",
   [RECORD]: "ImRecord",
   [MONAD]: "Monad",
-  [GET]: "get"
+  [GET]: "get",
+  [GETP]: "getp"
 };
 const ARG = "$arg";
 const TMP = "$tmp";
@@ -85,7 +87,7 @@ function genNameLValue(ast, value, context) {
   return `const ${name} = ${value};`;
 }
 
-function genAliasLValue(ast, value, context) {
+function genAlias(ast, value, context) {
   const name = namify(ast.name);
   value = generate(value, context);
   return lines(
@@ -93,7 +95,7 @@ function genAliasLValue(ast, value, context) {
     genLValue(ast.lvalue, ast.name, context));
 }
 
-function genListDestructLValue({ items }, value, context) {
+function genListDestruct({ items }, value, context) {
   function genItem({ key, lvalue }, value, context) {
     key = {
       type: "number",
@@ -131,13 +133,13 @@ function genListDestructLValue({ items }, value, context) {
   }
 }
 
-function genMapDestructLValue({ items }, value, context) {
+function genMapDestruct({ items }, value, context) {
   function genItem({ key, lvalue }, value, context) {
     value = {
       type: "call",
       callee: {
         type: "name",
-        name: GET
+        name: key.type === "property" ? GETP : GET
       },
       args: [value, key]
     };
@@ -164,9 +166,9 @@ function genMapDestructLValue({ items }, value, context) {
 function genLValue(ast, value, context) {
   switch(ast.type) {
     case "name": return genNameLValue(ast, value, context);
-    case "alias": return genAliasLValue(ast, value, context);
-    case "listDestruct": return genListDestructLValue(ast, value, context);
-    case "mapDestruct": return genMapDestructLValue(ast, value, context);
+    case "alias": return genAlias(ast, value, context);
+    case "listDestruct": return genListDestruct(ast, value, context);
+    case "mapDestruct": return genMapDestruct(ast, value, context);
     default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }
@@ -196,7 +198,11 @@ function genString({ value }, context) {
 }
 
 function genKey({ value, location }, context) {
-  return `"${namify({ name: value, location: location })}"`;
+  return `"${namify({ name: value })}"`;
+}
+
+function genProperty({ name, location }, context) {
+  return `"${namify({ name: name })}"`;
 }
 
 function genName(ast, context) {
@@ -373,12 +379,6 @@ function genCall({ callee, args }, context) {
   return `${callee}(${args})`;
 }
 
-function genAccess({ object, property }, context) {
-  object = generate(object, context);
-  property = namify(property);
-  return `${object}.${property}`;
-}
-
 function genInvoke({ object, method, args }, context) {
   object = generate(object, context);
   method = namify(method);
@@ -476,6 +476,7 @@ function generate(ast, context) {
     case "number": return genNumber(ast, context);
     case "string": return genString(ast, context);
     case "key": return genKey(ast, context);
+    case "property": return genProperty(ast, context);
     case "name": return genName(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
@@ -484,7 +485,6 @@ function generate(ast, context) {
     case "case": return genCase(ast, context);
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
-    case "access": return genAccess(ast, context);
     case "invoke": return genInvoke(ast, context);
     case "import": return genImport(ast, context);
     case "export": return genExport(ast, context);

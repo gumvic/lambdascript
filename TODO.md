@@ -5,9 +5,9 @@ let b where
   let a = a
 end
 ```
-- `&&` doesn't short circuit now
-- records should be iterable
+- `&&` and `||` don't short circuit
 - `seq :: monad -> iterable` -- just walks through the monad, returning the points until it's exhausted
+- records should be iterable
 - validate options
 - lambda syntax: `\($a + $b)`? `#(get _ :foo)`? `\(get $x :foo)`, `\($x + $y)`?
 - poor syntax error descriptions, parser fails too early
