@@ -40,11 +40,7 @@ multilineComment = "#" "{" (multilineComment / (!"}" .))* "}"
 comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
-  wordUndefined
-  / wordNull
-  / wordFalse
-  / wordTrue
-  / wordCase
+  wordCase
   / wordWhen
   / wordElse
   / wordDo
@@ -54,11 +50,6 @@ reservedWord "special word" =
   / wordModule
   / wordImport
   / wordExport
-
-wordUndefined "undefined" = "undefined" !beginNameChar
-wordNull "null" = "null" !beginNameChar
-wordFalse "false" = "false" !beginNameChar
-wordTrue "true" = "true" !beginNameChar
 
 wordCase "case" = "case" !beginNameChar
 wordWhen "when" = "when" !beginNameChar
@@ -128,34 +119,6 @@ key "key" = ":" chars:keyChar+ {
   return {
     type: "key",
     value: chars.join(""),
-    location: location()
-  };
-}
-
-undefined "undefined" = wordUndefined {
-  return {
-    type: "undefined",
-    location: location()
-  };
-}
-
-null "null" = wordNull {
-  return {
-    type: "null",
-    location: location()
-  };
-}
-
-false "false" = wordFalse {
-  return {
-    type: "false",
-    location: location()
-  };
-}
-
-true "true" = wordTrue {
-  return {
-    type: "true",
     location: location()
   };
 }
@@ -311,11 +274,7 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
 }
 
 atom =
-  undefined
-  / null
-  / false
-  / true
-  / number
+  number
   / string
   / key
   / name

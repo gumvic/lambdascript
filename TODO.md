@@ -5,8 +5,7 @@ let b where
   let a = a
 end
 ```
-- operator optimization including `==`, `isa` and `typeof`
-- better name for `isa`, maybe as an operator `?`, like `m ? Monad`
+- `&&` doesn't short circuit now
 - records should be iterable
 - `seq :: monad -> iterable` -- just walks through the monad, returning the points until it's exhausted
 - validate options

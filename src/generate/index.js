@@ -3,12 +3,18 @@ const GenerationError = require("./error");
 const defaultOptions = require("../defaultOptions");
 
 const BAD_ARITY = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
-const LIST = "ImList";
-const MAP = "ImMap";
-const RECORD = "ImRecord";
-const MONAD = "Monad";
-const GET = "get";
-const SELF = "$self";
+const LIST = "$ImList";
+const MAP = "$ImMap";
+const RECORD = "$ImRecord";
+const MONAD = "$Monad";
+const GET = "$get";
+const ESSENTIALS = {
+  [LIST]: "ImList",
+  [MAP]: "ImMap",
+  [RECORD]: "ImRecord",
+  [MONAD]: "Monad",
+  [GET]: "get"
+};
 const ARG = "$arg";
 const TMP = "$tmp";
 const MAIN = "main";
@@ -71,48 +77,6 @@ function namify({ name }) {
           case "'": return "$quote";
         }
       });
-}
-
-function isBuiltInOperator(name, arity) {
-  switch(arity) {
-    case 1:
-    switch(name) {
-      case "+":
-      case "-":
-      case "~":
-      case "!":
-      return true;
-      default:
-      return false;
-    }
-    case 2:
-    switch(name) {
-      case "+":
-      case "-":
-      case "*":
-      case "/":
-      case "%":
-      case ">":
-      case "<":
-      case ">=":
-      case "<=":
-      case "|":
-      case "&":
-      case "^":
-      case ">>":
-      case "<<":
-      case ">>>":
-      case "||":
-      case "&&":
-      return true;
-      default:
-      return false;
-    }
-  }
-}
-
-function genPrimitiveLValue(ast, value, context) {
-  return "";
 }
 
 function genNameLValue(ast, value, context) {
@@ -402,30 +366,7 @@ function genScope({ definitions, body }, context) {
     "})())");
 }
 
-function genCall(ast, context) {
-  const { callee, args } = ast;
-  if (callee.type === "name" &&
-      isBuiltInOperator(callee.name, args.length)) {
-    return genOperatorCall(ast, context);
-  }
-  else {
-    return genFunctionCall(ast, context);
-  }
-}
-
-function genOperatorCall({ callee: { name }, args }, context) {
-  if (args.length === 1) {
-    const left = generate(args[0], context);
-    return `${name}${left}`;
-  }
-  else if (args.length === 2) {
-    const left = generate(args[0], context);
-    const right = generate(args[1], context);
-    return `${left} ${name} ${right}`;
-  }
-}
-
-function genFunctionCall({ callee, args }, context) {
+function genCall({ callee, args }, context) {
   // TODO wrap in braces values that js won't call
   callee = generate(callee, context);
   args = args.map((arg) => generate(arg, context)).join(", ");
@@ -500,9 +441,15 @@ function genModuleExport({ export: _export }, context) {
   return generate(_export, context);
 }
 
+function genEssentials() {
+  return lines(Object.entries(ESSENTIALS)
+    .map(([essential, name]) => `const ${essential} = ${name};`));
+}
+
 function genApp(ast, context) {
   return lines(
     genModuleImports(ast, context),
+    genEssentials(),
     genModuleDefinitions(ast, context),
     `${MAIN}();`);
 }
@@ -510,6 +457,7 @@ function genApp(ast, context) {
 function genLib(ast, context) {
   return lines(
     genModuleImports(ast, context),
+    genEssentials(),
     genModuleDefinitions(ast, context),
     genModuleExport(ast, context));
 }
@@ -525,10 +473,6 @@ function genModule(ast, context) {
 
 function generate(ast, context) {
   switch (ast.type) {
-    case "undefined": return genUndefined(ast, context);
-    case "null": return genNull(ast, context);
-    case "false": return genFalse(ast, context);
-    case "true": return genTrue(ast, context);
     case "number": return genNumber(ast, context);
     case "string": return genString(ast, context);
     case "key": return genKey(ast, context);
