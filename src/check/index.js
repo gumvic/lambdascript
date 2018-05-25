@@ -3,11 +3,8 @@ const CheckError = require("./error");
 const defaultOptions = require("../defaultOptions");
 
 ESSENTIALS = [
-  "ImList",
-  "ImMap",
-  "ImRecord",
-  "Monad",
-  "get",
+  "typeof",
+  "?",
   "==",
   "~",
   "!",
@@ -27,7 +24,12 @@ ESSENTIALS = [
   "<<",
   ">>>",
   "||",
-  "&&"
+  "&&",
+  "ImList",
+  "ImMap",
+  "ImRecord",
+  "Monad",
+  "get"
 ];
 
 const MAIN = "main";
@@ -319,7 +321,10 @@ function checkModule(ast, context) {
 
 function check(ast, context) {
   switch (ast.type) {
-    case "nil":
+    case "undefined":
+    case "null":
+    case "false":
+    case "true":
     case "number":
     case "string":
     case "key": return;

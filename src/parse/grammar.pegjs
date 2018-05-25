@@ -40,7 +40,11 @@ multilineComment = "#" "{" (multilineComment / (!"}" .))* "}"
 comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
-  wordCase
+  wordUndefined
+  / wordNull
+  / wordFalse
+  / wordTrue
+  / wordCase
   / wordWhen
   / wordElse
   / wordDo
@@ -50,6 +54,11 @@ reservedWord "special word" =
   / wordModule
   / wordImport
   / wordExport
+
+wordUndefined "undefined" = "undefined" !beginNameChar
+wordNull "null" = "null" !beginNameChar
+wordFalse "false" = "false" !beginNameChar
+wordTrue "true" = "true" !beginNameChar
 
 wordCase "case" = "case" !beginNameChar
 wordWhen "when" = "when" !beginNameChar
@@ -103,7 +112,7 @@ moduleName "module name" =
   }
 
 reservedOperator = ("=" / "->") !operatorChar
-operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
+operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
 operator "operator" =
   !reservedOperator
   chars:operatorChar+ {
@@ -123,9 +132,30 @@ key "key" = ":" chars:keyChar+ {
   };
 }
 
-nil "nil" = "nil" {
+undefined "undefined" = wordUndefined {
   return {
-    type: "nil",
+    type: "undefined",
+    location: location()
+  };
+}
+
+null "null" = wordNull {
+  return {
+    type: "null",
+    location: location()
+  };
+}
+
+false "false" = wordFalse {
+  return {
+    type: "false",
+    location: location()
+  };
+}
+
+true "true" = wordTrue {
+  return {
+    type: "true",
     location: location()
   };
 }
@@ -281,7 +311,10 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
 }
 
 atom =
-  nil
+  undefined
+  / null
+  / false
+  / true
   / number
   / string
   / key
