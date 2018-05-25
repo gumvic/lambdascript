@@ -305,30 +305,8 @@ function genFunction({ name, variants }, context) {
 
 function genRecord({ name, args }, context) {
   name = namify(name);
-  args = args.map(namify);
-  const constructorArgs = args.join(", ");
-  const factoryArgs = lines(
-    "{",
-    __(args.map(arg => `${arg}: undefined`).join(",\n")),
-    "}");
-  const init = args.map(arg => `.set("${arg}", ${arg})`).join("");
-  const factory = `const ${name}$Factory = ${RECORD}(${factoryArgs});`;
-  const badArity = lines(
-    `if(arguments.length !== ${args.length}) {`,
-    __(BAD_ARITY),
-    "}");
-  const constructor = lines(
-    `function ${name}(${constructorArgs}) {`,
-    __(badArity),
-    __(`const ${SELF} = Object.create(${name}.prototype);`),
-    __(`${name}$Factory.call(${SELF});`),
-    __(`return ${SELF}.withMutations(${SELF} => ${SELF}${init});`),
-    `}`);
-  const inherit = `${name}.prototype = Object.create(${name}$Factory.prototype);`
-  return lines(
-    factory,
-    constructor,
-    inherit);
+  args = args.map(arg => `"${namify(arg)}"`).join(", ");
+  return `const ${name} = ${RECORD}(${args});`
 }
 
 function genDefinition(ast, context) {

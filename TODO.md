@@ -5,7 +5,6 @@ let b where
   let a = a
 end
 ```
-- drop `isBuiltinOperator` for now, since the user might redefine operators
 - operator optimization including `==`, `isa` and `typeof`
 - better name for `isa`, maybe as an operator `?`, like `m ? Monad`
 - records should be iterable
