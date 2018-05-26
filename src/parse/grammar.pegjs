@@ -114,11 +114,10 @@ operator "operator" =
   };
 }
 
-keyChar = [0-9a-zA-Z_'\.\+\-\*\/\>\<\=\%\!\|\&|\^|\~]
-key "key" = ":" chars:keyChar+ {
+key "key" = ":" name:name {
   return {
     type: "key",
-    value: chars.join(""),
+    value: name.name,
     location: location()
   };
 }

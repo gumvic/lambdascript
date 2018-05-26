@@ -5,12 +5,9 @@ let b where
   let a = a
 end
 ```
-- allow operator characters in properties and use `[]` for invokations
-- native transducers in Immutable
 - `$` for composition? `iterate user (filter isAdult $ map getName)`
 - `seq :: monad -> iterable` -- just walks through the monad, returning the points until it's exhausted
 - validate options
-- `hasp` like `has`
 - `&&` and `||` don't short circuit
 - poor syntax error descriptions, parser fails too early
 - map/filter/etc with indexes
