@@ -6,7 +6,7 @@ ESSENTIALS = [
   "ImList",
   "ImMap",
   "ImRecord",
-  "Monad",
+  "monad",
   "get",
   "getp"
 ];

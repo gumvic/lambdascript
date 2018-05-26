@@ -6,14 +6,14 @@ const BAD_ARITY = "throw new TypeError(\"Arity not supported: \" + arguments.len
 const LIST = "$ImList";
 const MAP = "$ImMap";
 const RECORD = "$ImRecord";
-const MONAD = "$Monad";
+const MONAD = "$monad";
 const GET = "$get";
 const GETP = "$getp";
 const ESSENTIALS = {
   [LIST]: "ImList",
   [MAP]: "ImMap",
   [RECORD]: "ImRecord",
-  [MONAD]: "Monad",
+  [MONAD]: "monad",
   [GET]: "get",
   [GETP]: "getp"
 };
