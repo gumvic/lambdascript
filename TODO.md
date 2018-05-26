@@ -7,10 +7,11 @@ end
 ```
 - `$` for composition? `iterate user (filter isAdult $ map getName)`
 - `seq :: monad -> iterable` -- just walks through the monad, returning the points until it's exhausted
+- `take`
+- `indexed`
 - validate options
 - `&&` and `||` don't short circuit
 - poor syntax error descriptions, parser fails too early
-- map/filter/etc with indexes
 - js module should be able to declare its name
 - syntax for sets, maybe `%{}`?
 - template strings

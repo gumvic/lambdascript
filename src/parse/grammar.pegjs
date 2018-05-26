@@ -103,7 +103,7 @@ moduleName "module name" =
   }
 
 reservedOperator = ("=" / "->") !operatorChar
-operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
+operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\$]
 operator "operator" =
   !reservedOperator
   chars:operatorChar+ {

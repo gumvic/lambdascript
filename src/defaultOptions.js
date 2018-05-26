@@ -41,13 +41,12 @@ module.exports = {
         "getp",
         "getIn",
         "Monad",
-        "iterate",
+        "transduce",
         "Done",
         "map",
         "filter",
-        "fold",
-        "~>",
-        "<~",
+        "reduce",
+        "$",
         "run"
       ]
     }
