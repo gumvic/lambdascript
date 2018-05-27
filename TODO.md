@@ -5,7 +5,7 @@ let b where
   let a = a
 end
 ```
-- `imlist`, `immap`, `imrec` with variadic arguments
+- `_`
 - `seq` and `done`
 - `run`/`runSync` and `done`, maybe have it aliased as `return`
 - validate options

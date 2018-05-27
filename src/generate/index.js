@@ -163,11 +163,16 @@ function genMapDestruct({ items }, value, context) {
   }
 }
 
+function genTupleDestruct(ast, value, context) {
+  return genListDestruct(ast, value, context);
+}
+
 function genLValue(ast, value, context) {
   switch(ast.type) {
     case "name": return genNameLValue(ast, value, context);
     case "alias": return genAlias(ast, value, context);
     case "listDestruct": return genListDestruct(ast, value, context);
+    case "tupleDestruct": return genTupleDestruct(ast, value, context);
     case "mapDestruct": return genMapDestruct(ast, value, context);
     default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
@@ -219,6 +224,11 @@ function genMap({ items, location }, context) {
     .map(({ key, value }) => `[${generate(key, context)}, ${generate(value, context)}]`)
     .join(", ");
   return `${HASHMAP}(${items})`;
+}
+
+function genTuple({ items, location }, context) {
+  items = items.map(item => generate(item, context)).join(", ");
+  return `[${items}]`;
 }
 
 function genConstant({ lvalue, value }, context) {
@@ -480,6 +490,7 @@ function generate(ast, context) {
     case "name": return genName(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
+    case "tuple": return genTuple(ast, context);
     case "lambda": return genLambda(ast, context);
     case "monad": return genMonad(ast, context);
     case "case": return genCase(ast, context);

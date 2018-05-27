@@ -5,7 +5,10 @@ module.exports = {
       "value": [
         "typeof",
         "instanceof",
+        "try",
+        "throw",
         "new",
+        "invoke",
         "==",
         "+",
         "-",
@@ -30,8 +33,6 @@ module.exports = {
         "null",
         "false",
         "true",
-        "try",
-        "throw",
 
         "fromJS",
         "toJS",
@@ -39,6 +40,7 @@ module.exports = {
         "record",
         "list",
         "hashmap",
+        "range",
         "getp",
         "hasp",
         "get",
@@ -62,7 +64,6 @@ module.exports = {
         "take",
 
         "run",
-        "runSync",
 
         "$"
       ]

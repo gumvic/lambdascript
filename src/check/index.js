@@ -10,7 +10,6 @@ ESSENTIALS = [
   "get",
   "getp"
 ];
-
 const MAIN = "main";
 
 class Context {
@@ -21,11 +20,7 @@ class Context {
   }
 
   define({ name, location }) {
-    if (ESSENTIALS.indexOf(name) >= 0 &&
-        this.isDefined({ name, location })) {
-      throw new CheckError(`Builtin redefinition: ${name}`, location);
-    }
-    else if (this.isDefinedLocally({ name, location })) {
+    if (this.isDefinedLocally({ name, location })) {
       throw new CheckError(`Duplicate definition: ${name}`, location);
     }
     else {
@@ -74,6 +69,12 @@ function checkMap({ items }, context) {
   for(let { key, value } of items) {
     check(key, context);
     check(value, context);
+  }
+}
+
+function checkTuple({ items }, context) {
+  for(let item of items) {
+    check(item, context);
   }
 }
 
@@ -198,6 +199,11 @@ function checkLValue(ast, context) {
       checkLValue(lvalue, context);
     }
   }
+  else if (ast.type === "tupleDestruct") {
+    for(let lvalue of ast.items) {
+      checkLValue(lvalue, context);
+    }
+  }
   else {
     new CheckError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
@@ -310,8 +316,9 @@ function check(ast, context) {
     case "property":
     return;
     case "name": return checkName(ast, context);
-    case "map":  return checkMap(ast, context);
     case "list": return checkList(ast, context);
+    case "map":  return checkMap(ast, context);
+    case "tuple": return checkTuple(ast, context);
     case "lambda": return checkLambda(ast, context);
     case "monad": return checkMonad(ast, context);
     case "case": return checkCase(ast, context);

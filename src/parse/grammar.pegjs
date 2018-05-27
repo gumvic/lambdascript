@@ -222,6 +222,17 @@ map "map" =
     };
   }
 
+tuple "tuple" =
+  "(" _
+  items:(first:expression rest:(_ "," _ item:expression { return item; })+ { return [first].concat(rest); })
+  _ ")" {
+  return {
+    type: "tuple",
+    items: items,
+    location: location()
+  };
+}
+
 lambda = "\\" _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression {
   return {
     type: "lambda",
@@ -283,6 +294,7 @@ atom =
   / name
   / list
   / map
+  / tuple
   / lambda
   / monad
   / case
@@ -350,10 +362,9 @@ expression = expression:(binary / binaryOperand / operator) _ where:where? {
   }
 }
 
-listDestructItem = lvalue
-
-listDestruct = "[" _
-  items:(first:listDestructItem rest:(_ "," _ item:listDestructItem { return item; })* { return [first].concat(rest); })
+listDestruct =
+  "[" _
+  items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })* { return [first].concat(rest); })
   _ "]" {
   return {
     type: "listDestruct",
@@ -393,7 +404,8 @@ mapDestructKeyItem = name:name {
 
 mapDestructItem = mapDestructKeyLValueItem / mapDestructPropertyItem / mapDestructKeyItem
 
-mapDestruct = "{" _
+mapDestruct =
+  "{" _
   items:(first:mapDestructItem rest:(_ "," _ item:mapDestructItem { return item; })* { return [first].concat(rest); })
   _ "}" {
   return {
@@ -403,9 +415,20 @@ mapDestruct = "{" _
   };
 }
 
+tupleDestruct =
+  "(" _
+  items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })+ { return [first].concat(rest); })
+  _ ")" {
+  return {
+    type: "tupleDestruct",
+    items: items,
+    location: location()
+  };
+}
+
 recordDestruct = "TODO"
 
-destruct = listDestruct / mapDestruct / recordDestruct
+destruct = listDestruct / mapDestruct / tupleDestruct / recordDestruct
 
 alias = name:name _ "@" _ lvalue:lvalue {
   return {
