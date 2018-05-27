@@ -39,6 +39,12 @@ module.exports = {
         "toJS",
         "get",
         "getp",
+        "hasp",
+        "invoke",
+        "var",
+        "getv",
+        "setv",
+        "statefun",
         "getIn",
         "monad",
         "isMonad",
@@ -48,8 +54,11 @@ module.exports = {
         "map",
         "filter",
         "reduce",
+        "seq",
+        "take",
         "$",
-        "run"
+        "run",
+        "runSync"
       ]
     }
   ]
