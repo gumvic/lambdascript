@@ -3,9 +3,9 @@ const CheckError = require("./error");
 const defaultOptions = require("../defaultOptions");
 
 ESSENTIALS = [
-  "ImList",
-  "ImMap",
-  "ImRecord",
+  "list",
+  "hashmap",
+  "record",
   "monad",
   "get",
   "getp"

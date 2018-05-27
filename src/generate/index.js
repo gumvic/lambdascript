@@ -3,16 +3,16 @@ const GenerationError = require("./error");
 const defaultOptions = require("../defaultOptions");
 
 const BAD_ARITY = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
-const LIST = "$ImList";
-const MAP = "$ImMap";
-const RECORD = "$ImRecord";
+const LIST = "$list";
+const HASHMAP = "$hashmap";
+const RECORD = "$record";
 const MONAD = "$monad";
 const GET = "$get";
 const GETP = "$getp";
 const ESSENTIALS = {
-  [LIST]: "ImList",
-  [MAP]: "ImMap",
-  [RECORD]: "ImRecord",
+  [LIST]: "list",
+  [HASHMAP]: "hashmap",
+  [RECORD]: "record",
   [MONAD]: "monad",
   [GET]: "get",
   [GETP]: "getp"
@@ -211,14 +211,14 @@ function genName(ast, context) {
 
 function genList({ items, location }, context) {
   items = items.map(item => generate(item, context)).join(", ");
-  return `${LIST}([${items}])`;
+  return `${LIST}(${items})`;
 }
 
 function genMap({ items, location }, context) {
   items = items
     .map(({ key, value }) => `[${generate(key, context)}, ${generate(value, context)}]`)
     .join(", ");
-  return `${MAP}([${items}])`;
+  return `${HASHMAP}(${items})`;
 }
 
 function genConstant({ lvalue, value }, context) {

@@ -4,7 +4,8 @@ module.exports = {
       "module": "monada-core",
       "value": [
         "typeof",
-        "?",
+        "instanceof",
+        "new",
         "==",
         "+",
         "-",
@@ -31,34 +32,39 @@ module.exports = {
         "true",
         "try",
         "throw",
-        "ImMap",
-        "ImList",
-        "ImRecord",
-        "size",
+
         "fromJS",
         "toJS",
-        "get",
+        "size",
+        "record",
+        "list",
+        "hashmap",
         "getp",
         "hasp",
-        "invoke",
+        "get",
+        "getIn",
+        "set",
+        "setIn",
+        "has",
         "var",
         "getv",
         "setv",
-        "statefun",
-        "getIn",
         "monad",
         "isMonad",
-        "transduce",
         "done",
         "isDone",
+        "seq",
+        "transduce",
+
         "map",
         "filter",
         "reduce",
-        "seq",
         "take",
-        "$",
+
         "run",
-        "runSync"
+        "runSync",
+
+        "$"
       ]
     }
   ]
