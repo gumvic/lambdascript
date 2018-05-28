@@ -1,56 +1,118 @@
+const { generate: emit } = require("astring");
+
 const GenerationError = require("./error");
 
 const defaultOptions = require("../defaultOptions");
 
-const BAD_ARITY = "throw new TypeError(\"Arity not supported: \" + arguments.length.toString());";
-const LIST = "$list";
-const HASHMAP = "$hashmap";
-const RECORD = "$record";
-const MONAD = "$monad";
-const GET = "$get";
-const GETP = "$getp";
-const ESSENTIALS = {
-  [LIST]: "list",
-  [HASHMAP]: "hashmap",
-  [RECORD]: "record",
-  [MONAD]: "monad",
-  [GET]: "get",
-  [GETP]: "getp"
+const LIST = {
+  type: "Identifier",
+  name: "list"
 };
-const ARG = "$arg";
-const TMP = "$tmp";
-const MAIN = "main";
+
+const HASHMAP = {
+  type: "Identifier",
+  name: "hashmap"
+};
+
+const RECORD = {
+  type: "Identifier",
+  name: "record"
+};
+
+const MONAD = {
+  type: "Identifier",
+  name: "monad"
+};
+
+const GET = {
+  type: "Identifier",
+  name: "get"
+};
+
+const GETP = {
+  type: "Identifier",
+  name: "getp"
+};
+
+const ARGUMENTS = {
+  type: "Identifier",
+  name: "arguments"
+};
+
+const ARG = {
+  type: "Identifier",
+  name: "$arg"
+};
+
+const VIA = {
+  type: "Identifier",
+  name: "$via"
+};
+
+const MAIN = {
+  type: "Identifier",
+  name: "main"
+};
+
+const BAD_ARITY = {
+  type: "ThrowStatement",
+  argument: {
+    type: "NewExpression",
+    callee: {
+      type: "Identifier",
+      name: "TypeError"
+    },
+    arguments: [
+      {
+        type: "BinaryExpression",
+        operator: "+",
+        left: {
+          type: "Literal",
+          value: "Arity not supported: "
+        },
+        right: {
+          type: "MemberExpression",
+          object: ARGUMENTS,
+          property: {
+            type: "Identifier",
+            name: "length"
+          },
+          computed: false
+        }
+      }
+    ]
+  }
+};
 
 class Context {
-  constructor(options) {
+  constructor(options, parent) {
     this.options = options;
     this.oneOffCount = 0;
+    this.definitions = [];
+    this.parent = parent;
   }
 
   oneOffName() {
     return {
-      type: "name",
-      name: `${TMP}${this.oneOffCount++}`
+      type: "Identifier",
+      name: `$tmp${this.oneOffCount++}`
     };
+  }
+
+  define(definition) {
+    this.definitions.push(definition);
+  }
+
+  defined() {
+    return this.definitions;
+  }
+
+  spawn() {
+    return new Context(this.options, this);
   }
 }
 
-function lines() {
-  return Array.prototype.map.call(arguments, line =>
-    line instanceof Array ?
-      lines.apply(null, line):
-      line).filter(s => !!s).join("\n");
-}
-
-function __(str) {
-  const indentationLength = 2;
-  return str
-    .split("\n")
-    .map(line => line.padStart(line.length + indentationLength))
-    .join("\n");
-}
-
-function namify({ name }) {
+function namify(name) {
   return name
     .replace(
       /^(do|if|in|for|let|new|try|var|case|else|enum|eval|null|undefined|this|true|void|with|await|break|catch|class|const|false|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/g,
@@ -81,246 +143,422 @@ function namify({ name }) {
       });
 }
 
-function genNameLValue(ast, value, context) {
-  const name = namify(ast);
-  value = generate(value, context);
-  return `const ${name} = ${value};`;
-}
-
-function genAlias(ast, value, context) {
-  const name = namify(ast.name);
-  value = generate(value, context);
-  return lines(
-    `const ${name} = ${value};`,
-    genLValue(ast.lvalue, ast.name, context));
-}
-
-function genListDestruct({ items }, value, context) {
-  function genItem({ key, lvalue }, value, context) {
-    key = {
-      type: "number",
-      value: key.toString()
+function genNameLValue(name, value, context) {
+  return [
+    {
+      type: "VariableDeclaration",
+      declarations: [
+        {
+          type: "VariableDeclarator",
+          id: generate(name, context),
+          init: value
+        }
+      ],
+      kind: "const"
     }
-    value = {
-      type: "call",
-      callee: {
-        type: "name",
-        name: GET
-      },
-      args: [value, key]
-    };
-    return genLValue(lvalue, value, context);
-  }
-  if (items.length > 1) {
-    // TODO or primitive
-    if (value.type === "name") {
-      return items
-        .map((item, i) =>
-          genItem({ key: i, lvalue: item }, value, context));
+  ];
+}
+
+function genAlias({ name, lvalue }, value, context) {
+  name = generate(name, context);
+  return [
+    {
+      type: "VariableDeclaration",
+      declarations: [
+        {
+          type: "VariableDeclarator",
+          id: name,
+          init: value
+        }
+      ],
+      kind: "const"
     }
-    else {
-      const tmpName = context.oneOffName();
-      value = generate(value, context);
-      return lines(
-        `const ${namify(tmpName)} = ${value};`,
-        items
-          .map((item, i) =>
-            genItem({ key: i, lvalue: item }, tmpName, context)));
-    }
+  ].concat(genLValue(lvalue, name, context));
+}
+
+function genListDestructItem({ key, lvalue }, value, context) {
+  value = {
+    type: "CallExpression",
+    callee: GET,
+    arguments: [
+      value,
+      {
+        type: "Literal",
+        value: key
+      }
+    ]
   }
-  else {
-    return genItem({ key: 0, lvalue: items[0] }, value, context);
-  }
-}
-
-function genMapDestruct({ items }, value, context) {
-  function genItem({ key, lvalue }, value, context) {
-    value = {
-      type: "call",
-      callee: {
-        type: "name",
-        name: key.type === "property" ? GETP : GET
-      },
-      args: [value, key]
-    };
-    return genLValue(lvalue, value, context);
-  }
-  if (items.length > 1) {
-    // TODO or primitive
-    if (value.type === "name") {
-      return items.map(item => genItem(item, value, context));
-    }
-    else {
-      const tmpName = context.oneOffName();
-      value = generate(value, context);
-      return lines(
-        `const ${namify(tmpName)} = ${value};`,
-        items.map(item => genItem(item, tmpName, context)));
-    }
-  }
-  else {
-    return genItem(items[0], value, context);
-  }
-}
-
-function genTupleDestruct(ast, value, context) {
-  return genListDestruct(ast, value, context);
-}
-
-function genLValue(ast, value, context) {
-  switch(ast.type) {
-    case "name": return genNameLValue(ast, value, context);
-    case "alias": return genAlias(ast, value, context);
-    case "listDestruct": return genListDestruct(ast, value, context);
-    case "tupleDestruct": return genTupleDestruct(ast, value, context);
-    case "mapDestruct": return genMapDestruct(ast, value, context);
-    default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
-  }
-}
-
-function genUndefined(ast, context) {
-  return "undefined";
-}
-
-function genNull(ast, context) {
-  return "null";
-}
-
-function genFalse(ast, context) {
-  return "false";
-}
-
-function genTrue(ast, context) {
-  return "true";
-}
-
-function genNumber({ value }, context) {
-  return value.toString();
-}
-
-function genString({ value }, context) {
-  return `"${value}"`;
-}
-
-function genKey({ value, location }, context) {
-  return `"${namify({ name: value })}"`;
-}
-
-function genProperty({ name, location }, context) {
-  return `"${namify({ name: name })}"`;
-}
-
-function genName(ast, context) {
-  return namify(ast);
-}
-
-function genList({ items, location }, context) {
-  items = items.map(item => generate(item, context)).join(", ");
-  return `${LIST}(${items})`;
-}
-
-function genMap({ items, location }, context) {
-  items = items
-    .map(({ key, value }) => `[${generate(key, context)}, ${generate(value, context)}]`)
-    .join(", ");
-  return `${HASHMAP}(${items})`;
-}
-
-function genTuple({ items, location }, context) {
-  items = items.map(item => generate(item, context)).join(", ");
-  return `[${items}]`;
-}
-
-function genConstant({ lvalue, value }, context) {
   return genLValue(lvalue, value, context);
 }
 
-function pregenFunctionVariant({ name, args, body }, context) {
-  const arity = args.length;
-  name = name ? `${name}$${arity}` : "";
-  const argsList = args
-    .map((arg, i) =>
-      arg.type === "name" ?
-        arg :
-        { type: "name", name: `${ARG}${i}` });
-  const initArgs = lines(args
-    .map((arg, i) =>
-      arg.type === "name" ?
-        null :
-        genLValue(arg, argsList[i], context)));
-  args = argsList.map(arg => generate(arg, context)).join(", ");
-  body = lines(
-    initArgs,
-    `return ${generate(body, context)};`);
-  return {
-    arity: arity,
-    name: name,
-    args: args,
-    body: body
-  };
-}
-
-function genFunctionVariant(ast, context) {
-  const { name, args, body } = pregenFunctionVariant(ast, context);
-  return lines(
-    `function ${name}(${args}) {`,
-    __(body),
-    "}");
-}
-
-function genFunction({ name, variants }, context) {
-  name = namify(name);
-  const functions = variants
-    .map(({ args, body }) =>
-      genFunctionVariant({ name, args, body }, context));
-  const arities = variants.map(({ args }) => {
-    const arity = args.length;
-    args = args.map((arg, i) => `arguments[${i}]`);
-    return lines(
-      `case ${arity}:`,
-      __(`return ${name}$${arity}(${args.join(", ")});`));
-  });
-  const badArity = lines(
-    "default:",
-    __(BAD_ARITY));
-  const body = lines(
-    "switch(arguments.length) {",
-      arities,
-      badArity,
-    "}");
-  return lines(
-    functions,
-    `function ${name}() {`,
-    __(body),
-    "}");
-}
-
-function genRecord({ name, args }, context) {
-  name = namify(name);
-  args = args.map(arg => `"${namify(arg)}"`).join(", ");
-  return `const ${name} = ${RECORD}(${args});`
-}
-
-function genDefinition(ast, context) {
-  switch(ast.type) {
-    case "constant": return genConstant(ast, context);
-    case "function": return genFunction(ast, context);
-    case "record": return genRecord(ast, context);
-    default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
+function genListDestruct({ items }, value, context) {
+  if (items.length > 1) {
+    // TODO or primitive
+    if (value.type === "Identifier" ||
+        value.type === "Literal") {
+      return items
+        .map((item, i) => genListDestructItem({ key: i, lvalue: item }, value, context))
+        .reduce((a, b) => a.concat(b));
+    }
+    else {
+      const tmpName = context.oneOffName();
+      return [
+        {
+          type: "VariableDeclaration",
+          declarations: [
+            {
+              type: "VariableDeclarator",
+              id: tmpName,
+              init: value
+            }
+          ],
+          kind: "const"
+        }
+      ].concat(items
+        .map((item, i) => genListDestructItem({ key: i, lvalue: item }, tmpName, context))
+        .reduce((a, b) => a.concat(b)));
+    }
+  }
+  else {
+    return genListDestructItem({ key: 0, lvalue: items[0] }, value, context);
   }
 }
 
-function genLambda(ast, context) {
-  const { arity, args, body } = pregenFunctionVariant(ast, context);
-  const badArity = lines(
-    `if(arguments.length !== ${arity}) {`,
-    __(BAD_ARITY),
-    "}");
-  return lines(
-    `function(${args}) {`,
-    __(badArity),
-    __(body),
-    "}");
+function genMapDestructItem({ key, lvalue }, value, context) {
+  value = {
+    type: "CallExpression",
+    callee: key.type === "property" ? GETP : GET,
+    arguments: [
+      value,
+      generate(key, context)
+    ]
+  }
+  return genLValue(lvalue, value, context);
+}
+
+function genMapDestruct({ items }, value, context) {
+  if (items.length > 1) {
+    if (value.type === "Identifier" ||
+        value.type === "Literal") {
+      return items
+        .map(item => genMapDestructItem(item, value, context))
+        .reduce((a, b) => a.concat(b));
+    }
+    else {
+      const tmpName = context.oneOffName();
+      return [
+        {
+          type: "VariableDeclaration",
+          declarations: [
+            {
+              type: "VariableDeclarator",
+              id: tmpName,
+              init: value
+            }
+          ],
+          kind: "const"
+        }
+      ].concat(items
+        .map(item => genMapDestructItem(item, tmpName, context))
+        .reduce((a, b) => a.concat(b)));
+    }
+  }
+  else {
+    return genMapDestructItem(items[0], value, context);
+  }
+}
+
+function genTupleDestruct(tuple, value, context) {
+  return genListDestruct(tuple, value, context);
+}
+
+// This expects value to be compiled already
+function genLValue(lvalue, value, context) {
+  switch(lvalue.type) {
+    case "name": return genNameLValue(lvalue, value, context);
+    case "alias": return genAlias(lvalue, value, context);
+    case "tupleDestruct": return genTupleDestruct(lvalue, value, context);
+    case "mapDestruct": return genMapDestruct(lvalue, value, context);
+    case "listDestruct": return genListDestruct(lvalue, value, context);
+    default: throw new GenerationError(`Internal error: unknown AST type ${lvalue.type}.`, lvalue.location);
+  }
+}
+
+function genUndefined(_, context) {
+  return {
+    type: "Identifier",
+    name: "undefined"
+  };
+}
+
+function genNull(_, context) {
+  return {
+    type: "Literal",
+    value: null
+  };
+}
+
+function genFalse(_, context) {
+  return {
+    type: "Literal",
+    value: false
+  };
+}
+
+function genTrue(_, context) {
+  return {
+    type: "Literal",
+    value: true
+  };
+}
+
+function genNumber({ value }, context) {
+  return {
+    type: "Literal",
+    value: parseFloat(value)
+  };
+}
+
+function genString({ value }, context) {
+  return {
+    type: "Literal",
+    value: value
+  };
+}
+
+function genKey({ value }, context) {
+  return {
+    type: "Literal",
+    value: value
+  };
+}
+
+function genName({ name }, context) {
+  return {
+    type: "Identifier",
+    name: namify(name)
+  };
+}
+
+function genSymbol(symbol, context) {
+  return genName(symbol);
+}
+
+function genProperty({ name }, context) {
+  return {
+    type: "Literal",
+    value: namify(name)
+  };
+}
+
+function genTuple({ items }, context) {
+  return {
+    type: "ArrayExpression",
+    elements: items.map(item => generate(item, context))
+  };
+}
+
+function genList({ items }, context) {
+  return {
+    type: "CallExpression",
+    callee: LIST,
+    arguments: items.map(item => generate(item, context))
+  };
+}
+
+function genMap({ items }, context) {
+  return {
+    type: "CallExpression",
+    callee: HASHMAP,
+    arguments: items
+      .map(({ key, value }) => ({
+        type: "ArrayExpression",
+        elements: [generate(key, context), generate(value, context)]
+      }))
+  };
+}
+
+function genConstant({ lvalue, value }, context) {
+  return genLValue(lvalue, generate(value, context), context);
+}
+
+function pregenFunctionVariant(name, { args, body }, context) {
+  const arity = args.length;
+
+  name = name ?
+    generate(
+      { type: "name", name: `${name.name}$${arity}` },
+      context) :
+    null;
+
+  // TODO $arg
+  const argsList = args.map((arg, i) => ({
+    type: "Identifier",
+    name: `$arg${i}`
+  }));
+
+  const initArgs = args
+    .map((arg, i) => genLValue(arg, argsList[i], context))
+    .reduce((a, b) => a.concat(b), []);
+
+  args = argsList;
+
+  body = initArgs
+    .concat({
+      type: "ReturnStatement",
+      argument: generate(body, context)
+    });
+
+  return {
+    name,
+    arity,
+    args,
+    body
+  };
+}
+
+function genFunction({ name, variants }, context) {
+  variants = variants.map(variant =>
+    pregenFunctionVariant(name, variant, context));
+
+  const functions = variants
+    .map(({ name, args, body }) => ({
+      type: "FunctionDeclaration",
+      id: name,
+      params: args,
+      body: {
+        type: "BlockStatement",
+        body: body
+      }
+    }));
+
+  const arities = variants.map(({ name, arity, args }) => {
+    return {
+      type: "SwitchCase",
+      test: {
+        type: "Literal",
+        value: arity
+      },
+      consequent: [
+        {
+          type: "ReturnStatement",
+          argument: {
+            type: "CallExpression",
+            callee: name,
+            arguments: args.map((arg, i) => ({
+              type: "MemberExpression",
+              object: ARGUMENTS,
+              property: {
+                type: "Literal",
+                value: i
+              },
+              computed: true
+            }))
+          }
+        }
+      ]
+    };
+  });
+
+  const badArity = {
+    type: "SwitchCase",
+    consequent: [BAD_ARITY]
+  };
+
+  const body = {
+    type: "SwitchStatement",
+    discriminant: {
+      type: "MemberExpression",
+      object: ARGUMENTS,
+      property: {
+        type: "Identifier",
+        name: "length"
+      },
+      computed: false
+    },
+    cases: arities.concat(badArity)
+  };
+
+  const dispatchFunction = {
+    type: "FunctionDeclaration",
+    id: generate(name, context),
+    params: [],
+    body: {
+      type: "BlockStatement",
+      body: [body]
+    }
+  };
+
+  return functions.concat(dispatchFunction);
+}
+
+function genRecord({ name, args }, context) {
+  return {
+    type: "VariableDeclaration",
+    declarations: [
+      {
+        type: "VariableDeclarator",
+        id: generate(name, context),
+        init: {
+          type: "CallExpression",
+          callee: RECORD,
+          arguments: args.map(({ name }) => ({
+            type: "Literal",
+            value: name
+          }))
+        }
+      }
+    ],
+    kind: "const"
+  };
+}
+
+function genDefinition(definition, context) {
+  switch(definition.type) {
+    case "constant": return genConstant(definition, context);
+    case "function": return genFunction(definition, context);
+    case "record": return genRecord(definition, context);
+    default: throw new GenerationError(`Internal error: unknown AST type ${definition.type}.`, definition.location);
+  }
+}
+
+function genDefinitions(definitions, context) {
+  return definitions
+    .map(definition => genDefinition(definition, context))
+    .reduce((a, b) => a.concat(b));
+}
+
+function genLambda(lambda, context) {
+  const { arity, args, body } = pregenFunctionVariant(null, lambda, context);
+  const badArity = {
+    type: "IfStatement",
+    test: {
+      type: "BinaryExpression",
+      operator: "!==",
+      left: {
+        type: "MemberExpression",
+        object: ARGUMENTS,
+        property: {
+          type: "Identifier",
+          name: "length"
+        },
+        computed: false
+      },
+      right: {
+        type: "Literal",
+        value: arity
+      }
+    },
+    consequent: BAD_ARITY
+  };
+  return {
+    type: "FunctionExpression",
+    params: args,
+    body: {
+      type: "BlockStatement",
+      body: [badArity].concat(body)
+    }
+  };
 }
 
 function genMonad({ items }, context) {
@@ -338,16 +576,35 @@ function genMonad({ items }, context) {
       }
       else {
         const next = via ?
-          lines(
-            "($val) => {",
-            __(lines(
-              genLValue(via, { type: "name", name: "$val" }, context),
-              `return ${right};`)),
-            "}"):
-          lines(
-            "() =>",
-            __(right));
-        return `${MONAD}(${value}, ${next})`;
+          {
+            type: "FunctionExpression",
+            params: [VIA],
+            body: {
+              type: "BlockStatement",
+              body: genLValue(via, VIA, context).concat({
+                type: "ReturnStatement",
+                argument: right
+              })
+            }
+          } :
+          {
+            type: "FunctionExpression",
+            params: [],
+            body: {
+              type: "BlockStatement",
+              body: [
+                {
+                  type: "ReturnStatement",
+                  argument: right
+                }
+              ]
+            }
+          };
+        return {
+          type: "CallExpression",
+          callee: MONAD,
+          arguments: [value, next]
+        };
       }
     }
   }
@@ -364,120 +621,203 @@ function genCase({ branches, otherwise }, context) {
     const _condition = generate(condition, context);
     const ifTrue = generate(value, context);
     const ifFalse = _generate(rest, context);
-    return lines(
-      `${_condition} ?`,
-      __(`${ifTrue} :`),
-      __(`${ifFalse}`));
+    return {
+      type: "ConditionalExpression",
+      test: _condition,
+      consequent: ifTrue,
+      alternate: ifFalse
+    };
   }
   return _generate(branches, context);
 }
 
 function genScope({ definitions, body }, context) {
-  definitions = lines(definitions.map(definition => genDefinition(definition, context)));
-  body = generate(body, context);
-  return lines(
-    "((() => {",
-    __(definitions),
-    __(`return ${body};`),
-    "})())");
+  return {
+    type: "CallExpression",
+    callee: {
+      type: "FunctionExpression",
+      params: [],
+      body: {
+        type: "BlockStatement",
+        body: genDefinitions(definitions, context)
+          .concat({
+            type: "ReturnStatement",
+            argument: generate(body, context)
+          })
+      }
+    },
+    arguments: []
+  };
 }
 
 function genCall({ callee, args }, context) {
-  // TODO wrap in braces values that js won't call
-  callee = generate(callee, context);
-  args = args.map((arg) => generate(arg, context)).join(", ");
-  return `${callee}(${args})`;
+  return {
+    type: "CallExpression",
+    callee: generate(callee, context),
+    arguments: args.map((arg) => generate(arg, context))
+  };
 }
 
 function genInvoke({ object, method, args }, context) {
-  object = generate(object, context);
-  method = namify(method);
-  args = args.map((arg) => generate(arg, context)).join(", ");
-  return `${object}.${method}(${args})`;
+  return {
+    type: "CallExpression",
+    callee: {
+      type: "MemberExpression",
+      object: generate(object, context),
+      property: generate(method, context),
+      computed: true
+    },
+    arguments: args.map((arg) => generate(arg, context))
+  };
 }
 
 function genImport({ module, value }, context) {
   if (!module) {
-    return "";
+    return {
+      type: "EmptyStatement"
+    };
   }
   else {
-    const alias = namify(module);
+    const require = {
+      type: "VariableDeclarator",
+      id: generate(module, context),
+      init: {
+        type: "CallExpression",
+        callee: {
+          type: "Identifier",
+          name: "require"
+        },
+        arguments: [
+          {
+            type: "Literal",
+            value: module.name
+          }
+        ]
+      }
+    };
+    let symbols = null;
     if (value.type === "symbols") {
-      value = value.items
-        .map(({ key, name }) => ({ key: namify(key), name: namify(name) }))
-        .map(({ key, name }) => `const ${name} = ${alias}.${key};`);
+      symbols = value.items
+        .map(({ key, name }) => ({
+          type: "VariableDeclarator",
+          id: generate(name, context),
+          init: {
+            type: "MemberExpression",
+            object: generate(module, context),
+            property: generate(key, context),
+            computed: false
+          }
+        }));
     }
     else if (value.type === "symbol") {
-      value = namify(value);
+      // TODO
     }
     else {
       new GenerationError(`Internal error: unknown AST type ${value.type}.`, value.location);
     }
-    return lines(
-      `const ${alias} = require("${module.name}");`,
-      value);
+    return {
+      type: "VariableDeclaration",
+      declarations: [require].concat(symbols),
+      kind: "const"
+    };
   }
 }
 
 function genModuleImports({ imports }, context) {
-  return lines(
-    imports.map(_import => generate(_import, context)));
+  return imports.map(_import => generate(_import, context));
 }
 
 function genModuleDefinitions({ definitions }, context) {
-  return lines(
-    definitions.map(definition => genDefinition(definition, context)));
+  return genDefinitions(definitions, context);
 }
 
-function genExport({ value }, context) {
+function genModuleExport({ export: { value } }, context) {
   if (value.type === "symbols") {
-    const items = value.items
-      .map(({ key, name }) => `${namify(name)}: ${namify(key)}`)
-      .join(",\n");
-    value = lines("{",
-    __(items),
-    "}");
+    value = {
+      type: "ObjectExpression",
+      properties: value.items
+        .map(({ key, name }) => ({
+          type: "Property",
+          key: generate(name, context),
+          value: generate(key, context),
+          kind: "init"
+        }))
+    };
   }
   else if (value.type === "symbol") {
-    value = generate(value);
+    value = generate(value, context);
   }
   else {
     new GenerationError(`Internal error: unknown AST type ${value.type}.`, value.location);
   }
-  return `module.exports = ${value};`
+  return {
+    type: "AssignmentExpression",
+    operator: "=",
+    left: {
+      type: "MemberExpression",
+      object: {
+        type: "Identifier",
+        name: "module"
+      },
+      property: {
+        type: "Identifier",
+        name: "exports"
+      },
+      computed: false
+    },
+    right: value
+  };
 }
 
-function genModuleExport({ export: _export }, context) {
-  return generate(_export, context);
+/*function genEssentials() {
+  return {
+    type: "VariableDeclaration",
+    declarations: Object.entries(ESSENTIALS)
+      .map(([essential, name]) => ({
+        type: "VariableDeclarator",
+        id: {
+          type: "Identifier",
+          name: essential
+        },
+        init: {
+          type: "Identifier",
+          name: name
+        }
+      })),
+    kind: "const"
+  };
+}*/
+
+function genApp(module, context) {
+  return {
+    type: "Program",
+    body:
+      genModuleImports(module, context)
+      .concat(genModuleDefinitions(module, context))
+      .concat({
+        type: "CallExpression",
+        callee: MAIN,
+        arguments: []
+      })
+  };
 }
 
-function genEssentials() {
-  return lines(Object.entries(ESSENTIALS)
-    .map(([essential, name]) => `const ${essential} = ${name};`));
+function genLib(module, context) {
+  return {
+    type: "Program",
+    body:
+      genModuleImports(module, context)
+      .concat(genModuleDefinitions(module, context))
+      .concat(genModuleExport(module, context))
+  };
 }
 
-function genApp(ast, context) {
-  return lines(
-    genModuleImports(ast, context),
-    genEssentials(),
-    genModuleDefinitions(ast, context),
-    `${MAIN}();`);
-}
-
-function genLib(ast, context) {
-  return lines(
-    genModuleImports(ast, context),
-    genEssentials(),
-    genModuleDefinitions(ast, context),
-    genModuleExport(ast, context));
-}
-
-function genModule(ast, context) {
-  if (!ast.export) {
-    return genApp(ast, context);
+function genModule(module, context) {
+  if (!module.export) {
+    return genApp(module, context);
   }
   else {
-    return genLib(ast, context);
+    return genLib(module, context);
   }
 }
 
@@ -486,8 +826,9 @@ function generate(ast, context) {
     case "number": return genNumber(ast, context);
     case "string": return genString(ast, context);
     case "key": return genKey(ast, context);
-    case "property": return genProperty(ast, context);
     case "name": return genName(ast, context);
+    case "property": return genProperty(ast, context);
+    case "symbol": return genSymbol(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
     case "tuple": return genTuple(ast, context);
@@ -506,5 +847,6 @@ function generate(ast, context) {
 
 module.exports = function(ast, options) {
   options = options || defaultOptions;
-  return generate(ast, new Context(options));
+  const estree = generate(ast, new Context(options));
+  return emit(estree);
 };

@@ -5,12 +5,12 @@ let b where
   let a = a
 end
 ```
+- exporting one name doesn't work
 - `_`
-- `seq` and `done`
-- `run`/`runSync` and `done`, maybe have it aliased as `return`
 - validate options
 - `&&` and `||` don't short circuit
 - some operators should have zero arity with default result of `0`, `false` or whatever makes sense for them
+- guard `get`, `monad` etc from redefining by user
 - poor syntax error descriptions, parser fails too early
 - js module should be able to declare its name
 - syntax for sets, maybe `%{}`?
