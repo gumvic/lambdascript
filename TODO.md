@@ -5,10 +5,8 @@ let b where
   let a = a
 end
 ```
-- `name` -> `identifier`
-- `symbol` and `property` shouldn't be in `generate`
 - exporting one name doesn't work
-- `_`
+- `_` -- it's `undefined` when used as a value and a name that can be redefined
 - validate options
 - `&&` and `||` don't short circuit
 - some operators should have zero arity with default result of `0`, `false` or whatever makes sense for them
