@@ -33,6 +33,8 @@ module.exports = {
         "null",
         "false",
         "true",
+        "var",
+        "<~",
 
         "fromJS",
         "toJS",
@@ -48,9 +50,6 @@ module.exports = {
         "set",
         "setIn",
         "has",
-        "var",
-        "getv",
-        "setv",
         "monad",
         "isMonad",
         "done",
