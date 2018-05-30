@@ -54,6 +54,16 @@ const MAIN = {
   name: "main"
 };
 
+const ARITY = {
+  type: "MemberExpression",
+  object: ARGUMENTS,
+  property: {
+    type: "Identifier",
+    name: "length"
+  },
+  computed: false
+};
+
 const BAD_ARITY = {
   type: "ThrowStatement",
   argument: {
@@ -70,15 +80,7 @@ const BAD_ARITY = {
           type: "Literal",
           value: "Arity not supported: "
         },
-        right: {
-          type: "MemberExpression",
-          object: ARGUMENTS,
-          property: {
-            type: "Identifier",
-            name: "length"
-          },
-          computed: false
-        }
+        right: ARITY
       }
     ]
   }
@@ -193,7 +195,6 @@ function genListDestructItem({ key, lvalue }, value, context) {
 
 function genListDestruct({ items }, value, context) {
   if (items.length > 1) {
-    // TODO or primitive
     if (value.type === "Identifier" ||
         value.type === "Literal") {
       return items
@@ -382,83 +383,70 @@ function genConstant({ lvalue, value }, context) {
   return genLValue(lvalue, generate(value, context), context);
 }
 
-function pregenFunctionVariant(name, { args, body }, context) {
-  const arity = args.length;
+function genFunctionVariantName({ name }, { args }, context) {
+  return {
+    type: "Identifier",
+    name: `${namify(name.name)}$${args.length}`
+  };
+}
 
-  name = name ?
-    generate(
-      { type: "name", name: `${name.name}$${arity}` },
-      context) :
-    null;
-
-  // TODO $arg
-  const argsList = args.map((arg, i) => ({
+function genFunctionVariantArgs(_, { args }, context) {
+  return args.map((arg, i) => ({
     type: "Identifier",
     name: `$arg${i}`
   }));
+}
 
-  const initArgs = args
-    .map((arg, i) => genLValue(arg, argsList[i], context))
+function genFunctionVariantBody(_, variant, context) {
+  const { args, body } = variant;
+  const initArgs = genFunctionVariantArgs(_, variant, context)
+    .map((arg, i) => genLValue(args[i], arg, context))
     .reduce((a, b) => a.concat(b), []);
-
-  args = argsList;
-
-  body = initArgs
+  return initArgs
     .concat({
       type: "ReturnStatement",
       argument: generate(body, context)
     });
+}
 
+function genFunctionVariant(fun, variant, context) {
   return {
-    name,
-    arity,
-    args,
-    body
+    type: "FunctionExpression",
+    id: genFunctionVariantName(fun, variant, context),
+    params: genFunctionVariantArgs(fun, variant, context),
+    body: {
+      type: "BlockStatement",
+      body: genFunctionVariantBody(fun, variant, context)
+    }
   };
 }
 
-function genFunction({ name, variants }, context) {
-  variants = variants.map(variant =>
-    pregenFunctionVariant(name, variant, context));
-
-  const functions = variants
-    .map(({ name, args, body }) => ({
-      type: "FunctionDeclaration",
-      id: name,
-      params: args,
-      body: {
-        type: "BlockStatement",
-        body: body
-      }
-    }));
-
-  const arities = variants.map(({ name, arity, args }) => {
-    return {
-      type: "SwitchCase",
-      test: {
-        type: "Literal",
-        value: arity
-      },
-      consequent: [
-        {
-          type: "ReturnStatement",
-          argument: {
-            type: "CallExpression",
-            callee: name,
-            arguments: args.map((arg, i) => ({
-              type: "MemberExpression",
-              object: ARGUMENTS,
-              property: {
-                type: "Literal",
-                value: i
-              },
-              computed: true
-            }))
-          }
+function genFunctionDispatcher(fun, context) {
+  const variants = fun.variants.map(variant => ({
+    type: "SwitchCase",
+    test: {
+      type: "Literal",
+      value: variant.args.length
+    },
+    consequent: [
+      {
+        type: "ReturnStatement",
+        argument: {
+          type: "CallExpression",
+          callee: genFunctionVariantName(fun, variant, context),
+          arguments: variant.args.map((_, i) => ({
+            type: "MemberExpression",
+            object: ARGUMENTS,
+            property: {
+              type: "Literal",
+              value: i
+            },
+            computed: true
+          }))
         }
-      ]
-    };
-  });
+      }
+    ]
+  }));
 
   const badArity = {
     type: "SwitchCase",
@@ -467,29 +455,26 @@ function genFunction({ name, variants }, context) {
 
   const body = {
     type: "SwitchStatement",
-    discriminant: {
-      type: "MemberExpression",
-      object: ARGUMENTS,
-      property: {
-        type: "Identifier",
-        name: "length"
-      },
-      computed: false
-    },
-    cases: arities.concat(badArity)
+    discriminant: ARITY,
+    cases: variants.concat(badArity)
   };
 
-  const dispatchFunction = {
+  return {
     type: "FunctionDeclaration",
-    id: generate(name, context),
+    id: genName(fun.name, context),
     params: [],
     body: {
       type: "BlockStatement",
       body: [body]
     }
   };
+}
 
-  return functions.concat(dispatchFunction);
+function genFunction(fun, context) {
+  const variants = fun.variants.map(
+    variant => genFunctionVariant(fun, variant, context));
+  const dispatcher = genFunctionDispatcher(fun, context);
+  return variants.concat(dispatcher);
 }
 
 function genRecord({ name, args }, context) {
@@ -498,7 +483,7 @@ function genRecord({ name, args }, context) {
     declarations: [
       {
         type: "VariableDeclarator",
-        id: generate(name, context),
+        id: genName(name, context),
         init: {
           type: "CallExpression",
           callee: RECORD,
@@ -529,24 +514,17 @@ function genDefinitions(definitions, context) {
 }
 
 function genLambda(lambda, context) {
-  const { arity, args, body } = pregenFunctionVariant(null, lambda, context);
+  const args = genFunctionVariantArgs(null, lambda, context);
+  const body = genFunctionVariantBody(null, lambda, context);
   const badArity = {
     type: "IfStatement",
     test: {
       type: "BinaryExpression",
       operator: "!==",
-      left: {
-        type: "MemberExpression",
-        object: ARGUMENTS,
-        property: {
-          type: "Identifier",
-          name: "length"
-        },
-        computed: false
-      },
+      left: ARITY,
       right: {
         type: "Literal",
-        value: arity
+        value: args.length
       }
     },
     consequent: BAD_ARITY

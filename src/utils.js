@@ -8,7 +8,7 @@ const Error = require("./error");
 
 function formatError(error, { srcDir }) {
   if (!(error instanceof Error)) {
-    return resolvePromise(error.toString());
+    return resolvePromise(error.stack);
   }
   const { message, location: { file, start: { line, column } } } = error;
   const description = [file, line, column, message]
