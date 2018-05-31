@@ -117,28 +117,32 @@ operator "operator" =
 undefined "undefined" = "undefined" !beginNameChar {
   return {
     type: "literal",
-    value: undefined
+    value: undefined,
+    location: location()
   };
 }
 
 null "null" = "null" !beginNameChar {
   return {
     type: "literal",
-    value: null
+    value: null,
+    location: location()
   };
 }
 
 false "false" = "false" !beginNameChar {
   return {
     type: "literal",
-    value: false
+    value: false,
+    location: location()
   };
 }
 
 true "true" = "true" !beginNameChar {
   return {
     type: "literal",
-    value: true
+    value: true,
+    location: location()
   };
 }
 
@@ -204,6 +208,13 @@ literal =
   / true
   / number
   / string
+
+skip "_" = "_" !beginNameChar {
+  return {
+    type: "skip",
+    location: location()
+  };
+}
 
 property "property" = "." name:name {
   return {
@@ -322,6 +333,7 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
 
 atom =
   literal
+  / skip
   / key
   / name
   / list
@@ -461,7 +473,7 @@ alias = name:name _ "@" _ lvalue:lvalue {
   };
 }
 
-lvalue = alias / name / destruct
+lvalue = skip / alias / name / destruct
 
 constantDefinition = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:expression {
   return {

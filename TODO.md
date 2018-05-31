@@ -5,11 +5,10 @@ let b where
   let a = a
 end
 ```
-- `list` -> `vector`?
+- `list` -> `vector`? `hashmap` -> `dict`?
 - `<~` sucks
 - exporting one name doesn't work
 
-- `_` -- it's `undefined` when used as a value and a name that can be redefined
 - `&&` and `||` don't short circuit
 - some operators should have zero arity with default result of `0`, `false` or whatever makes sense for them
 - guard `get`, `monad` etc from being redefined by user

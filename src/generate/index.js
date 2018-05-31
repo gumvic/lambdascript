@@ -155,6 +155,10 @@ function namify(name) {
       });
 }
 
+function genSkipLValue(name, value, context) {
+  return [];
+}
+
 function genNameLValue(name, value, context) {
   return [
     {
@@ -271,6 +275,7 @@ function genMapDestruct(map, value, context) {
 
 function genLValue(lvalue, value, context) {
   switch(lvalue.type) {
+    case "skip": return genSkipLValue(lvalue, value, context);
     case "name": return genNameLValue(lvalue, value, context);
     case "alias": return genAlias(lvalue, value, context);
     case "mapDestruct": return genMapDestruct(lvalue, value, context);
@@ -279,6 +284,12 @@ function genLValue(lvalue, value, context) {
   }
 }
 
+function genSkip(_, context) {
+  return {
+    type: "Identifier",
+    name: "undefined"
+  };
+}
 
 function genLiteral({ value }, context) {
   return value === undefined ?
@@ -783,6 +794,7 @@ function genModule(module, context) {
 function generate(ast, context) {
   switch (ast.type) {
     case "literal": return genLiteral(ast, context);
+    case "skip": return genSkip(ast, context);
     case "key": return genKey(ast, context);
     case "name": return genName(ast, context);
     case "property": return genProperty(ast, context);

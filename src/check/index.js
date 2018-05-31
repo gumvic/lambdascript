@@ -183,7 +183,10 @@ function checkInvoke({ object, args }, context) {
 }
 
 function checkLValue(ast, context) {
-  if (ast.type === "name") {
+  if (ast.type === "skip") {
+
+  }
+  else if (ast.type === "name") {
     context.define(ast);
   }
   else if (ast.type === "alias") {
@@ -310,6 +313,7 @@ function checkModule(ast, context) {
 function check(ast, context) {
   switch (ast.type) {
     case "literal":
+    case "skip":
     case "key":
     case "property":
     case "symbol":
