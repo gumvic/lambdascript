@@ -114,11 +114,31 @@ operator "operator" =
   };
 }
 
-key "key" = ":" name:name {
+undefined "undefined" = "undefined" !beginNameChar {
   return {
-    type: "key",
-    value: name.name,
-    location: location()
+    type: "literal",
+    value: undefined
+  };
+}
+
+null "null" = "null" !beginNameChar {
+  return {
+    type: "literal",
+    value: null
+  };
+}
+
+false "false" = "false" !beginNameChar {
+  return {
+    type: "literal",
+    value: false
+  };
+}
+
+true "true" = "true" !beginNameChar {
+  return {
+    type: "literal",
+    value: true
   };
 }
 
@@ -133,8 +153,8 @@ plus          = "+"
 zero          = "0"
 number "number" = int frac? exp? {
   return {
-    type: "number",
-    value: text(),
+    type: "literal",
+    value: parseFloat(text()),
     location: location()
   };
 }
@@ -163,11 +183,27 @@ DIGIT  = [0-9]
 HEXDIG = [0-9a-f]i
 string "string" = quotation_mark chars:char* quotation_mark {
   return {
-    type: "string",
+    type: "literal",
     value: chars.join(""),
     location: location()
   };
 }
+
+key "key" = ":" name:name {
+  return {
+    type: "key",
+    value: name.name,
+    location: location()
+  };
+}
+
+literal =
+  undefined
+  / null
+  / false
+  / true
+  / number
+  / string
 
 property "property" = "." name:name {
   return {
@@ -298,8 +334,7 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
 }
 
 atom =
-  number
-  / string
+  literal
   / key
   / name
   / tuple

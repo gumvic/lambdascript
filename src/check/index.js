@@ -326,14 +326,10 @@ function checkModule(ast, context) {
 
 function check(ast, context) {
   switch (ast.type) {
-    case "undefined":
-    case "null":
-    case "false":
-    case "true":
-    case "number":
-    case "string":
+    case "literal":
     case "key":
     case "property":
+    case "symbol":
     return;
     case "name": return checkName(ast, context);
     case "tuple": return checkTuple(ast, context);

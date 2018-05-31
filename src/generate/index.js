@@ -351,46 +351,16 @@ function genLValue(lvalue, value, context) {
 }
 
 
-function genUndefined(_, context) {
-  return {
-    type: "Identifier",
-    name: "undefined"
-  };
-}
-
-function genNull(_, context) {
-  return {
-    type: "Literal",
-    value: null
-  };
-}
-
-function genFalse(_, context) {
-  return {
-    type: "Literal",
-    value: false
-  };
-}
-
-function genTrue(_, context) {
-  return {
-    type: "Literal",
-    value: true
-  };
-}
-
-function genNumber({ value }, context) {
-  return {
-    type: "Literal",
-    value: parseFloat(value)
-  };
-}
-
-function genString({ value }, context) {
-  return {
-    type: "Literal",
-    value: value
-  };
+function genLiteral({ value }, context) {
+  return value === undefined ?
+    {
+      type: "Identifier",
+      name: "undefined"
+    } :
+    {
+      type: "Literal",
+      value: value
+    };
 }
 
 function genKey({ value }, context) {
@@ -880,8 +850,7 @@ function genModule(module, context) {
 
 function generate(ast, context) {
   switch (ast.type) {
-    case "number": return genNumber(ast, context);
-    case "string": return genString(ast, context);
+    case "literal": return genLiteral(ast, context);
     case "key": return genKey(ast, context);
     case "name": return genName(ast, context);
     case "property": return genProperty(ast, context);
