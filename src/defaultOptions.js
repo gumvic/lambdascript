@@ -34,6 +34,8 @@ module.exports = {
 
         "fromJS",
         "toJS",
+        "fromJSON",
+        "toJSON",
         "size",
         "tuple",
         "list",
@@ -60,6 +62,10 @@ module.exports = {
         "mergeDeep",
         "mergeWith",
         "mergeDeepWith",
+        "isTuple",
+        "isList",
+        "isHashmap",
+        "isRecord",
         "transduce",
 
         "map",

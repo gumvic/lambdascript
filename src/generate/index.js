@@ -273,93 +273,6 @@ function genMapDestruct(map, value, context) {
   return genCollDestruct(map, value, context);
 }
 
-/*function genTupleDestruct(tuple, value, context) {
-  return genListDestruct(tuple, value, context);
-}
-
-function genListDestructItem({ key, lvalue }, value, context) {
-  value = {
-    type: "CallExpression",
-    callee: GET,
-    arguments: [value, generate(key, context)]
-  }
-  return genLValue(lvalue, value, context);
-}
-
-function genListDestructItems(items, value, context) {
-  return items
-    .map(item => genListDestructItem(item, tmpName, context))
-    .reduce((a, b) => a.concat(b));
-}
-
-function genListDestruct({ items, rest }, value, context) {
-  items = items.map((lvalue, i) => ({
-    key: {
-      type: "number",
-      value: i
-    },
-    lvalue: lvalue
-  }));
-  if (value.type !== "Identifier" &&
-      value.type !== "Literal") {
-    return genListDestructItems(items, value, context);
-  }
-  else {
-    const tmpName = context.oneOffName();
-    return [
-      {
-        type: "VariableDeclaration",
-        declarations: [
-          {
-            type: "VariableDeclarator",
-            id: tmpName,
-            init: value
-          }
-        ],
-        kind: "const"
-      }
-    ].concat(genListDestructItems(items, value, context));
-  }
-}
-
-function genMapDestructItem({ key, lvalue }, value, context) {
-  value = {
-    type: "CallExpression",
-    callee: key.type === "property" ? GETP : GET,
-    arguments: [value, generate(key, context)]
-  }
-  return genLValue(lvalue, value, context);
-}
-
-function genMapDestructItems(items, value, context) {
-  return items
-    .map(item => genMapDestructItem(item, tmpName, context))
-    .reduce((a, b) => a.concat(b));
-}
-
-function genMapDestruct({ items }, value, context) {
-  if (value.type === "Identifier" ||
-      value.type === "Literal") {
-    return genMapDestructItems(items, value, context);
-  }
-  else {
-    const tmpName = context.oneOffName();
-    return [
-      {
-        type: "VariableDeclaration",
-        declarations: [
-          {
-            type: "VariableDeclarator",
-            id: tmpName,
-            init: value
-          }
-        ],
-        kind: "const"
-      }
-    ].concat(genMapDestructItems(items, value, context));
-  }
-}*/
-
 function genLValue(lvalue, value, context) {
   switch(lvalue.type) {
     case "name": return genNameLValue(lvalue, value, context);
@@ -433,7 +346,12 @@ function genList({ items, rest }, context) {
   return genWithRest({
     type: "CallExpression",
     callee: LIST,
-    arguments: items.map(item => generate(item, context))
+    arguments: [
+      {
+        type: "ArrayExpression",
+        elements: items.map(item => generate(item, context))
+      }
+    ]
   }, rest, context);
 }
 
@@ -441,11 +359,16 @@ function genMap({ items, rest }, context) {
   return genWithRest({
     type: "CallExpression",
     callee: HASHMAP,
-    arguments: items
-      .map(({ key, value }) => ({
+    arguments: [
+      {
         type: "ArrayExpression",
-        elements: [generate(key, context), generate(value, context)]
-      }))
+        elements: items
+          .map(({ key, value }) => ({
+            type: "ArrayExpression",
+            elements: [generate(key, context), generate(value, context)]
+          }))
+      }
+    ]
   }, rest, context);
 }
 
@@ -557,10 +480,15 @@ function genRecord({ name, args }, context) {
         init: {
           type: "CallExpression",
           callee: RECORD,
-          arguments: args.map(({ name }) => ({
-            type: "Literal",
-            value: name
-          }))
+          arguments: [
+            {
+              type: "ArrayExpression",
+              elements: args.map(({ name }) => ({
+                type: "Literal",
+                value: name
+              }))
+            }
+          ]
         }
       }
     ],
