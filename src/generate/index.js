@@ -199,20 +199,41 @@ function genCollDestructItem({ key, lvalue }, value, context) {
 
 function genCollDestructItems(items, value, context) {
   return items
-    .map(item => genMapDestructItem(item, tmpName, context))
+    .map(item => genCollDestructItem(item, value, context))
     .reduce((a, b) => a.concat(b));
 }
 
-/*function genCollDestructWithRest(items, rest, context) {
-  return rest ?
-    :
-    [];
-}*/
+function genCollDestructWithRest({ items, rest }, value, context) {
+  if (rest) {
+    value = items.reduce((value, { key }) => ({
+      type: "CallExpression",
+      callee: REMOVE,
+      arguments: [value, generate(key, context)]
+    }), value);
+    return [
+      {
+        type: "VariableDeclaration",
+        declarations: [
+          {
+            type: "VariableDeclarator",
+            id: generate(rest, context),
+            init: value
+          }
+        ],
+        kind: "const"
+      }
+    ];
+  }
+  else {
+    return [];
+  }
+}
 
 function genCollDestruct({ items, rest }, value, context) {
   if (value.type !== "Identifier" &&
       value.type !== "Literal") {
-    return genCollDestructItems(items, value, context);
+    return genCollDestructItems(items, value, context)
+      .concat(genCollDestructWithRest({ items, rest }, value, context));
   }
   else {
     const tmpName = context.oneOffName();
@@ -228,15 +249,15 @@ function genCollDestruct({ items, rest }, value, context) {
         ],
         kind: "const"
       }
-    ].concat(genCollDestructItems(items, value, context));
+    ].concat(genCollDestructItems(items, tmpName, context))
+     .concat(genCollDestructWithRest({ items, rest }, value, context));
   }
 }
 
 function genTupleDestruct({ items, rest }, value, context) {
-  // TODO move this part to parser?
   items = items.map((lvalue, i) => ({
     key: {
-      type: "number",
+      type: "literal",
       value: i
     },
     lvalue: lvalue

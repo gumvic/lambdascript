@@ -220,14 +220,14 @@ where = wordWhere _ definitions:definitions _ wordEnd {
   };
 }
 
-rest = ".." _ name:name {
+rest = "..." _ name:name {
   return name;
 }
 
 tuple "tuple" =
   "(" _
   items:(first:expression rest:(_ "," _ item:expression { return item; })+ { return [first].concat(rest); }) _
-  rest:rest?
+  rest:("," _ rest:rest { return rest; })?
   _ ")" {
   return {
     type: "tuple",
@@ -240,7 +240,7 @@ tuple "tuple" =
 list "list" =
   "[" _
   items:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })? _
-  rest:rest?
+  rest:("," _ rest:rest { return rest; })?
   _ "]" {
     return {
       type: "list",
@@ -269,7 +269,7 @@ mapItem = mapKeyValueItem / mapKeyItem
 map "map" =
   "{" _
   items:(first:mapItem rest:(_ "," _ item:mapItem { return item; })* { return [first].concat(rest); })? _
-  rest:rest?
+  rest:("," _ rest:rest { return rest; })?
   _ "}" {
     return {
       type: "map",
@@ -410,7 +410,7 @@ expression = expression:(binary / binaryOperand / operator) _ where:where? {
 tupleDestruct =
   "(" _
   items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })+ { return [first].concat(rest); }) _
-  rest:rest?
+  rest:("," _ rest:rest { return rest; })?
   _ ")" {
   return {
     type: "tupleDestruct",
@@ -423,7 +423,7 @@ tupleDestruct =
 listDestruct =
   "[" _
   items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })* { return [first].concat(rest); }) _
-  rest:rest?
+  rest:("," _ rest:rest { return rest; })?
   _ "]" {
   return {
     type: "listDestruct",
@@ -467,7 +467,7 @@ mapDestructItem = mapDestructKeyLValueItem / mapDestructPropertyItem / mapDestru
 mapDestruct =
   "{" _
   items:(first:mapDestructItem rest:(_ "," _ item:mapDestructItem { return item; })* { return [first].concat(rest); }) _
-  rest:rest?
+  rest:("," _ rest:rest { return rest; })?
   _ "}" {
   return {
     type: "mapDestruct",
