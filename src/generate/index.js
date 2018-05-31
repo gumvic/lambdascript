@@ -34,6 +34,16 @@ const GETP = {
   name: "getp"
 };
 
+const MERGE = {
+  type: "Identifier",
+  name: "merge"
+};
+
+const REMOVE = {
+  type: "Identifier",
+  name: "remove"
+};
+
 const ARGUMENTS = {
   type: "Identifier",
   name: "arguments"
@@ -178,50 +188,116 @@ function genAlias({ name, lvalue }, value, context) {
   ].concat(genLValue(lvalue, name, context));
 }
 
-function genListDestructItem({ key, lvalue }, value, context) {
+function genCollDestructItem({ key, lvalue }, value, context) {
   value = {
     type: "CallExpression",
-    callee: GET,
-    arguments: [
-      value,
-      {
-        type: "Literal",
-        value: key
-      }
-    ]
+    callee: key.type === "property" ? GETP : GET,
+    arguments: [value, generate(key, context)]
   }
   return genLValue(lvalue, value, context);
 }
 
-function genListDestruct({ items }, value, context) {
-  if (items.length > 1) {
-    if (value.type === "Identifier" ||
-        value.type === "Literal") {
-      return items
-        .map((item, i) => genListDestructItem({ key: i, lvalue: item }, value, context))
-        .reduce((a, b) => a.concat(b));
-    }
-    else {
-      const tmpName = context.oneOffName();
-      return [
-        {
-          type: "VariableDeclaration",
-          declarations: [
-            {
-              type: "VariableDeclarator",
-              id: tmpName,
-              init: value
-            }
-          ],
-          kind: "const"
-        }
-      ].concat(items
-        .map((item, i) => genListDestructItem({ key: i, lvalue: item }, tmpName, context))
-        .reduce((a, b) => a.concat(b)));
-    }
+function genCollDestructItems(items, value, context) {
+  return items
+    .map(item => genMapDestructItem(item, tmpName, context))
+    .reduce((a, b) => a.concat(b));
+}
+
+/*function genCollDestructWithRest(items, rest, context) {
+  return rest ?
+    :
+    [];
+}*/
+
+function genCollDestruct({ items, rest }, value, context) {
+  if (value.type !== "Identifier" &&
+      value.type !== "Literal") {
+    return genCollDestructItems(items, value, context);
   }
   else {
-    return genListDestructItem({ key: 0, lvalue: items[0] }, value, context);
+    const tmpName = context.oneOffName();
+    return [
+      {
+        type: "VariableDeclaration",
+        declarations: [
+          {
+            type: "VariableDeclarator",
+            id: tmpName,
+            init: value
+          }
+        ],
+        kind: "const"
+      }
+    ].concat(genCollDestructItems(items, value, context));
+  }
+}
+
+function genTupleDestruct({ items, rest }, value, context) {
+  // TODO move this part to parser?
+  items = items.map((lvalue, i) => ({
+    key: {
+      type: "number",
+      value: i
+    },
+    lvalue: lvalue
+  }));
+  return genCollDestruct({ items, rest }, value, context);
+}
+
+function genListDestruct(list, value, context) {
+  return genTupleDestruct(list, value, context);
+}
+
+function genMapDestruct(map, value, context) {
+  return genCollDestruct(map, value, context);
+}
+
+/*function genTupleDestruct(tuple, value, context) {
+  return genListDestruct(tuple, value, context);
+}
+
+function genListDestructItem({ key, lvalue }, value, context) {
+  value = {
+    type: "CallExpression",
+    callee: GET,
+    arguments: [value, generate(key, context)]
+  }
+  return genLValue(lvalue, value, context);
+}
+
+function genListDestructItems(items, value, context) {
+  return items
+    .map(item => genListDestructItem(item, tmpName, context))
+    .reduce((a, b) => a.concat(b));
+}
+
+function genListDestruct({ items, rest }, value, context) {
+  items = items.map((lvalue, i) => ({
+    key: {
+      type: "number",
+      value: i
+    },
+    lvalue: lvalue
+  }));
+  if (value.type !== "Identifier" &&
+      value.type !== "Literal") {
+    return genListDestructItems(items, value, context);
+  }
+  else {
+    const tmpName = context.oneOffName();
+    return [
+      {
+        type: "VariableDeclaration",
+        declarations: [
+          {
+            type: "VariableDeclarator",
+            id: tmpName,
+            init: value
+          }
+        ],
+        kind: "const"
+      }
+    ].concat(genListDestructItems(items, value, context));
   }
 }
 
@@ -229,51 +305,40 @@ function genMapDestructItem({ key, lvalue }, value, context) {
   value = {
     type: "CallExpression",
     callee: key.type === "property" ? GETP : GET,
-    arguments: [
-      value,
-      generate(key, context)
-    ]
+    arguments: [value, generate(key, context)]
   }
   return genLValue(lvalue, value, context);
 }
 
+function genMapDestructItems(items, value, context) {
+  return items
+    .map(item => genMapDestructItem(item, tmpName, context))
+    .reduce((a, b) => a.concat(b));
+}
+
 function genMapDestruct({ items }, value, context) {
-  if (items.length > 1) {
-    if (value.type === "Identifier" ||
-        value.type === "Literal") {
-      return items
-        .map(item => genMapDestructItem(item, value, context))
-        .reduce((a, b) => a.concat(b));
-    }
-    else {
-      const tmpName = context.oneOffName();
-      return [
-        {
-          type: "VariableDeclaration",
-          declarations: [
-            {
-              type: "VariableDeclarator",
-              id: tmpName,
-              init: value
-            }
-          ],
-          kind: "const"
-        }
-      ].concat(items
-        .map(item => genMapDestructItem(item, tmpName, context))
-        .reduce((a, b) => a.concat(b)));
-    }
+  if (value.type === "Identifier" ||
+      value.type === "Literal") {
+    return genMapDestructItems(items, value, context);
   }
   else {
-    return genMapDestructItem(items[0], value, context);
+    const tmpName = context.oneOffName();
+    return [
+      {
+        type: "VariableDeclaration",
+        declarations: [
+          {
+            type: "VariableDeclarator",
+            id: tmpName,
+            init: value
+          }
+        ],
+        kind: "const"
+      }
+    ].concat(genMapDestructItems(items, value, context));
   }
-}
+}*/
 
-function genTupleDestruct(tuple, value, context) {
-  return genListDestruct(tuple, value, context);
-}
-
-// This expects value to be compiled already
 function genLValue(lvalue, value, context) {
   switch(lvalue.type) {
     case "name": return genNameLValue(lvalue, value, context);
@@ -284,6 +349,7 @@ function genLValue(lvalue, value, context) {
     default: throw new GenerationError(`Internal error: unknown AST type ${lvalue.type}.`, lvalue.location);
   }
 }
+
 
 function genUndefined(_, context) {
   return {
@@ -352,23 +418,36 @@ function genProperty({ name }, context) {
   };
 }
 
-function genTuple({ items }, context) {
-  return {
-    type: "ArrayExpression",
-    elements: items.map(item => generate(item, context))
-  };
+function genWithRest(value, rest, context) {
+  return rest ?
+    {
+      type: "CallExpression",
+      callee: MERGE,
+      arguments: [
+        value,
+        generate(rest, context)
+      ]
+    } :
+    value;
 }
 
-function genList({ items }, context) {
-  return {
+function genTuple({ items, rest }, context) {
+  return genWithRest({
+    type: "ArrayExpression",
+    elements: items.map(item => generate(item, context))
+  }, rest, context);
+}
+
+function genList({ items, rest }, context) {
+  return genWithRest({
     type: "CallExpression",
     callee: LIST,
     arguments: items.map(item => generate(item, context))
-  };
+  }, rest, context);
 }
 
-function genMap({ items }, context) {
-  return {
+function genMap({ items, rest }, context) {
+  return genWithRest({
     type: "CallExpression",
     callee: HASHMAP,
     arguments: items
@@ -376,7 +455,7 @@ function genMap({ items }, context) {
         type: "ArrayExpression",
         elements: [generate(key, context), generate(value, context)]
       }))
-  };
+  }, rest, context);
 }
 
 function genConstant({ lvalue, value }, context) {
@@ -807,9 +886,9 @@ function generate(ast, context) {
     case "name": return genName(ast, context);
     case "property": return genProperty(ast, context);
     case "symbol": return genSymbol(ast, context);
+    case "tuple": return genTuple(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
-    case "tuple": return genTuple(ast, context);
     case "lambda": return genLambda(ast, context);
     case "monad": return genMonad(ast, context);
     case "case": return genCase(ast, context);

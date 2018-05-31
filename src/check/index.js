@@ -8,7 +8,9 @@ ESSENTIALS = [
   "record",
   "monad",
   "get",
-  "getp"
+  "getp",
+  "merge",
+  "remove"
 ];
 const MAIN = "main";
 
@@ -59,22 +61,31 @@ function checkName(ast, context) {
   context.assertDefined(ast);
 }
 
-function checkList({ items }, context) {
+function checkTuple({ items, rest }, context) {
   for(let item of items) {
     check(item, context);
   }
+  if (rest) {
+    context.assertDefined(rest);
+  }
 }
 
-function checkMap({ items }, context) {
+function checkList({ items, rest }, context) {
+  for(let item of items) {
+    check(item, context);
+  }
+  if (rest) {
+    context.assertDefined(rest);
+  }
+}
+
+function checkMap({ items, rest }, context) {
   for(let { key, value } of items) {
     check(key, context);
     check(value, context);
   }
-}
-
-function checkTuple({ items }, context) {
-  for(let item of items) {
-    check(item, context);
+  if (rest) {
+    context.assertDefined(rest);
   }
 }
 
@@ -188,9 +199,20 @@ function checkLValue(ast, context) {
     context.define(ast.name);
     checkLValue(ast.lvalue, context);
   }
+  else if (ast.type === "tupleDestruct") {
+    for(let lvalue of ast.items) {
+      checkLValue(lvalue, context);
+    }
+    if(ast.rest) {
+      context.define(ast.rest);
+    }
+  }
   else if (ast.type === "listDestruct") {
     for(let lvalue of ast.items) {
       checkLValue(lvalue, context);
+    }
+    if(ast.rest) {
+      context.define(ast.rest);
     }
   }
   else if (ast.type === "mapDestruct") {
@@ -198,10 +220,8 @@ function checkLValue(ast, context) {
       check(key, context);
       checkLValue(lvalue, context);
     }
-  }
-  else if (ast.type === "tupleDestruct") {
-    for(let lvalue of ast.items) {
-      checkLValue(lvalue, context);
+    if(ast.rest) {
+      context.define(ast.rest);
     }
   }
   else {
@@ -316,9 +336,9 @@ function check(ast, context) {
     case "property":
     return;
     case "name": return checkName(ast, context);
+    case "tuple": return checkTuple(ast, context);
     case "list": return checkList(ast, context);
     case "map":  return checkMap(ast, context);
-    case "tuple": return checkTuple(ast, context);
     case "lambda": return checkLambda(ast, context);
     case "monad": return checkMonad(ast, context);
     case "case": return checkCase(ast, context);

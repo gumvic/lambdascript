@@ -6,7 +6,7 @@ let b where
 end
 ```
 - transducers -- `isTuple`, `isList`, `isHashmap` etc
-- spread like `[a, b & def]`, `{ :a -> aa & rest }`, call it `rest`
+- spread like `[a, b ..defgh]`, `{ :a -> aa ..rest }`, call it `rest`
 - let `list`, `hashmap` etc accept iterables, not variadic args? what about `tuple`, then?
 - `<~` sucks
 - exporting one name doesn't work
