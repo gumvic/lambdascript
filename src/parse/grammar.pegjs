@@ -224,19 +224,6 @@ rest = "..." _ name:name {
   return name;
 }
 
-tuple "tuple" =
-  "(" _
-  items:(first:expression rest:(_ "," _ item:expression { return item; })+ { return [first].concat(rest); }) _
-  rest:("," _ rest:rest { return rest; })?
-  _ ")" {
-  return {
-    type: "tuple",
-    items: items,
-    rest: rest,
-    location: location()
-  };
-}
-
 list "list" =
   "[" _
   items:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })? _
@@ -337,7 +324,6 @@ atom =
   literal
   / key
   / name
-  / tuple
   / list
   / map
   / lambda
@@ -407,19 +393,6 @@ expression = expression:(binary / binaryOperand / operator) _ where:where? {
   }
 }
 
-tupleDestruct =
-  "(" _
-  items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })+ { return [first].concat(rest); }) _
-  rest:("," _ rest:rest { return rest; })?
-  _ ")" {
-  return {
-    type: "tupleDestruct",
-    items: items,
-    rest: rest,
-    location: location()
-  };
-}
-
 listDestruct =
   "[" _
   items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })* { return [first].concat(rest); }) _
@@ -479,7 +452,7 @@ mapDestruct =
 
 recordDestruct = "TODO"
 
-destruct = tupleDestruct / listDestruct / mapDestruct / recordDestruct
+destruct = listDestruct / mapDestruct / recordDestruct
 
 alias = name:name _ "@" _ lvalue:lvalue {
   return {

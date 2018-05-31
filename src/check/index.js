@@ -61,15 +61,6 @@ function checkName(ast, context) {
   context.assertDefined(ast);
 }
 
-function checkTuple({ items, rest }, context) {
-  for(let item of items) {
-    check(item, context);
-  }
-  if (rest) {
-    context.assertDefined(rest);
-  }
-}
-
 function checkList({ items, rest }, context) {
   for(let item of items) {
     check(item, context);
@@ -199,14 +190,6 @@ function checkLValue(ast, context) {
     context.define(ast.name);
     checkLValue(ast.lvalue, context);
   }
-  else if (ast.type === "tupleDestruct") {
-    for(let lvalue of ast.items) {
-      checkLValue(lvalue, context);
-    }
-    if(ast.rest) {
-      context.define(ast.rest);
-    }
-  }
   else if (ast.type === "listDestruct") {
     for(let lvalue of ast.items) {
       checkLValue(lvalue, context);
@@ -332,7 +315,6 @@ function check(ast, context) {
     case "symbol":
     return;
     case "name": return checkName(ast, context);
-    case "tuple": return checkTuple(ast, context);
     case "list": return checkList(ast, context);
     case "map":  return checkMap(ast, context);
     case "lambda": return checkLambda(ast, context);

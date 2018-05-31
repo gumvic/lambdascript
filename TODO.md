@@ -5,11 +5,10 @@ let b where
   let a = a
 end
 ```
-- transducers -- `isTuple`, `isList`, `isHashmap` etc
-- let `list`, `hashmap` etc accept iterables, not variadic args? what about `tuple`, then?
+- `.m obj` should be enough to call without args
+- `list` -> `vector`?
 - `<~` sucks
 - exporting one name doesn't work
-- add necessary functions like `merge` etc
 
 - `_` -- it's `undefined` when used as a value and a name that can be redefined
 - `&&` and `||` don't short circuit

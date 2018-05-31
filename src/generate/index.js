@@ -254,7 +254,7 @@ function genCollDestruct({ items, rest }, value, context) {
   }
 }
 
-function genTupleDestruct({ items, rest }, value, context) {
+function genListDestruct({ items, rest }, value, context) {
   items = items.map((lvalue, i) => ({
     key: {
       type: "literal",
@@ -265,10 +265,6 @@ function genTupleDestruct({ items, rest }, value, context) {
   return genCollDestruct({ items, rest }, value, context);
 }
 
-function genListDestruct(list, value, context) {
-  return genTupleDestruct(list, value, context);
-}
-
 function genMapDestruct(map, value, context) {
   return genCollDestruct(map, value, context);
 }
@@ -277,7 +273,6 @@ function genLValue(lvalue, value, context) {
   switch(lvalue.type) {
     case "name": return genNameLValue(lvalue, value, context);
     case "alias": return genAlias(lvalue, value, context);
-    case "tupleDestruct": return genTupleDestruct(lvalue, value, context);
     case "mapDestruct": return genMapDestruct(lvalue, value, context);
     case "listDestruct": return genListDestruct(lvalue, value, context);
     default: throw new GenerationError(`Internal error: unknown AST type ${lvalue.type}.`, lvalue.location);
@@ -333,13 +328,6 @@ function genWithRest(value, rest, context) {
       ]
     } :
     value;
-}
-
-function genTuple({ items, rest }, context) {
-  return genWithRest({
-    type: "ArrayExpression",
-    elements: items.map(item => generate(item, context))
-  }, rest, context);
 }
 
 function genList({ items, rest }, context) {
@@ -480,15 +468,10 @@ function genRecord({ name, args }, context) {
         init: {
           type: "CallExpression",
           callee: RECORD,
-          arguments: [
-            {
-              type: "ArrayExpression",
-              elements: args.map(({ name }) => ({
-                type: "Literal",
-                value: name
-              }))
-            }
-          ]
+          arguments: args.map(({ name }) => ({
+            type: "Literal",
+            value: name
+          }))
         }
       }
     ],
@@ -804,7 +787,6 @@ function generate(ast, context) {
     case "name": return genName(ast, context);
     case "property": return genProperty(ast, context);
     case "symbol": return genSymbol(ast, context);
-    case "tuple": return genTuple(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
     case "lambda": return genLambda(ast, context);
