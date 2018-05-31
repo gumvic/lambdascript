@@ -5,7 +5,6 @@ let b where
   let a = a
 end
 ```
-- `.m obj` should be enough to call without args
 - `list` -> `vector`?
 - `<~` sucks
 - exporting one name doesn't work

@@ -344,9 +344,7 @@ callee = unary / atom
 
 arg = atom
 
-args = ("(" _ ")" { return []; } / (arg:arg _ { return arg; })+)
-
-call = callee:callee _ args:args {
+call = callee:callee _ args:("(" _ ")" { return []; } / (arg:arg _ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -355,7 +353,7 @@ call = callee:callee _ args:args {
   };
 }
 
-invoke = method:property _ object:arg _ args:args {
+invoke = method:property _ object:arg _ args:(arg:arg _ { return arg; })* {
   return {
     type: "invoke",
     object: object,
