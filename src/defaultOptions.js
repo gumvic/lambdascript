@@ -62,7 +62,7 @@ module.exports = {
         "isList",
         "isHashmap",
         "isRecord",
-        "transduce",
+        "for",
         "var",
 
         "map",
