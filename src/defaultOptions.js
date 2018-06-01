@@ -29,8 +29,6 @@ module.exports = {
         "!",
         "||",
         "&&",
-        "var",
-        "<~",
 
         "fromJS",
         "toJS",
@@ -65,6 +63,7 @@ module.exports = {
         "isHashmap",
         "isRecord",
         "transduce",
+        "var",
 
         "map",
         "filter",

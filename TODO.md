@@ -8,6 +8,7 @@ end
 - `list` -> `vector`? `hashmap` -> `dict`?
 - `<~` sucks
 - exporting one name doesn't work
+- `do` to use `,` separated syntax?
 
 - `&&` and `||` don't short circuit
 - some operators should have zero arity with default result of `0`, `false` or whatever makes sense for them
