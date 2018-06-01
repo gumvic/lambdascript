@@ -24,7 +24,6 @@ end
 - poor syntax error descriptions, parser fails too early
 - validate build options
 - js module should be able to declare its name
-- syntax for sets, maybe `%{}`?
 - template strings
 - source maps
 - REPL
