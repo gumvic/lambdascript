@@ -3,8 +3,8 @@ const CheckError = require("./error");
 const defaultOptions = require("../defaultOptions");
 
 ESSENTIALS = [
-  "list",
-  "hashmap",
+  "toList",
+  "toMap",
   "record",
   "monad",
   "get",

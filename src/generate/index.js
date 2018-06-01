@@ -6,12 +6,12 @@ const defaultOptions = require("../defaultOptions");
 
 const LIST = {
   type: "Identifier",
-  name: "list"
+  name: "toList"
 };
 
-const HASHMAP = {
+const MAP = {
   type: "Identifier",
-  name: "hashmap"
+  name: "toMap"
 };
 
 const RECORD = {
@@ -357,7 +357,7 @@ function genList({ items, rest }, context) {
 function genMap({ items, rest }, context) {
   return genWithRest({
     type: "CallExpression",
-    callee: HASHMAP,
+    callee: MAP,
     arguments: [
       {
         type: "ArrayExpression",
