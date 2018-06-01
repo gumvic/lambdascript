@@ -680,7 +680,13 @@ function genImport({ module, value }, context) {
         }));
     }
     else if (value.type === "symbol") {
-      // TODO
+      symbols = [
+        {
+          type: "VariableDeclarator",
+          id: generate(value.name, context),
+          init: generate(module, context)
+        }
+      ];
     }
     else {
       new GenerationError(`Internal error: unknown AST type ${value.type}.`, value.location);
@@ -694,7 +700,7 @@ function genImport({ module, value }, context) {
 }
 
 function genModuleImports({ imports }, context) {
-  return imports.map(_import => generate(_import, context));
+  return imports.map(_import => genImport(_import, context));
 }
 
 function genModuleDefinitions({ definitions }, context) {
@@ -807,8 +813,6 @@ function generate(ast, context) {
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
     case "invoke": return genInvoke(ast, context);
-    case "import": return genImport(ast, context);
-    case "export": return genExport(ast, context);
     case "module": return genModule(ast, context);
     default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
