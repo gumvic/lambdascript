@@ -238,12 +238,32 @@ property "property" = "." name:name {
   };
 }
 
-where = wordWhere _ definitions:definitions _ wordEnd {
+goodEnd = wordEnd {
+  return null;
+}
+
+badEnd = . {
+  error("Expected end", location());
+}
+
+end = goodEnd / badEnd
+
+goodWhere = definitions:definitions _ end {
   return {
     type: "where",
     definitions: definitions
   };
 }
+
+badWhere = . {
+  error("Expected where", location());
+}
+
+where = wordWhere _ where:(goodWhere / badWhere) {
+  return where;
+}
+
+whereOrEnd =  where / end
 
 rest = "..." _ name:name {
   return name;
@@ -308,8 +328,7 @@ monadItem = via:(via:lvalue _ "=" _ { return via; })? value:expression {
   };
 }
 
-monad "monad" =
-  wordDo _
+goodMonad =
   items:(item:monadItem _ { return item; })+
   where:(where / wordEnd { return null; }) {
     return withWhere({
@@ -318,28 +337,57 @@ monad "monad" =
     }, where);
   }
 
-caseBranch = wordWhen _ condition:expression _ "->" _ value:expression {
+badMonad = . {
+  error("Expected monad", location());
+}
+
+monad "monad" = wordDo _ monad:(goodMonad / badMonad) {
+  return monad;
+}
+
+goodCaseBranch = condition:expression _ "->" _ value:expression {
   return {
     condition: condition,
     value: value
   };
 }
 
-caseOtherwise = wordElse _ value:expression {
-  return value;
+badCaseBranch = . {
+  error("Expected when", location());
 }
 
-case "case" =
-  wordCase _
+caseBranch = wordWhen _ branch:(goodCaseBranch / badCaseBranch) {
+  return branch;
+}
+
+goodCaseOtherwise = expression
+
+badCaseOtherwise = . {
+  error("Expected else", location());
+}
+
+caseOtherwise = wordElse _ otherwise:(goodCaseOtherwise / badCaseOtherwise) {
+  return otherwise;
+}
+
+goodCase =
   branches:(branch:caseBranch _ { return branch; })+
   otherwise:caseOtherwise _
-  where:(where / wordEnd { return null; }) {
+  where:whereOrEnd {
     return withWhere({
       type: "case",
       branches: branches,
       otherwise: otherwise
     }, where);
   }
+
+badCase = . {
+  error("Expected case", location());
+}
+
+case "case" = wordCase _ _case:(goodCase / badCase) {
+  return _case;
+}
 
 subExpression "sub-expression" = "(" _ expression:greedyExpression _ ")" {
   return expression;
@@ -455,6 +503,12 @@ greedyExpression = expression:(greedyBinary / greedyBinaryOperand / operator) _ 
   return withWhere(expression, where);
 }
 
+badExpression = . {
+  error("Expected expression", location());
+}
+
+ensureExpression = expression / badExpression
+
 listDestruct =
   "[" _
   items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })* { return [first].concat(rest); }) _
@@ -527,7 +581,7 @@ alias = name:name _ "@" _ lvalue:lvalue {
 
 lvalue = skip / alias / name / destruct
 
-constantDefinition = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:expression {
+constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:ensureExpression {
   return {
     type: "constant",
     lvalue: lvalue,
@@ -536,7 +590,7 @@ constantDefinition = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:expressi
   };
 }
 
-recordDefinition = wordLet _ name:recordName _ args:(arg:name _ { return arg; })* {
+recordDefinition = name:recordName _ args:(arg:name _ { return arg; })* {
   return {
     type: "record",
     name: name,
@@ -545,7 +599,7 @@ recordDefinition = wordLet _ name:recordName _ args:(arg:name _ { return arg; })
   };
 }
 
-functionDefinition = wordLet _ name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression {
+functionDefinition = name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
@@ -555,7 +609,7 @@ functionDefinition = wordLet _ name:name _ args:(arg:lvalue _ { return arg; })* 
   };
 }
 
-unaryOperatorDefinition = wordLet _ name:operator _ arg:lvalue _ "->" _ body:expression {
+unaryOperatorDefinition = name:operator _ arg:lvalue _ "->" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
@@ -565,7 +619,7 @@ unaryOperatorDefinition = wordLet _ name:operator _ arg:lvalue _ "->" _ body:exp
   };
 }
 
-binaryOperatorDefinition = wordLet _ left:lvalue _ name:operator _ right:lvalue _ "->" _ body:expression {
+binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "->" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
@@ -577,7 +631,15 @@ binaryOperatorDefinition = wordLet _ left:lvalue _ name:operator _ right:lvalue 
 
 operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 
-definition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition
+goodDefinition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition
+
+badDefinition = . {
+  error("Expected definition", location());
+}
+
+definition = wordLet _ definition:(goodDefinition / badDefinition) {
+  return definition;
+}
 
 definitions = definitions:(definition:definition _ { return definition; })+ {
   return groupDefinitions(definitions);
@@ -616,7 +678,7 @@ symbols = "{" _
   };
 }
 
-importFromNowhere "import" = wordImport _ value:symbols {
+importFromNowhere "import" = value:symbols {
   return {
     type: "import",
     value: value,
@@ -624,7 +686,7 @@ importFromNowhere "import" = wordImport _ value:symbols {
   };
 }
 
-importFromSomewhere "import" = wordImport _ module:moduleName _ value:(symbol / symbols) {
+importFromSomewhere "import" = module:moduleName _ value:(symbol / symbols) {
   return {
     type: "import",
     module: module,
@@ -633,9 +695,17 @@ importFromSomewhere "import" = wordImport _ module:moduleName _ value:(symbol / 
   };
 }
 
-import = importFromSomewhere / importFromNowhere
+goodImport = importFromSomewhere / importFromNowhere
 
-export "export" = wordExport _ value:(symbol / symbols) {
+badImport = . {
+  error("Expected import", location());
+}
+
+import = wordImport _ _import:(goodImport / badImport) {
+  return _import;
+}
+
+goodExport = value:(symbol / symbols) {
   return {
     type: "export",
     value: value,
@@ -643,8 +713,16 @@ export "export" = wordExport _ value:(symbol / symbols) {
   };
 }
 
-module "module" =
-  wordModule _ name:moduleName _
+badExport = . {
+  error("Expected export", location());
+}
+
+export "export" = wordExport _ _export:(goodExport / badExport) {
+  return _export;
+}
+
+goodModule =
+  name:moduleName _
   imports:(_import:import _ { return _import; })*
   definitions:definitions? _
   _export:export? {
@@ -656,4 +734,12 @@ module "module" =
     definitions: definitions || [],
     location: location()
   };
+}
+
+badModule = . {
+  error("Expected module", location());
+}
+
+module "module" = wordModule _ module:(goodModule / badModule) {
+  return module;
 }
