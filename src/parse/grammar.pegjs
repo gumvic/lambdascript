@@ -341,7 +341,7 @@ case "case" =
     }, where);
   }
 
-subExpression "sub-expression" = "(" _ expression:expression _ ")" {
+subExpression "sub-expression" = "(" _ expression:greedyExpression _ ")" {
   return expression;
 }
 
@@ -368,9 +368,7 @@ unary = operator:operator __ operand:atom {
 
 callee = unary / atom
 
-arg = atom
-
-call = callee:callee __ args:("(" __ ")" { return []; } / (arg:arg __ { return arg; })+) {
+call = callee:callee __ args:("(" __ ")" { return []; } / (arg:atom __ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -379,7 +377,7 @@ call = callee:callee __ args:("(" __ ")" { return []; } / (arg:arg __ { return a
   };
 }
 
-invoke = method:property __ object:arg __ args:(arg:arg __ { return arg; })* {
+invoke = method:property __ object:atom __ args:(arg:atom __ { return arg; })* {
   return {
     type: "invoke",
     object: object,
@@ -408,7 +406,7 @@ expression = expression:(binary / binaryOperand / operator) __ where:where? {
   return withWhere(expression, where);
 }
 
-/*unary = operator:operator _ operand:atom {
+greedyUnary = operator:operator _ operand:atom {
   return {
     type: "call",
     callee: operator,
@@ -417,11 +415,9 @@ expression = expression:(binary / binaryOperand / operator) __ where:where? {
   };
 }
 
-callee = unary / atom
+greedyCallee = greedyUnary / atom
 
-arg = atom
-
-call = callee:callee _ args:("(" _ ")" { return []; } / (arg:arg _ { return arg; })+) {
+greedyCall = callee:greedyCallee _ args:("(" _ ")" { return []; } / (arg:atom _ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -430,7 +426,7 @@ call = callee:callee _ args:("(" _ ")" { return []; } / (arg:arg _ { return arg;
   };
 }
 
-invoke = method:property _ object:arg _ args:(arg:arg _ { return arg; })* {
+greedyInvoke = method:property _ object:atom _ args:(arg:atom _ { return arg; })* {
   return {
     type: "invoke",
     object: object,
@@ -440,11 +436,11 @@ invoke = method:property _ object:arg _ args:(arg:arg _ { return arg; })* {
   };
 }
 
-binaryOperand = call / invoke / callee
+greedyBinaryOperand = greedyCall / greedyInvoke / greedyCallee
 
-binary =
-  first:binaryOperand
-  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
+greedyBinary =
+  first:greedyBinaryOperand
+  rest:(_ operator:operator _ right:greedyBinaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -455,9 +451,9 @@ binary =
     first);
   }
 
-expression = expression:(binary / binaryOperand / operator) _ where:where? {
+greedyExpression = expression:(greedyBinary / greedyBinaryOperand / operator) _ where:where? {
   return withWhere(expression, where);
-}*/
+}
 
 listDestruct =
   "[" _
