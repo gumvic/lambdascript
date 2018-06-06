@@ -5,8 +5,19 @@ let b where
   let a = a
 end
 ```
+
 - things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...foo, ...bar]`
-- `doneValue`, `monadNode`, `monadNext`
+
+- make records lightweight using symbols and generating `isX` automatically -- ditch `doneValue` etc, too, then?
+- or maybe generate getters, too?
+```
+Point x y
+# generates
+isPoint
+pointX
+pointY
+aPoint
+```
 
 - generative testing and "types":
 ```
