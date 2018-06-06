@@ -6,6 +6,7 @@ let b where
 end
 ```
 - things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...foo, ...bar]`
+- `doneValue`, `monadNode`, `monadNext`
 
 - generative testing and "types":
 ```
@@ -20,17 +21,18 @@ test fac # generates test inputs and feeds it to fac, checking outputs
 # Type operators
 aNumber <||> aString # number or string
 # reducer
+let aDone t ->
+  t' where
+    t' -> done (t())
+    t' x -> case
+      when isDone x -> t(doneValue x)
+      else -> "#{x} is not done"
+    end
+  end
 let aReducer res x ->
-  (aFunction res') <||>
-  (aFunction res' res') <||>
-  (aFunction res' x res') where
-  let res' = res <||> aDone res
-end
-let aReducer res x -> begin
-  (aFunction res') <||>
-  (aFunction res' res') <||>
-  (aFunction res' x res')
-  where
+  aFunction res' <||>
+  aFunction res' res' <||>
+  aFunction res' x res' where
   let res' = res <||> aDone res
 end
 # transducer
@@ -38,10 +40,16 @@ aTransducer res x = aFunction (aReducer res x) (aReducer res x)
 aMaybe x -> x <||> anUndefined
 # etc
 ```
-- type definitions are just expressions
-- type checkers are functions of two arities:
--- `0` for generating a test value; maybe a collection of them
--- `1` for checking a value, returning a `maybe error`
+- maybe also this:
+```
+# this generates an assert that is either inserted into the code itself right there,
+# so that it's run once the module is loaded,
+# OR
+# it's run dynamically after the compilation
+# the former is simpler, but will require the compiler option to disable runtime checks
+fac :: aNonNegativeNumber -> aNonNegativeNumber
+fac n -> ...
+```
 
 - variadic arguments and things like `foo ...foo 42 ...bar`
 
