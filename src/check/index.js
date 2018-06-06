@@ -3,10 +3,10 @@ const CheckError = require("./error");
 const defaultOptions = require("../defaultOptions");
 
 ESSENTIALS = [
-  "toList",
-  "toMap",
-  "record",
-  "monad",
+  "List",
+  "Map",
+  "Record",
+  "Monad",
   "get",
   "getp",
   "merge",

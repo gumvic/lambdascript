@@ -6,22 +6,22 @@ const defaultOptions = require("../defaultOptions");
 
 const LIST = {
   type: "Identifier",
-  name: "toList"
+  name: "List"
 };
 
 const MAP = {
   type: "Identifier",
-  name: "toMap"
+  name: "Map"
 };
 
 const RECORD = {
   type: "Identifier",
-  name: "record"
+  name: "Record"
 };
 
 const MONAD = {
   type: "Identifier",
-  name: "monad"
+  name: "Monad"
 };
 
 const GET = {
@@ -479,10 +479,15 @@ function genRecord({ name, args }, context) {
         init: {
           type: "CallExpression",
           callee: RECORD,
-          arguments: args.map(({ name }) => ({
-            type: "Literal",
-            value: name
-          }))
+          arguments: [
+            {
+              type: "ArrayExpression",
+              elements: args.map(({ name }) => ({
+                type: "Literal",
+                value: name
+              }))
+            }
+          ]
         }
       }
     ],

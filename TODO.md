@@ -8,6 +8,13 @@ end
 
 - things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...foo, ...bar]`
 
+- `list` should be variadic
+- `map` should be variadic like `map :foo 42 :bar (fooza 43)`?
+
+- `Map` redefines ES `Map`, the same for Set
+
+- transducing a record gets a map, while it should get a record of the same type
+
 - make records lightweight using symbols and generating `isX` automatically -- ditch `doneValue` etc, too, then?
 - or maybe generate getters, too?
 ```
