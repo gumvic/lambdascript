@@ -5,7 +5,7 @@ let b where
   let a = a
 end
 ```
-- things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...zaz, 43]`
+- things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...foo, ...bar]`
 
 - generative testing and "types":
 ```
@@ -18,7 +18,24 @@ fac :: nonNegativeNumber -> nonNegativeNumber
 fac n -> ...
 test fac # generates test inputs and feeds it to fac, checking outputs
 # Type operators
-number <||> string # number or string
+aNumber <||> aString # number or string
+# reducer
+let aReducer res x ->
+  (aFunction res') <||>
+  (aFunction res' res') <||>
+  (aFunction res' x res') where
+  let res' = res <||> aDone res
+end
+let aReducer res x -> begin
+  (aFunction res') <||>
+  (aFunction res' res') <||>
+  (aFunction res' x res')
+  where
+  let res' = res <||> aDone res
+end
+# transducer
+aTransducer res x = aFunction (aReducer res x) (aReducer res x)
+aMaybe x -> x <||> anUndefined
 # etc
 ```
 - type definitions are just expressions

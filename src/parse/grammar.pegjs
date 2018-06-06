@@ -405,18 +405,18 @@ atom =
   / case
   / subExpression
 
-unary = operator:operator __ operand:atom {
+unary = operator:operator _ operand:atom {
   return {
     type: "call",
     callee: operator,
-    args:[operand],
+    args: [operand],
     location: location()
   };
 }
 
 callee = unary / atom
 
-call = callee:callee __ args:("(" __ ")" { return []; } / (arg:atom __ { return arg; })+) {
+call = callee:callee __ args:("(" ")" { return []; } / (arg:atom __ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -439,7 +439,7 @@ binaryOperand = call / invoke / callee
 
 binary =
   first:binaryOperand
-  rest:(__ operator:operator __ right:binaryOperand { return { operator, right }; })+ {
+  rest:(__ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -458,14 +458,14 @@ greedyUnary = operator:operator _ operand:atom {
   return {
     type: "call",
     callee: operator,
-    args:[operand],
+    args: [operand],
     location: location()
   };
 }
 
 greedyCallee = greedyUnary / atom
 
-greedyCall = callee:greedyCallee _ args:("(" _ ")" { return []; } / (arg:atom _ { return arg; })+) {
+greedyCall = callee:greedyCallee _ args:("(" ")" { return []; } / (arg:atom _ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
