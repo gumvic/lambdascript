@@ -230,6 +230,10 @@ skip "_" = "_" !beginNameChar {
   };
 }
 
+noArgs = "(" ")" {
+  return [];
+}
+
 property "property" = "." name:name {
   return {
     type: "property",
@@ -311,7 +315,7 @@ map "map" =
     };
   }
 
-lambda = "\\" _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:expression {
+lambda = "\\" _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "->" _ body:expression {
   return {
     type: "lambda",
     args: args,
@@ -416,7 +420,7 @@ unary = operator:operator _ operand:atom {
 
 callee = unary / atom
 
-call = callee:callee __ args:("(" ")" { return []; } / (arg:atom __ { return arg; })+) {
+call = callee:callee __ args:(noArgs / (arg:atom __ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -465,7 +469,7 @@ greedyUnary = operator:operator _ operand:atom {
 
 greedyCallee = greedyUnary / atom
 
-greedyCall = callee:greedyCallee _ args:("(" ")" { return []; } / (arg:atom _ { return arg; })+) {
+greedyCall = callee:greedyCallee _ args:(noArgs / (arg:atom _ { return arg; })+) {
   return {
     type: "call",
     callee: callee,
@@ -599,7 +603,7 @@ recordDefinition = name:recordName _ args:(arg:name _ { return arg; })* {
   };
 }
 
-functionDefinition = name:name _ args:(arg:lvalue _ { return arg; })* _ "->" _ body:ensureExpression {
+functionDefinition = name:name _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "->" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
