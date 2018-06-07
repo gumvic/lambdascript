@@ -6,7 +6,6 @@ let b where
 end
 ```
 
-- transducing a record gets a map, while it should get a record of the same type
 - ditch native property destructuring? maybe re-introduce property access like `.foo bar`?
 
 - generative testing and "types":

@@ -37,7 +37,7 @@ module.exports = {
         "size",
         "List",
         "Map",
-        "Record",
+        "record",
         "Monad",
         "Done",
         "hasp",

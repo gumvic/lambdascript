@@ -5,7 +5,7 @@ const defaultOptions = require("../defaultOptions");
 ESSENTIALS = [
   "List",
   "Map",
-  "Record",
+  "record",
   "Monad",
   "get",
   "getp",
@@ -103,7 +103,7 @@ function checkFunction({ variants }, context) {
   }
 }
 
-function checkRecord({ args }, context) {
+function checkRecord({ name, args }, context) {
   const _context = context.spawn();
   for(let arg of args) {
     checkLValue(arg, _context);
@@ -134,6 +134,7 @@ function checkDefinitions(definitions, context) {
     .filter(({ type }) => type === "record");
   for (let { name } of records) {
     context.define(name);
+    context.define({ name: `is${name.name}` });
   }
   for (let { name } of functions) {
     context.define(name);

@@ -16,7 +16,7 @@ const MAP = {
 
 const RECORD = {
   type: "Identifier",
-  name: "Record"
+  name: "record"
 };
 
 const MONAD = {
@@ -469,27 +469,63 @@ function genFunction(fun, context) {
   return variants.concat(dispatcher);
 }
 
-function genRecord({ name, args }, context) {
+function genRecordCtor({ name, args }, context) {
+  return {
+    type: "VariableDeclarator",
+    id: genName(name, context),
+    init: {
+      type: "CallExpression",
+      callee: RECORD,
+      arguments: [
+        {
+          type: "Literal",
+          value: name.name
+        }
+      ].concat(args.map(({ name }) => ({
+        type: "Literal",
+        value: name
+      })))
+    }
+  };
+}
+
+function genRecordPredicate({ name }, context) {
+  const x = {
+    type: "Identifier",
+    name: "x"
+  };
+  return {
+    type: "VariableDeclarator",
+    id: genName({ name: `is${name.name}` }, context),
+    init: {
+      type: "FunctionExpression",
+      params: [x],
+      body: {
+        type: "BlockStatement",
+        body: [
+          {
+            type: "ReturnStatement",
+            argument: {
+              type: "BinaryExpression",
+              operator: "instanceof",
+              left: x,
+              right: genName(name, context)
+            }
+          }
+        ]
+      }
+    }
+  };
+}
+
+function genRecord(record, context) {
+  const ctor = genRecordCtor(record, context);
+  const predicate = genRecordPredicate(record, context);
   return {
     type: "VariableDeclaration",
     declarations: [
-      {
-        type: "VariableDeclarator",
-        id: genName(name, context),
-        init: {
-          type: "CallExpression",
-          callee: RECORD,
-          arguments: [
-            {
-              type: "ArrayExpression",
-              elements: args.map(({ name }) => ({
-                type: "Literal",
-                value: name
-              }))
-            }
-          ]
-        }
-      }
+      ctor,
+      predicate
     ],
     kind: "const"
   };
