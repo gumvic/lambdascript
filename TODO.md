@@ -6,25 +6,8 @@ let b where
 end
 ```
 
-- things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...foo, ...bar]`
-
-- `list` should be variadic
-- `map` should be variadic like `map :foo 42 :bar (fooza 43)`?
-
-- `Map` redefines ES `Map`, the same for Set
-
 - transducing a record gets a map, while it should get a record of the same type
-
-- make records lightweight using symbols and generating `isX` automatically -- ditch `doneValue` etc, too, then?
-- or maybe generate getters, too?
-```
-Point x y
-# generates
-isPoint
-pointX
-pointY
-aPoint
-```
+- ditch native property destructuring? maybe re-introduce property access like `.foo bar`?
 
 - generative testing and "types":
 ```
@@ -71,7 +54,15 @@ fac n -> ...
 
 - variadic arguments and things like `foo ...foo 42 ...bar`
 
-- pass `{}` to `toMap` as a POJO when all the keys are literals
+- optimizations:
+- call arities directly when possible, without dispatching
+- native things like `throw`, `instanceof` etc
+- `===` when at least one is a primitive
+- operators
+- `runSync`
+
+- `Map` redefines ES `Map`, the same for Set
+- things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...foo, ...bar]`
 - `&&` and `||` don't short circuit
 - some operators should have zero arity with default result of `0`, `false` or whatever makes sense for them
 - guard `get`, `monad` etc from being redefined by user during the check phase
