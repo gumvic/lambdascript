@@ -91,15 +91,19 @@ function checkLambda({ args, body }, context) {
 function checkFunction({ variants }, context) {
   let definedVariants = {};
   for(let variant of variants) {
-    const { args, body, location } = variant;
+    const { args, body, spec, location } = variant;
     const arity = args.length;
     if (definedVariants[arity]) {
       throw new CheckError(`Duplicate definition for arity ${arity}`, location);
     }
-    else {
-      definedVariants[arity] = variant;
-      checkLambda({ args, body }, context);
+    if (spec && spec.args.length !== arity) {
+      throw new CheckError(`Bad spec for arity ${arity}`, spec.location);
     }
+    if (spec) {
+      checkSpec(spec, context);
+    }
+    definedVariants[arity] = variant;
+    checkLambda({ args, body }, context);
   }
 }
 
@@ -125,6 +129,25 @@ function checkMonad({ items }, context) {
   _check(items, context);
 }
 
+function checkValueSpec({ value }, context) {
+  check(value, context);
+}
+
+function checkFunctionSpec({ args, res }, context) {
+  for(let arg of args) {
+    check(arg, context);
+  }
+  check(res, context);
+}
+
+function checkSpec(spec, context) {
+  switch(spec.type) {
+    case "valueSpec": checkValueSpec(spec, context); return;
+    case "functionSpec": checkFunctionSpec(spec, context); return;
+    default: throw new CheckError(`Internal error: unknown AST type ${spec.type}.`, spec.location);
+  }
+}
+
 function checkDefinitions(definitions, context) {
   const constants = definitions
     .filter(({ type }) => type === "constant");
@@ -139,9 +162,12 @@ function checkDefinitions(definitions, context) {
   for (let { name } of functions) {
     context.define(name);
   }
-  for(let { lvalue, value } of constants) {
+  for(let { lvalue, value, spec } of constants) {
     check(value, context);
     checkLValue(lvalue, context);
+    if (spec) {
+      checkSpec(spec, context);
+    }
   }
   for(let fun of functions) {
     checkFunction(fun, context);

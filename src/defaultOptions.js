@@ -63,6 +63,10 @@ module.exports = {
         "for",
         "var",
 
+        "check",
+        "aMap",
+        "aFunction",
+
         "map",
         "filter",
         "reduce",

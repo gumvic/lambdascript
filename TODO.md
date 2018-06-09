@@ -6,52 +6,13 @@ let b where
 end
 ```
 
+- white space syntax
+- better imports that ideally will make redefining essentials impossible
+
+- `check` and `aFunction` to essentials
+- check for essentials lazily
 - ditch native property destructuring? maybe re-introduce property access like `.foo bar`?
-
-- generative testing and "types":
-```
-nonNegativeNumber -> .rand Math 0
-nonNegativeNumber x -> case
-  when x >= 0 -> undefined
-  else "#{x} is not a non negative number"
-end
-fac :: nonNegativeNumber -> nonNegativeNumber
-fac n -> ...
-test fac # generates test inputs and feeds it to fac, checking outputs
-# Type operators
-aNumber <||> aString # number or string
-# reducer
-let aDone t ->
-  t' where
-    t' -> done (t())
-    t' x -> case
-      when isDone x -> t(doneValue x)
-      else -> "#{x} is not done"
-    end
-  end
-let aReducer res x ->
-  aFunction res' <||>
-  aFunction res' res' <||>
-  aFunction res' x res' where
-  let res' = res <||> aDone res
-end
-# transducer
-aTransducer res x = aFunction (aReducer res x) (aReducer res x)
-aMaybe x -> x <||> anUndefined
-# etc
-```
-- maybe also this:
-```
-# this generates an assert that is either inserted into the code itself right there,
-# so that it's run once the module is loaded,
-# OR
-# it's run dynamically after the compilation
-# the former is simpler, but will require the compiler option to disable runtime checks
-fac :: aNonNegativeNumber -> aNonNegativeNumber
-fac n -> ...
-```
-
-- variadic arguments and things like `foo ...foo 42 ...bar`
+- `run` should stop on error
 
 - optimizations:
 - call arities directly when possible, without dispatching
@@ -60,11 +21,12 @@ fac n -> ...
 - operators
 - `runSync`
 
+- variadic arguments and things like `foo ...foo 42 ...bar`
 - `Map` redefines ES `Map`, the same for Set
 - things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...foo, ...bar]`
 - `&&` and `||` don't short circuit
 - some operators should have zero arity with default result of `0`, `false` or whatever makes sense for them
-- guard `get`, `monad` etc from being redefined by user during the check phase
+- guard `get`, `monad` etc from being redefined by user -- `defineLocal` them when spawning a new context?
 - validate build options
 - js module should be able to declare its name
 - template strings
