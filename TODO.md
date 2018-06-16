@@ -14,6 +14,9 @@ end
 - ditch native property destructuring? maybe re-introduce property access like `.foo bar`?
 - `run` should stop on error
 
+- how to prove specs `a` and `b` represent the same? `(check a (b()) == undefined) && (check b (a()) == undefined)`
+- therefore, we can have "type constraints" like `a -> b constraint a == b`, i. e. the specs are not necessarily the same themselves, but they still represent the same thing
+
 - optimizations:
 - call arities directly when possible, without dispatching
 - native things like `throw`, `instanceof` etc
@@ -21,6 +24,7 @@ end
 - operators
 - `runSync`
 
+- a reducer for POJOs
 - variadic arguments and things like `foo ...foo 42 ...bar`
 - `Map` redefines ES `Map`, the same for Set
 - things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...foo, ...bar]`

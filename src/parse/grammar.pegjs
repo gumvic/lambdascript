@@ -46,31 +46,26 @@ ast = _ ast:(module / expression) _ {
 }
 
 _ "whitespace" = ([ \t\n\r] / comment)*
-__ "whitespace" = [ \t]*
+__ "whitespace" = ([ \t] / escapedNL)*
 
 nl = [\n\r] / [\n]
+escapedNL = "\\" nl
 oneLineComment = "#" (!nl .)*
 multilineComment = "#" "{" (multilineComment / (!"}" .))* "}"
 comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
   wordCase
-  / wordWhen
-  / wordElse
   / wordDo
   / wordWhere
-  / wordLet
   / wordEnd
   / wordModule
   / wordImport
   / wordExport
 
 wordCase "case" = "case" !beginNameChar
-wordWhen "when" = "when" !beginNameChar
-wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
 wordWhere "where" = "where" !beginNameChar
-wordLet "let" = "let" !beginNameChar
 wordEnd "end" = "end" !beginNameChar
 wordModule "module" = "module" !beginNameChar
 wordImport "import" = "import" !beginNameChar
@@ -116,7 +111,7 @@ moduleName "module name" =
     };
   }
 
-reservedOperator = ("=" / "->") !operatorChar
+reservedOperator = ("=" / "->" / "<-") !operatorChar
 operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\$]
 operator "operator" =
   !reservedOperator
@@ -324,7 +319,7 @@ lambda = "\\" _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "->" _ body:ex
   };
 }
 
-monadItem = via:(via:lvalue _ "=" _ { return via; })? value:expression {
+monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression {
   return {
     via: via,
     value: value,
@@ -349,28 +344,14 @@ monad "monad" = wordDo _ monad:(goodMonad / badMonad) {
   return monad;
 }
 
-goodCaseBranch = condition:expression _ "->" _ value:expression {
+caseBranch = condition:expression _ "->" _ value:expression {
   return {
     condition: condition,
     value: value
   };
 }
 
-badCaseBranch = . {
-  error("Expected when", location());
-}
-
-caseBranch = wordWhen _ branch:(goodCaseBranch / badCaseBranch) {
-  return branch;
-}
-
-goodCaseOtherwise = expression
-
-badCaseOtherwise = . {
-  error("Expected else", location());
-}
-
-caseOtherwise = wordElse _ otherwise:(goodCaseOtherwise / badCaseOtherwise) {
+caseOtherwise = "->" _ otherwise:expression {
   return otherwise;
 }
 
@@ -393,7 +374,7 @@ case "case" = wordCase _ _case:(goodCase / badCase) {
   return _case;
 }
 
-subExpression "sub-expression" = "(" _ expression:greedyExpression _ ")" {
+subExpression "sub-expression" = "(" _ expression:expression _ ")" {
   return expression;
 }
 
@@ -409,7 +390,7 @@ atom =
   / case
   / subExpression
 
-unary = operator:operator _ operand:atom {
+unary = operator:operator __ operand:atom {
   return {
     type: "call",
     callee: operator,
@@ -443,7 +424,7 @@ binaryOperand = call / invoke / callee
 
 binary =
   first:binaryOperand
-  rest:(__ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
+  rest:(__ operator:operator __ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -455,55 +436,6 @@ binary =
   }
 
 expression = expression:(binary / binaryOperand / operator) __ where:where? {
-  return withWhere(expression, where);
-}
-
-greedyUnary = operator:operator _ operand:atom {
-  return {
-    type: "call",
-    callee: operator,
-    args: [operand],
-    location: location()
-  };
-}
-
-greedyCallee = greedyUnary / atom
-
-greedyCall = callee:greedyCallee _ args:(noArgs / (arg:atom _ { return arg; })+) {
-  return {
-    type: "call",
-    callee: callee,
-    args: args,
-    location: location()
-  };
-}
-
-greedyInvoke = method:property _ object:atom _ args:(arg:atom _ { return arg; })* {
-  return {
-    type: "invoke",
-    object: object,
-    method: method,
-    args: args,
-    location: location()
-  };
-}
-
-greedyBinaryOperand = greedyCall / greedyInvoke / greedyCallee
-
-greedyBinary =
-  first:greedyBinaryOperand
-  rest:(_ operator:operator _ right:greedyBinaryOperand { return { operator, right }; })+ {
-  return rest.reduce(
-    (left, { operator, right }) => ({
-      type: "call",
-      callee: operator,
-      args: [left, right],
-      location: location()
-    }),
-    first);
-  }
-
-greedyExpression = expression:(greedyBinary / greedyBinaryOperand / operator) _ where:where? {
   return withWhere(expression, where);
 }
 
@@ -618,7 +550,7 @@ constantDefinition =
   };
 }
 
-recordDefinition = name:recordName _ args:(arg:name _ { return arg; })* {
+recordDefinition = name:recordName _ args:(arg:name __ { return arg; })* {
   return {
     type: "record",
     name: name,
@@ -630,7 +562,7 @@ recordDefinition = name:recordName _ args:(arg:name _ { return arg; })* {
 functionDefinition =
   name:name _
   args:(noArgs / (arg:lvalue _ { return arg; })+)
-  _ "->" _
+  _ "=" _
   body:ensureExpression _
   spec:("::" _ spec:functionSpec { return spec; })? {
   return {
@@ -645,7 +577,7 @@ functionDefinition =
 
 unaryOperatorDefinition =
   name:operator _ arg:lvalue _
-  "->" _
+  "=" _
   body:ensureExpression _
   spec:("::" _ spec:functionSpec { return spec; })? {
   return {
@@ -660,7 +592,7 @@ unaryOperatorDefinition =
 
 binaryOperatorDefinition =
   left:lvalue _ name:operator _ right:lvalue
-  _ "->" _
+  _ "=" _
   body:ensureExpression _
   spec:("::" _ spec:functionSpec { return spec; })? {
   return {
@@ -675,15 +607,7 @@ binaryOperatorDefinition =
 
 operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 
-goodDefinition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition
-
-badDefinition = . {
-  error("Expected definition", location());
-}
-
-definition = wordLet _ definition:(goodDefinition / badDefinition) {
-  return definition;
-}
+definition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition
 
 definitions = definitions:(definition:definition _ { return definition; })+ {
   return groupDefinitions(definitions);
