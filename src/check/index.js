@@ -96,14 +96,11 @@ function checkFunction({ variants }, context) {
     if (definedVariants[arity]) {
       throw new CheckError(`Duplicate definition for arity ${arity}`, location);
     }
-    if (spec && spec.args.length !== arity) {
-      throw new CheckError(`Bad spec for arity ${arity}`, spec.location);
-    }
+    definedVariants[arity] = variant;
+    checkLambda({ args, body }, context);
     if (spec) {
       checkSpec(spec, context);
     }
-    definedVariants[arity] = variant;
-    checkLambda({ args, body }, context);
   }
 }
 
@@ -129,20 +126,45 @@ function checkMonad({ items }, context) {
   _check(items, context);
 }
 
+/*function checkAnySpec(_, context) {}
+
+function checkMapSpec({ items }, context) {
+  for(let { key, value } of items) {
+    check(key, context);
+    checkSpec(value, context);
+  }
+}
+
+function checkLambdaSpec({ args, body }, context) {
+  for(let arg of args) {
+    check(arg, context);
+  }
+  check(body, context);
+}
+
 function checkValueSpec({ value }, context) {
   check(value, context);
 }
 
-function checkFunctionSpec({ args, res }, context) {
+function checkSpec(spec, context) {
+  switch(spec.type) {
+    case "anySpec": checkAnySpec(spec, context); return;
+    case "mapSpec": checkMapSpec(spec, context); return;
+    case "lambdaSpec": checkLambdaSpec(spec, context); return;
+    case "valueSpec": checkValueSpec(spec, context); return;
+    default: throw new CheckError(`Internal error: unknown AST type ${spec.type}.`, spec.location);
+  }
+}*/
+
+function checkFunctionSpec({ args, body }, context) {
   for(let arg of args) {
     check(arg, context);
   }
-  check(res, context);
+  check(body, context);
 }
 
 function checkSpec(spec, context) {
   switch(spec.type) {
-    case "valueSpec": checkValueSpec(spec, context); return;
     case "functionSpec": checkFunctionSpec(spec, context); return;
     default: throw new CheckError(`Internal error: unknown AST type ${spec.type}.`, spec.location);
   }
@@ -155,19 +177,16 @@ function checkDefinitions(definitions, context) {
     .filter(({ type }) => type === "function");
   const records = definitions
     .filter(({ type }) => type === "record");
-  for (let { name } of records) {
+  for(let { name } of records) {
     context.define(name);
     context.define({ name: `is${name.name}` });
   }
-  for (let { name } of functions) {
+  for(let { name } of functions) {
     context.define(name);
   }
-  for(let { lvalue, value, spec } of constants) {
+  for(let { lvalue, value } of constants) {
     check(value, context);
     checkLValue(lvalue, context);
-    if (spec) {
-      checkSpec(spec, context);
-    }
   }
   for(let fun of functions) {
     checkFunction(fun, context);

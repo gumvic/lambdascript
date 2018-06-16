@@ -64,6 +64,7 @@ module.exports = {
         "var",
 
         "check",
+        "any",
         "aMap",
         "aFunction",
 

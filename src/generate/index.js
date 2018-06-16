@@ -49,6 +49,16 @@ const CHECK = {
   name: "check"
 };
 
+const ANY = {
+  type: "Identifier",
+  name: "any"
+};
+
+const A_MAP = {
+  type: "Identifier",
+  name: "aMap"
+};
+
 const A_FUNCTION = {
   type: "Identifier",
   name: "aFunction"
@@ -381,11 +391,56 @@ function genMap({ items, rest }, context) {
   }, rest, context);
 }
 
+/*function genAnySpec(_, context) {
+  return ANY;
+}
+
+function genMapSpec({ items }, context) {
+  return {
+    type: "CallExpression",
+    callee: A_MAP,
+    arguments: [
+      {
+        type: "ArrayExpression",
+        elements: items
+          .map(({ key, value }) => ({
+            type: "ArrayExpression",
+            elements: [generate(key, context), genSpec(value, context)]
+          }))
+      }
+    ]
+  };
+}
+
+function genFunctionSpec({ args, body }, context) {
+  return {
+    type: "CallExpression",
+    callee: A_FUNCTION,
+    arguments: [
+      {
+        type: "ArrayExpression",
+        elements: args.map(arg => genSpec(arg, context))
+      },
+      genSpec(body, context)
+    ]
+  };
+}
+
 function genValueSpec({ value }, context) {
   return generate(value, context);
 }
 
-function genFunctionSpec({ args, res }, context) {
+function genSpec(spec, context) {
+  switch(spec.type) {
+    case "anySpec": return genAnySpec(spec, context);
+    case "mapSpec": return genMapSpec(spec, context);
+    case "functionSpec": return genFunctionSpec(spec, context);
+    case "valueSpec": return genValueSpec(spec, context);
+    default: throw new GenerationError(`Internal error: unknown AST type ${spec.type}.`, spec.location);
+  }
+}*/
+
+function genFunctionSpec({ args, body }, context) {
   return {
     type: "CallExpression",
     callee: A_FUNCTION,
@@ -394,14 +449,13 @@ function genFunctionSpec({ args, res }, context) {
         type: "ArrayExpression",
         elements: args.map(arg => generate(arg, context))
       },
-      generate(res, context)
+      generate(body, context)
     ]
   };
 }
 
 function genSpec(spec, context) {
   switch(spec.type) {
-    case "valueSpec": return genValueSpec(spec, context);
     case "functionSpec": return genFunctionSpec(spec, context);
     default: throw new GenerationError(`Internal error: unknown AST type ${spec.type}.`, spec.location);
   }
@@ -436,7 +490,7 @@ function genSpecAssert(spec, value, context) {
   ];
 }
 
-function genConstant({ lvalue, value, spec }, context) {
+/*function genConstant({ lvalue, value, spec }, context) {
   if (spec) {
     spec = genSpec(spec, context);
     const tmpName = context.oneOffName();
@@ -459,6 +513,10 @@ function genConstant({ lvalue, value, spec }, context) {
   else {
     return genLValue(lvalue, generate(value, context), context);
   }
+}*/
+
+function genConstant({ lvalue, value }, context) {
+  return genLValue(lvalue, generate(value, context), context);
 }
 
 function genFunctionVariantName({ name }, { args }, context) {
@@ -486,7 +544,7 @@ function genFunctionVariantBody(_, variant, context) {
   const init = initArgs.concat(assertArgs).reduce((a, b) => a.concat(b), []);
   const resTmpName = context.oneOffName();
   const assertRes = spec ?
-    genSpecAssert(generate(spec.res, context), resTmpName, context) :
+    genSpecAssert(generate(spec.body, context), resTmpName, context) :
     [];
   const res = [{
     type: "VariableDeclaration",
