@@ -63,7 +63,9 @@ module.exports = {
         "for",
         "var",
 
-        "check",
+        "error",
+        "isError",
+        "coerce",
         "any",
         "aMap",
         "aFunction",

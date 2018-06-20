@@ -1,37 +1,10 @@
 {
-  /*function groupSpecDefinitions(definitions, error) {
-    return definitions
-      .filter(definition => definition.type === "spec")
-      .reduce((grouped, { name, spec }) => {
-        const existing = grouped[name];
-        if(existing) {
-
-        }
-        else {
-          grouped[name] = [spec];
-        }
-        return grouped;
-      }, {});
-  }
-
-  function groupDefinitions(definitions, error) {
-    return groupConstantDefinitions(
-      groupFunctionDefinitions(
-        groupSpecDefinitions(definitions, error), error), error);
-  }*/
-
   function groupDefinitions(definitions) {
     let groupedDefinitions = [];
     let functions = {};
-    let functionSpecs = {};
     for(let definition of definitions) {
-      const { type, name, args, body, location } = definition;
+      const { type, name, args, body, spec, location } = definition;
       if (type === "function") {
-        const spec = definitions
-          .filter(d =>
-            d.type === "functionSpec" &&
-            d.name.name === name.name &&
-            d.args.length === args.length)[0];
         const id = name.name;
         if (!functions[id]) {
           definition = {
@@ -47,10 +20,7 @@
           functions[id].variants.push({ args, body, spec, location });
         }
       }
-      else if (type === "constant") {
-        groupedDefinitions.push(definition);
-      }
-      else if (type === "record") {
+      else {
         groupedDefinitions.push(definition);
       }
     }
@@ -547,80 +517,19 @@ alias = name:name _ "@" _ lvalue:lvalue {
 
 lvalue = skip / alias / name / destruct
 
-/*anySpec = "*" {
-  return {
-    type: "anySpec",
-    location: location()
-  };
-}
-
-mapSpecKeyItem = key:name {
-  return {
-    key: key,
-    value: anySpec
-  };
-}
-
-mapSpecKeyValueItem = key:expression _ "->" _ value:spec {
-  return {
-    key: key,
-    value: value
-  };
-}
-
-mapSpecItem = mapSpecKeyValueItem / mapSpecKeyItem
-
-mapSpec =
-  "{" _
-  items:(first:mapSpecItem rest:(_ "," _ item:mapSpecItem { return item; })* { return [first].concat(rest); })?
-  _ "}" {
-    return {
-      type: "mapSpec",
-      items: items || [],
-      location: location()
-    };
-  }
-
-lambdaSpec = "\\" _ args:(noArgs / (arg:atomSpec _ { return arg; })+) _ "->" _ body:spec {
-  return {
-    type: "lambdaSpec",
-    args: args,
-    body: res,
-    location: location()
-  };
-}
-
-subSpec = "(" __ spec:(spec / expressionSpec) __ ")" {
-  return spec;
-}
-
-atomSpec = anySpec / mapSpec / lambdaSpec / subSpec / atomValueSpec
-
-spec =*/
-
-functionSpecDefinition =
-  name:(name / operator)
-  _ "::" _
-  args:(noArgs / (arg:atom _ { return arg; })+) _ "->" _ body:ensureExpression {
-  return {
-    type: "functionSpec",
-    name: name,
-    args: args,
-    body: body,
-    location: location()
-  };
-}
-
-constantDefinition = lvalue:(lvalue / operator) _ "=" _ value:ensureExpression {
+constantDefinition =
+  spec:(spec:expression __ nl _ { return spec; })?
+  lvalue:(lvalue / operator) __ "=" _ value:ensureExpression {
   return {
     type: "constant",
     lvalue: lvalue,
     value: value,
+    spec: spec,
     location: location()
   };
 }
 
-recordDefinition = name:recordName _ args:(arg:name __ { return arg; })* {
+recordDefinition = name:recordName __ args:(arg:name __ { return arg; })* {
   return {
     type: "record",
     name: name,
@@ -629,39 +538,48 @@ recordDefinition = name:recordName _ args:(arg:name __ { return arg; })* {
   };
 }
 
-functionDefinition = name:name _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "=" _ body:ensureExpression {
+functionDefinition =
+  spec:(spec:expression __ nl _ { return spec; })?
+  name:name __ args:(noArgs / (arg:lvalue __ { return arg; })+) __ "=" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
     args: args,
     body: body,
+    spec: spec,
     location: location()
   };
 }
 
-unaryOperatorDefinition = name:operator _ arg:lvalue _ "=" _ body:ensureExpression {
+unaryOperatorDefinition =
+  spec:(spec:expression __ nl _ { return spec; })?
+  name:operator __ arg:lvalue __ "=" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
     args: [arg],
     body: body,
+    spec: spec,
     location: location()
   };
 }
 
-binaryOperatorDefinition = left:lvalue _ name:operator _ right:lvalue _ "=" _ body:ensureExpression {
+binaryOperatorDefinition =
+  spec:(spec:expression __ nl _ { return spec; })?
+  left:lvalue __ name:operator __ right:lvalue __ "=" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
     args: [left, right],
     body: body,
+    spec: spec,
     location: location()
   };
 }
 
 operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 
-definition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition / functionSpecDefinition
+definition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition
 
 definitions = definitions:(definition:definition _ { return definition; })+ {
   return groupDefinitions(definitions);

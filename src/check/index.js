@@ -88,29 +88,6 @@ function checkLambda({ args, body }, context) {
   check(body, _context);
 }
 
-function checkFunction({ variants }, context) {
-  let definedVariants = {};
-  for(let variant of variants) {
-    const { args, body, spec, location } = variant;
-    const arity = args.length;
-    if (definedVariants[arity]) {
-      throw new CheckError(`Duplicate definition for arity ${arity}`, location);
-    }
-    definedVariants[arity] = variant;
-    checkLambda({ args, body }, context);
-    if (spec) {
-      checkSpec(spec, context);
-    }
-  }
-}
-
-function checkRecord({ name, args }, context) {
-  const _context = context.spawn();
-  for(let arg of args) {
-    checkLValue(arg, _context);
-  }
-}
-
 function checkMonad({ items }, context) {
   function _check(items, context) {
     if (items.length) {
@@ -126,47 +103,34 @@ function checkMonad({ items }, context) {
   _check(items, context);
 }
 
-/*function checkAnySpec(_, context) {}
-
-function checkMapSpec({ items }, context) {
-  for(let { key, value } of items) {
-    check(key, context);
-    checkSpec(value, context);
-  }
-}
-
-function checkLambdaSpec({ args, body }, context) {
-  for(let arg of args) {
-    check(arg, context);
-  }
-  check(body, context);
-}
-
-function checkValueSpec({ value }, context) {
+function checkConstant({ lvalue, value, spec }, context) {
   check(value, context);
+  checkLValue(lvalue, context);
+  if (spec) {
+    check(spec, context);
+  }
 }
 
-function checkSpec(spec, context) {
-  switch(spec.type) {
-    case "anySpec": checkAnySpec(spec, context); return;
-    case "mapSpec": checkMapSpec(spec, context); return;
-    case "lambdaSpec": checkLambdaSpec(spec, context); return;
-    case "valueSpec": checkValueSpec(spec, context); return;
-    default: throw new CheckError(`Internal error: unknown AST type ${spec.type}.`, spec.location);
+function checkFunction({ variants }, context) {
+  let definedVariants = {};
+  for(let variant of variants) {
+    const { args, body, spec, location } = variant;
+    const arity = args.length;
+    if (definedVariants[arity]) {
+      throw new CheckError(`Duplicate definition for arity ${arity}`, location);
+    }
+    definedVariants[arity] = variant;
+    checkLambda({ args, body }, context);
+    if (spec) {
+      check(spec, context);
+    }
   }
-}*/
+}
 
-function checkFunctionSpec({ args, body }, context) {
+function checkRecord({ name, args }, context) {
+  const _context = context.spawn();
   for(let arg of args) {
-    check(arg, context);
-  }
-  check(body, context);
-}
-
-function checkSpec(spec, context) {
-  switch(spec.type) {
-    case "functionSpec": checkFunctionSpec(spec, context); return;
-    default: throw new CheckError(`Internal error: unknown AST type ${spec.type}.`, spec.location);
+    checkLValue(arg, _context);
   }
 }
 
@@ -184,9 +148,8 @@ function checkDefinitions(definitions, context) {
   for(let { name } of functions) {
     context.define(name);
   }
-  for(let { lvalue, value } of constants) {
-    check(value, context);
-    checkLValue(lvalue, context);
+  for(let constant of constants) {
+    checkConstant(constant, context);
   }
   for(let fun of functions) {
     checkFunction(fun, context);
