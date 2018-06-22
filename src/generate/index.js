@@ -167,6 +167,9 @@ function genSkipLValue(name, value, context) {
 
 function genNameLValue(name, value, context) {
   const spec = context.getSpec(name);
+  value = spec ?
+    genSpecAssert(spec, value, context) :
+    generate(value, context);
   return [
     {
       type: "VariableDeclaration",
@@ -174,9 +177,7 @@ function genNameLValue(name, value, context) {
         {
           type: "VariableDeclarator",
           id: generate(name, context),
-          init: spec ?
-            genSpecAssert(generate(spec, context), value, context) :
-            value
+          init: value
         }
       ],
       kind: "const"
@@ -186,14 +187,14 @@ function genNameLValue(name, value, context) {
 
 function genAlias({ name, lvalue }, value, context) {
   return genNameLValue(name, value, context)
-    .concat(genLValue(lvalue, generate(name, context), context));
+    .concat(genLValue(lvalue, name, context));
 }
 
 function genCollDestructItem({ key, lvalue }, value, context) {
   value = {
     type: "CallExpression",
     callee: key.type === "property" ? GETP : GET,
-    arguments: [value, generate(key, context)]
+    arguments: [generate(value, context), generate(key, context)]
   }
   return genLValue(lvalue, value, context);
 }
@@ -210,7 +211,7 @@ function genCollDestructWithRest({ items, rest }, value, context) {
       type: "CallExpression",
       callee: REMOVE,
       arguments: [value, generate(key, context)]
-    }), value);
+    }), generate(value, context));
     return [
       {
         type: "VariableDeclaration",
@@ -231,6 +232,7 @@ function genCollDestructWithRest({ items, rest }, value, context) {
 }
 
 function genCollDestruct({ items, rest }, value, context) {
+  value = generate(value, context);
   if (value.type !== "Identifier" &&
       value.type !== "Literal") {
     return genCollDestructItems(items, value, context)
@@ -245,7 +247,7 @@ function genCollDestruct({ items, rest }, value, context) {
           {
             type: "VariableDeclarator",
             id: tmpName,
-            init: value
+            init: generate(value, context)
           }
         ],
         kind: "const"
@@ -372,27 +374,13 @@ function genSpecAssert(spec, value, context) {
   return {
     type: "CallExpression",
     callee: ASSERT,
-    arguments: [spec, value]
+    arguments: [generate(spec, context), generate(value, context)]
   };
 }
 
-/*function genConstantWithSpec({ lvalue, value, spec }, context) {
-  value = genSpecAssert(generate(spec, context), generate(value, context), context);
-  return genLValue(lvalue, value, context);
-}*/
-
 function genConstant({ lvalue, value }, context) {
-  return genLValue(lvalue, generate(value, context), context);
+  return genLValue(lvalue, value, context);
 }
-
-/*function genConstant(constant, context) {
-  if (constant.spec) {
-    return genConstantWithSpec(constant, context);
-  }
-  else {
-    return genConstantWithoutSpec(constant, context);
-  }
-}*/
 
 function genFunctionVariantName({ name }, { args }, context) {
   return {
@@ -408,24 +396,6 @@ function genFunctionVariantArgs(_, { args }, context) {
   }));
 }
 
-/*function genFunctionVariantBodyWithSpec(_, variant, context) {
-  const { args, body, spec: { args: specArgs, body: specBody } } = variant;
-  return genFunctionVariantArgs(_, variant, context)
-    .map((arg, i) => ([
-      {
-        type: "AssignmentExpression",
-        operator: "=",
-        left: args[i],
-        right: genSpecAssert(generate(specArgs[i], context), args[i], context)
-      }
-    ].concat(genLValue(args[i], arg, context))))
-    .reduce((a, b) => a.concat(b), [])
-    .concat({
-      type: "ReturnStatement",
-      argument: genSpecAssert(generate(specBody, context), generate(body, context), context)
-    });
-}*/
-
 function genFunctionVariantBody(_, variant, context) {
   const { args, body } = variant;
   return genFunctionVariantArgs(_, variant, context)
@@ -436,47 +406,6 @@ function genFunctionVariantBody(_, variant, context) {
       argument: generate(body, context)
     });
 }
-
-/*function genFunctionVariantBody(_, variant, context) {
-  if (variant.spec) {
-    return genFunctionVariantBodyWithSpec(_, variant, context);
-  }
-  else {
-    return genFunctionVariantBodyWithoutSpec(_, variant, context);
-  }
-}*/
-
-/*function genFunctionSpec({ args, body }, context) {
-  return {
-    type: "CallExpression",
-    callee: A_FUNCTION,
-    arguments: args.concat(body).map(ast => generate(ast, context))
-  };
-}
-
-function genFunctionVariantWithSpec(fun, variant, context) {
-  return {
-    type: "VariableDeclaration",
-    declarations: [
-      {
-        type: "VariableDeclarator",
-        id: genFunctionVariantName(fun, variant, context),
-        init: genSpecAssert(
-          genFunctionSpec(variant.spec, context),
-          {
-            type: "FunctionExpression",
-            params: genFunctionVariantArgs(fun, variant, context),
-            body: {
-              type: "BlockStatement",
-              body: genFunctionVariantBody(fun, variant, context)
-            }
-          },
-          context)
-      }
-    ],
-    kind: "const"
-  };
-}*/
 
 function genFunctionVariant(fun, variant, context) {
   context = context.spawn();
@@ -490,15 +419,6 @@ function genFunctionVariant(fun, variant, context) {
     }
   };
 }
-
-/*function genFunctionVariant(fun, variant, context) {
-  if (variant.spec) {
-    return genFunctionVariantWithSpec(fun, variant, context);
-  }
-  else {
-    return genFunctionVariantWithoutSpec(fun, variant, context);
-  }
-}*/
 
 function genFunctionDispatcher(fun, context) {
   const variants = fun.variants.map(variant => ({
@@ -562,7 +482,7 @@ function genFunction(fun, context) {
         type: "AssignmentExpression",
         operator: "=",
         left: name,
-        right: genSpecAssert(generate(spec, context), name, context)
+        right: genSpecAssert(spec, name, context)
       }
     ]);
   }
@@ -964,6 +884,66 @@ function generate(ast, context) {
     case "call": return genCall(ast, context);
     case "invoke": return genInvoke(ast, context);
     case "module": return genModule(ast, context);
+    case "Program":
+    case "BlockStatement":
+    case "ClassBody":
+    case "EmptyStatement":
+    case "ExpressionStatement":
+    case "IfStatement":
+    case "LabeledStatement":
+    case "BreakStatement":
+    case "ContinueStatement":
+    case "WithStatement":
+    case "SwitchStatement":
+    case "ReturnStatement":
+    case "ThrowStatement":
+    case "TryStatement":
+    case "WhileStatement":
+    case "DoWhileStatement":
+    case "ForStatement":
+    case "ForInStatement":
+    case "ForOfStatement":
+    case "DebuggerStatement":
+    case "FunctionDeclaration":
+    case "FunctionExpression":
+    case "VariableDeclaration":
+    case "VariableDeclarator":
+    case "ClassDeclaration":
+    case "ImportDeclaration":
+    case "ExportDefaultDeclaration":
+    case "ExportNamedDeclaration":
+    case "ExportAllDeclaration":
+    case "MethodDefinition":
+    case "ClassExpression":
+    case "ArrowFunctionExpression":
+    case "ThisExpression":
+    case "Super":
+    case "RestElement":
+    case "SpreadElement":
+    case "YieldExpression":
+    case "AwaitExpression":
+    case "TemplateLiteral":
+    case "TaggedTemplateExpression":
+    case "ArrayExpression":
+    case "ArrayPattern":
+    case "ObjectExpression":
+    case "Property":
+    case "ObjectPattern":
+    case "SequenceExpression":
+    case "UnaryExpression":
+    case "UpdateExpression":
+    case "AssignmentExpression":
+    case "AssignmentPattern":
+    case "BinaryExpression":
+    case "LogicalExpression":
+    case "ConditionalExpression":
+    case "NewExpression":
+    case "CallExpression":
+    case "MemberExpression":
+    case "MetaProperty":
+    case "Identifier":
+    case "Literal":
+    case "RegExpLiteral": return ast;
     default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }
