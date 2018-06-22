@@ -105,7 +105,6 @@ class Context {
   constructor(options, parent) {
     this.options = options;
     this.oneOffCount = 0;
-    this.specs = [];
     this.parent = parent;
   }
 
@@ -114,15 +113,6 @@ class Context {
       type: "Identifier",
       name: `$tmp${this.oneOffCount++}`
     };
-  }
-
-  defineSpec(spec) {
-    this.specs.push(spec);
-  }
-
-  getSpec(name) {
-    const spec = this.specs.filter(({ name: specName }) => specName.name === name.name)[0];
-    return spec && spec.spec;
   }
 
   spawn() {
@@ -166,10 +156,6 @@ function genSkipLValue(name, value, context) {
 }
 
 function genNameLValue(name, value, context) {
-  const spec = context.getSpec(name);
-  value = spec ?
-    genSpecAssert(spec, value, context) :
-    generate(value, context);
   return [
     {
       type: "VariableDeclaration",
@@ -177,7 +163,7 @@ function genNameLValue(name, value, context) {
         {
           type: "VariableDeclarator",
           id: generate(name, context),
-          init: value
+          init: generate(value, context)
         }
       ],
       kind: "const"
@@ -273,6 +259,9 @@ function genMapDestruct(map, value, context) {
 }
 
 function genLValue(lvalue, value, context) {
+  if (lvalue.spec) {
+    value = genSpecAssert(lvalue.spec, value, context);
+  }
   switch(lvalue.type) {
     case "skip": return genSkipLValue(lvalue, value, context);
     case "name": return genNameLValue(lvalue, value, context);
@@ -408,16 +397,28 @@ function genFunctionVariantBody(_, variant, context) {
 }
 
 function genFunctionVariant(fun, variant, context) {
-  context = context.spawn();
-  return {
-    type: "FunctionDeclaration",
-    id: genFunctionVariantName(fun, variant, context),
-    params: genFunctionVariantArgs(fun, variant, context),
-    body: {
-      type: "BlockStatement",
-      body: genFunctionVariantBody(fun, variant, context)
+  const name = genFunctionVariantName(fun, variant, context);
+  const spec = variant.spec ?
+    [
+      {
+        type: "AssignmentExpression",
+        operator: "=",
+        left: name,
+        right: genSpecAssert(variant.spec, name, context)
+      }
+    ] :
+    [];
+  return [
+    {
+      type: "FunctionDeclaration",
+      id: name,
+      params: genFunctionVariantArgs(fun, variant, context),
+      body: {
+        type: "BlockStatement",
+        body: genFunctionVariantBody(fun, variant, context)
+      }
     }
-  };
+  ].concat(spec);
 }
 
 function genFunctionDispatcher(fun, context) {
@@ -470,7 +471,15 @@ function genFunctionDispatcher(fun, context) {
 }
 
 function genFunction(fun, context) {
-  const spec = context.getSpec(fun.name);
+  const variants = fun.variants
+    .map(variant => genFunctionVariant(fun, variant, context))
+    .reduce((a, b) => a.concat(b), []);
+  const dispatcher = genFunctionDispatcher(fun, context);
+  return variants.concat(dispatcher);
+}
+
+/*function genFunction(fun, context) {
+  const spec = fun.spec;
   const variants = fun.variants
     .map(variant => genFunctionVariant(fun, variant, context));
   const dispatcher = genFunctionDispatcher(fun, context);
@@ -489,7 +498,7 @@ function genFunction(fun, context) {
   else {
     return variants.concat(dispatcher);
   }
-}
+}*/
 
 function genRecordCtor({ name, args }, context) {
   return {
@@ -563,18 +572,12 @@ function genDefinition(definition, context) {
 }
 
 function genDefinitions(definitions, context) {
-  const specs = definitions.filter(({ type }) => type === "spec");
-  for(let spec of specs) {
-    context.defineSpec(spec);
-  }
-  definitions = definitions.filter(({ type }) => type !== "spec");
   return definitions
     .map(definition => genDefinition(definition, context))
     .reduce((a, b) => a.concat(b), []);
 }
 
 function genLambda(lambda, context) {
-  context = context.spawn();
   const args = genFunctionVariantArgs(null, lambda, context);
   const body = genFunctionVariantBody(null, lambda, context);
   const badArity = {
@@ -671,7 +674,6 @@ function genCase({ branches, otherwise }, context) {
 }
 
 function genScope({ definitions, body }, context) {
-  context = context.spawn();
   return {
     type: "CallExpression",
     callee: {
@@ -688,6 +690,10 @@ function genScope({ definitions, body }, context) {
     },
     arguments: []
   };
+}
+
+function genAssert({ spec, value }, context) {
+  return genSpecAssert(spec, value, context);
 }
 
 function genCall({ callee, args }, context) {
@@ -881,6 +887,7 @@ function generate(ast, context) {
     case "monad": return genMonad(ast, context);
     case "case": return genCase(ast, context);
     case "scope": return genScope(ast, context);
+    case "assert": return genAssert(ast, context);
     case "call": return genCall(ast, context);
     case "invoke": return genInvoke(ast, context);
     case "module": return genModule(ast, context);

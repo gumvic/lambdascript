@@ -69,10 +69,8 @@ module.exports = {
         "generate",
         "assert",
 
-        "any",
         "aMap",
-        "aFunction",
-
+        
         "map",
         "filter",
         "reduce",

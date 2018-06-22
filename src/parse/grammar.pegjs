@@ -3,21 +3,21 @@
     let groupedDefinitions = [];
     let functions = {};
     for(let definition of definitions) {
-      const { type, name, args, body, location } = definition;
+      const { type, name, args, body, spec, location } = definition;
       if (type === "function") {
         const id = name.name;
         if (!functions[id]) {
           definition = {
             type: type,
             name: name,
-            variants: [{ args, body, location }],
+            variants: [{ args, body, spec, location }],
             location: location
           };
           functions[id] = definition;
           groupedDefinitions.push(definition);
         }
         else {
-          functions[id].variants.push({ args, body, location });
+          functions[id].variants.push({ args, body, spec, location });
         }
       }
       else {
@@ -33,6 +33,19 @@
         type: "scope",
         definitions: where.definitions,
         body: expression
+      };
+    }
+    else {
+      return expression;
+    }
+  }
+
+  function withSpec(expression, spec) {
+    if(spec) {
+      return {
+        type: "assert",
+        spec: spec,
+        value: expression
       };
     }
     else {
@@ -268,6 +281,10 @@ rest = "..." _ name:name {
   return name;
 }
 
+spec = "::" _ spec:atom {
+  return spec;
+}
+
 list "list" =
   "[" _
   items:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })? _
@@ -435,8 +452,10 @@ binary =
     first);
   }
 
-expression = expression:(binary / binaryOperand / operator) __ where:where? {
-  return withWhere(expression, where);
+expression = expression:(binary / binaryOperand / operator) __ where:where? __ spec:spec? {
+  return withSpec(
+    withWhere(expression, where),
+    spec);
 }
 
 badExpression = . {
@@ -515,7 +534,12 @@ alias = name:name _ "@" _ lvalue:lvalue {
   };
 }
 
-lvalue = skip / alias / name / destruct
+lvalue = lvalue:(skip / alias / name / destruct) _ spec:spec? {
+  if(spec) {
+    lvalue.spec = spec;
+  }
+  return lvalue;
+}
 
 constantDefinition =
   lvalue:(lvalue / operator) _ "=" _ value:ensureExpression {
@@ -537,12 +561,13 @@ recordDefinition = name:recordName __ args:(arg:name __ { return arg; })* {
 }
 
 functionDefinition =
-  name:name _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "=" _ body:ensureExpression {
+  name:name _ spec:spec? _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "=" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
     args: args,
     body: body,
+    spec: spec,
     location: location()
   };
 }
@@ -571,16 +596,7 @@ binaryOperatorDefinition =
 
 operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 
-specDefinition = name:(name / operator) _ "::" _ spec:expression {
-  return {
-    type: "spec",
-    name: name,
-    spec: spec,
-    location: location()
-  };
-}
-
-definition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition / specDefinition
+definition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition
 
 definitions = definitions:(definition:definition _ { return definition; })+ {
   return groupDefinitions(definitions);
