@@ -122,7 +122,10 @@ function checkFunction({ variants }, context) {
     definedVariants[arity] = variant;
     checkLambda({ args, body }, context);
     if (spec) {
-      check(spec, context);
+      for(let arg of spec.args) {
+        check(arg, context);
+      }
+      check(spec.body, context);
     }
   }
 }

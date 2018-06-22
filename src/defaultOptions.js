@@ -66,6 +66,9 @@ module.exports = {
         "error",
         "isError",
         "coerce",
+        "generate",
+        "assert",
+
         "any",
         "aMap",
         "aFunction",
