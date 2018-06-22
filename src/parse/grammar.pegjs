@@ -3,21 +3,21 @@
     let groupedDefinitions = [];
     let functions = {};
     for(let definition of definitions) {
-      const { type, name, args, body, spec, location } = definition;
+      const { type, name, args, body, location } = definition;
       if (type === "function") {
         const id = name.name;
         if (!functions[id]) {
           definition = {
             type: type,
             name: name,
-            variants: [{ args, body, spec, location }],
+            variants: [{ args, body, location }],
             location: location
           };
           functions[id] = definition;
           groupedDefinitions.push(definition);
         }
         else {
-          functions[id].variants.push({ args, body, spec, location });
+          functions[id].variants.push({ args, body, location });
         }
       }
       else {
@@ -518,13 +518,11 @@ alias = name:name _ "@" _ lvalue:lvalue {
 lvalue = skip / alias / name / destruct
 
 constantDefinition =
-  spec:(spec:expression __ nl _ { return spec; })?
-  lvalue:(lvalue / operator) __ "=" _ value:ensureExpression {
+  lvalue:(lvalue / operator) _ "=" _ value:ensureExpression {
   return {
     type: "constant",
     lvalue: lvalue,
     value: value,
-    spec: spec,
     location: location()
   };
 }
@@ -539,47 +537,50 @@ recordDefinition = name:recordName __ args:(arg:name __ { return arg; })* {
 }
 
 functionDefinition =
-  spec:(spec:expression __ nl _ { return spec; })?
-  name:name __ args:(noArgs / (arg:lvalue __ { return arg; })+) __ "=" _ body:ensureExpression {
+  name:name _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "=" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
     args: args,
     body: body,
-    spec: spec,
     location: location()
   };
 }
 
 unaryOperatorDefinition =
-  spec:(spec:expression __ nl _ { return spec; })?
-  name:operator __ arg:lvalue __ "=" _ body:ensureExpression {
+  name:operator _ arg:lvalue _ "=" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
     args: [arg],
     body: body,
-    spec: spec,
     location: location()
   };
 }
 
 binaryOperatorDefinition =
-  spec:(spec:expression __ nl _ { return spec; })?
-  left:lvalue __ name:operator __ right:lvalue __ "=" _ body:ensureExpression {
+  left:lvalue _ name:operator _ right:lvalue _ "=" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
     args: [left, right],
     body: body,
-    spec: spec,
     location: location()
   };
 }
 
 operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
 
-definition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition
+specDefinition = name:(name / operator) _ "::" _ spec:expression {
+  return {
+    type: "spec",
+    name: name,
+    spec: spec,
+    location: location()
+  };
+}
+
+definition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition / specDefinition
 
 definitions = definitions:(definition:definition _ { return definition; })+ {
   return groupDefinitions(definitions);

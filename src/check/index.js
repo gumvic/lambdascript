@@ -103,30 +103,21 @@ function checkMonad({ items }, context) {
   _check(items, context);
 }
 
-function checkConstant({ lvalue, value, spec }, context) {
+function checkConstant({ lvalue, value }, context) {
   check(value, context);
   checkLValue(lvalue, context);
-  if (spec) {
-    check(spec, context);
-  }
 }
 
 function checkFunction({ variants }, context) {
   let definedVariants = {};
   for(let variant of variants) {
-    const { args, body, spec, location } = variant;
+    const { args, body, location } = variant;
     const arity = args.length;
     if (definedVariants[arity]) {
       throw new CheckError(`Duplicate definition for arity ${arity}`, location);
     }
     definedVariants[arity] = variant;
     checkLambda({ args, body }, context);
-    if (spec) {
-      for(let arg of spec.args) {
-        check(arg, context);
-      }
-      check(spec.body, context);
-    }
   }
 }
 
@@ -137,6 +128,11 @@ function checkRecord({ name, args }, context) {
   }
 }
 
+function checkSpec({ name, spec }, context) {
+  context.assertDefined(name);
+  check(spec, context);
+}
+
 function checkDefinitions(definitions, context) {
   const constants = definitions
     .filter(({ type }) => type === "constant");
@@ -144,6 +140,8 @@ function checkDefinitions(definitions, context) {
     .filter(({ type }) => type === "function");
   const records = definitions
     .filter(({ type }) => type === "record");
+  const specs = definitions
+    .filter(({ type }) => type === "spec");
   for(let { name } of records) {
     context.define(name);
     context.define({ name: `is${name.name}` });
@@ -157,8 +155,12 @@ function checkDefinitions(definitions, context) {
   for(let fun of functions) {
     checkFunction(fun, context);
   }
-  for(let fun of records) {
-    checkRecord(fun, context);
+  for(let record of records) {
+    checkRecord(record, context);
+  }
+  // TODO duplicate specs
+  for(let spec of specs) {
+    checkSpec(spec, context);
   }
 }
 
