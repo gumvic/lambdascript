@@ -39,7 +39,9 @@ module.exports = {
         "Map",
         "record",
         "Monad",
+        "isMonad",
         "Done",
+        "isDone",
         "hasp",
         "getp",
         "has",
@@ -65,18 +67,22 @@ module.exports = {
 
         "error",
         "isError",
+
         "coerce",
         "generate",
         "assert",
 
+        "any",
+        "aFunction",
         "aMap",
-        
+
         "map",
         "filter",
         "reduce",
         "take",
         "indexed",
 
+        "maybe",
         "run",
 
         "$"
