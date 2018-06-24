@@ -59,10 +59,9 @@ ast = _ ast:(module / expression) _ {
 }
 
 _ "whitespace" = ([ \t\n\r] / comment)*
-__ "whitespace" = ([ \t] / escapedNL)*
+__ "whitespace" = [ \t]*
 
 nl = [\n\r] / [\n]
-escapedNL = "\\" nl
 oneLineComment = "#" (!nl .)*
 multilineComment = "#" "{" (multilineComment / (!"}" .))* "}"
 comment = multilineComment / oneLineComment
@@ -391,7 +390,7 @@ case "case" = wordCase _ _case:(goodCase / badCase) {
   return _case;
 }
 
-subExpression "sub-expression" = "(" __ expression:expression __ ")" {
+subExpression "sub-expression" = "(" _ expression:greedyExpression _ ")" {
   return expression;
 }
 
@@ -407,7 +406,7 @@ atom =
   / case
   / subExpression
 
-unary = operator:operator __ operand:atom {
+unary = operator:operator _ operand:atom {
   return {
     type: "call",
     callee: operator,
@@ -441,7 +440,7 @@ binaryOperand = call / invoke / callee
 
 binary =
   first:binaryOperand
-  rest:(__ operator:operator __ right:binaryOperand { return { operator, right }; })+ {
+  rest:(__ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -453,6 +452,46 @@ binary =
   }
 
 expression = expression:(binary / binaryOperand / operator) __ where:where? __ spec:spec? {
+  return withSpec(
+    withWhere(expression, where),
+    spec);
+}
+
+greedyCall = callee:callee _ args:(noArgs / (arg:atom _ { return arg; })+) {
+  return {
+    type: "call",
+    callee: callee,
+    args: args,
+    location: location()
+  };
+}
+
+greedyInvoke = method:property _ object:atom _ args:(arg:atom _ { return arg; })* {
+  return {
+    type: "invoke",
+    object: object,
+    method: method,
+    args: args,
+    location: location()
+  };
+}
+
+greedyBinaryOperand = greedyCall / greedyInvoke / callee
+
+greedyBinary =
+  first:greedyBinaryOperand
+  rest:(_ operator:operator _ right:greedyBinaryOperand { return { operator, right }; })+ {
+  return rest.reduce(
+    (left, { operator, right }) => ({
+      type: "call",
+      callee: operator,
+      args: [left, right],
+      location: location()
+    }),
+    first);
+  }
+
+greedyExpression = expression:(greedyBinary / greedyBinaryOperand / operator) _ where:where? _ spec:spec? {
   return withSpec(
     withWhere(expression, where),
     spec);
@@ -561,7 +600,7 @@ recordDefinition = name:recordName __ args:(arg:name __ { return arg; })* {
 }
 
 functionDefinition =
-  name:name _ spec:spec? _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "=" _ body:ensureExpression {
+  name:(name / operator) _ spec:spec? _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "=" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
@@ -572,31 +611,7 @@ functionDefinition =
   };
 }
 
-unaryOperatorDefinition =
-  name:operator _ arg:lvalue _ "=" _ body:ensureExpression {
-  return {
-    type: "function",
-    name: name,
-    args: [arg],
-    body: body,
-    location: location()
-  };
-}
-
-binaryOperatorDefinition =
-  left:lvalue _ name:operator _ right:lvalue _ "=" _ body:ensureExpression {
-  return {
-    type: "function",
-    name: name,
-    args: [left, right],
-    body: body,
-    location: location()
-  };
-}
-
-operatorDefinition = unaryOperatorDefinition / binaryOperatorDefinition
-
-definition = constantDefinition / operatorDefinition / recordDefinition / functionDefinition
+definition = constantDefinition / recordDefinition / functionDefinition
 
 definitions = definitions:(definition:definition _ { return definition; })+ {
   return groupDefinitions(definitions);
