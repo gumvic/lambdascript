@@ -6,18 +6,36 @@ let b where
 end
 ```
 
-- greedy expressions
-- ditch `autoImports` for good, just provide `core` in the options
-- guard `get`, `monad` etc from being redefined by user -- `defineLocal` them when spawning a new context?
-- put essentials somewhere in the configs for `check` and `generate` to use
+- ditch native property destructuring? maybe re-introduce property access like `.foo bar`?
+
+- `Point x y = whatever`, and `Point` will check in runtime if the `whatever` is a map and use it to init the record
+- let it create `point/isPoint`, then?
+- `Map` -> `map`, `map` -> `transform`/`each`/`fmap`?
 
 - `n :: aBoolean = true`
 - `fac n::(aNumber 1) :: (aNumber 1) = ...`
+- `? { ... }` => `aMap { ... }`
+- `?`:
+```
+user = ?{ :name -> ?:string }
+[user] ?> ?:string
+getName a = [?{ :name -> a }] ?-> a
 
-- check for essentials lazily
-- ditch native property destructuring? maybe re-introduce property access like `.foo bar`?
+[$:string] $-> $:number
+[?:string] ?-> ?:number
+
+<?> # or
+?=> # multifunction
+
+reducer res x =
+  [res] ?=>
+  [res res] ?=>
+  [res x res]
+```
+
 - better name for `maybe`
 - `isBoolean`/`isString`/`isKey` etc to core
+- `aTypeOf`
 
 - how to prove specs `a` and `b` represent the same? `assert a (generate b) && assert b (generate a)`
 - therefore, we can have "type constraints" like `a -> b constraint a == b`, i. e. the specs are not necessarily the same themselves, but they still represent the same thing

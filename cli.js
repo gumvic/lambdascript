@@ -41,7 +41,8 @@ function run() {
   }
   if (args.opts) {
     return readFile(args.opts, "utf8")
-      .then(options => _build(srcDir, distDir, JSON.parse(options)));
+      .then(options => Object.assign(defaultOptions, JSON.parse(options)))
+      .then(options => _build(srcDir, distDir, options));
   }
   else {
     return _build(srcDir, distDir, defaultOptions);

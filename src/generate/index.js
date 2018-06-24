@@ -4,51 +4,6 @@ const GenerationError = require("./error");
 
 const defaultOptions = require("../defaultOptions");
 
-const LIST = {
-  type: "Identifier",
-  name: "List"
-};
-
-const MAP = {
-  type: "Identifier",
-  name: "Map"
-};
-
-const RECORD = {
-  type: "Identifier",
-  name: "record"
-};
-
-const MONAD = {
-  type: "Identifier",
-  name: "Monad"
-};
-
-const GET = {
-  type: "Identifier",
-  name: "get"
-};
-
-const GETP = {
-  type: "Identifier",
-  name: "getp"
-};
-
-const MERGE = {
-  type: "Identifier",
-  name: "merge"
-};
-
-const REMOVE = {
-  type: "Identifier",
-  name: "remove"
-};
-
-const ASSERT = {
-  type: "Identifier",
-  name: "assert"
-};
-
 const ARGUMENTS = {
   type: "Identifier",
   name: "arguments"
@@ -179,7 +134,9 @@ function genAlias({ name, lvalue }, value, context) {
 function genCollDestructItem({ key, lvalue }, value, context) {
   value = {
     type: "CallExpression",
-    callee: key.type === "property" ? GETP : GET,
+    callee: key.type === "property" ?
+      genName({ name: context.options.essentials.getp }, context) :
+      genName({ name: context.options.essentials.get }, context),
     arguments: [generate(value, context), generate(key, context)]
   }
   return genLValue(lvalue, value, context);
@@ -195,7 +152,7 @@ function genCollDestructWithRest({ items, rest }, value, context) {
   if (rest) {
     value = items.reduce((value, { key }) => ({
       type: "CallExpression",
-      callee: REMOVE,
+      callee: genName({ name: context.options.essentials.remove }, context),
       arguments: [value, generate(key, context)]
     }), generate(value, context));
     return [
@@ -320,7 +277,7 @@ function genWithRest(value, rest, context) {
   return rest ?
     {
       type: "CallExpression",
-      callee: MERGE,
+      callee: genName({ name: context.options.essentials.merge }, context),
       arguments: [
         value,
         generate(rest, context)
@@ -332,7 +289,7 @@ function genWithRest(value, rest, context) {
 function genList({ items, rest }, context) {
   return genWithRest({
     type: "CallExpression",
-    callee: LIST,
+    callee: genName({ name: context.options.essentials.list }, context),
     arguments: [
       {
         type: "ArrayExpression",
@@ -345,7 +302,7 @@ function genList({ items, rest }, context) {
 function genMap({ items, rest }, context) {
   return genWithRest({
     type: "CallExpression",
-    callee: MAP,
+    callee: genName({ name: context.options.essentials.map }, context),
     arguments: [
       {
         type: "ArrayExpression",
@@ -362,7 +319,7 @@ function genMap({ items, rest }, context) {
 function genSpecAssert(spec, value, context) {
   return {
     type: "CallExpression",
-    callee: ASSERT,
+    callee: genName({ name: context.options.essentials.assert }, context),
     arguments: [generate(spec, context), generate(value, context)]
   };
 }
@@ -506,7 +463,7 @@ function genRecordCtor({ name, args }, context) {
     id: genName(name, context),
     init: {
       type: "CallExpression",
-      callee: RECORD,
+      callee: genName({ name: context.options.essentials.record }, context),
       arguments: [
         {
           type: "Literal",
@@ -644,7 +601,7 @@ function genMonad({ items }, context) {
           };
         return {
           type: "CallExpression",
-          callee: MONAD,
+          callee: genName({ name: context.options.essentials.monad }, context),
           arguments: [value, next]
         };
       }
@@ -775,8 +732,50 @@ function genImport({ module, value }, context) {
   }
 }
 
-function genModuleImports({ imports }, context) {
-  return imports.map(_import => genImport(_import, context));
+function genModuleCoreImport(_, context) {
+  const { options: { core } } = context;
+  const moduleName = core.module;
+  const module = genName({ name: moduleName }, context);
+  const require = {
+    type: "VariableDeclarator",
+    id: module,
+    init: {
+      type: "CallExpression",
+      callee: {
+        type: "Identifier",
+        name: "require"
+      },
+      arguments: [
+        {
+          type: "Literal",
+          value: moduleName
+        }
+      ]
+    }
+  };
+  const imports = core.imports
+    .map(name => genName({ name }, context))
+    .map(name => ({
+      type: "VariableDeclarator",
+      id: name,
+      init: {
+        type: "MemberExpression",
+        object: module,
+        property: name,
+        computed: false
+      }
+    }));
+  return {
+    type: "VariableDeclaration",
+    declarations: [require].concat(imports),
+    kind: "const"
+  };
+}
+
+function genModuleImports(module, context) {
+  const core = genModuleCoreImport(module, context);
+  const imports = module.imports.map(_import => genImport(_import, context));
+  return [core].concat(imports);
 }
 
 function genModuleDefinitions({ definitions }, context) {

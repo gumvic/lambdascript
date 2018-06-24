@@ -2,16 +2,6 @@ const CheckError = require("./error");
 
 const defaultOptions = require("../defaultOptions");
 
-ESSENTIALS = [
-  "List",
-  "Map",
-  "record",
-  "Monad",
-  "get",
-  "getp",
-  "merge",
-  "remove"
-];
 const MAIN = "main";
 
 class Context {
@@ -19,10 +9,14 @@ class Context {
     this.options = options;
     this.parent = parent;
     this.defined = [];
+    this.forbidden = this.parent ?
+      Object.values(options.essentials) :
+      [];
   }
 
   define({ name, location }) {
-    if (this.isDefinedLocally({ name, location })) {
+    if (this.isDefinedLocally({ name, location }) ||
+        this.forbidden.indexOf(name) >= 0) {
       throw new CheckError(`Duplicate definition: ${name}`, location);
     }
     else {
@@ -61,7 +55,8 @@ function checkName(ast, context) {
   context.assertDefined(ast);
 }
 
-function checkList({ items, rest }, context) {
+function checkList({ items, rest, location }, context) {
+  context.assertDefined({ name: context.options.essentials.list, location });
   for(let item of items) {
     check(item, context);
   }
@@ -70,7 +65,8 @@ function checkList({ items, rest }, context) {
   }
 }
 
-function checkMap({ items, rest }, context) {
+function checkMap({ items, rest, location }, context) {
+  context.assertDefined({ name: context.options.essentials.map, location });
   for(let { key, value } of items) {
     check(key, context);
     check(value, context);
@@ -88,7 +84,8 @@ function checkLambda({ args, body }, context) {
   check(body, _context);
 }
 
-function checkMonad({ items }, context) {
+function checkMonad({ items, location }, context) {
+  context.assertDefined({ name: context.options.essentials.monad, location });
   function _check(items, context) {
     if (items.length) {
       const { via, value, location } = items[0];
@@ -119,12 +116,14 @@ function checkFunction({ variants }, context) {
     definedVariants[arity] = variant;
     checkLambda({ args, body }, context);
     if (spec) {
+      context.assertDefined({ name: context.options.essentials.assert, location: spec.location });
       check(spec, context);
     }
   }
 }
 
-function checkRecord({ name, args }, context) {
+function checkRecord({ name, args, location }, context) {
+  context.assertDefined({ name: context.options.essentials.record, location });
   const _context = context.spawn();
   for(let arg of args) {
     checkLValue(arg, _context);
@@ -170,7 +169,8 @@ function checkScope({ definitions, body }, context) {
   check(body, context);
 }
 
-function checkAssert({ spec, value }, context) {
+function checkAssert({ spec, value, location }, context) {
+  context.assertDefined({ name: context.options.essentials.assert, location });
   check(spec, context);
   check(value, context);
 }
@@ -206,7 +206,10 @@ function checkAliasLValue({ name, lvalue }, context) {
   checkLValue(lvalue, context);
 }
 
-function checkListDestructLValue({ items, rest }, context) {
+function checkListDestructLValue({ items, rest, location }, context) {
+  context.assertDefined({ name: context.options.essentials.get, location });
+  context.assertDefined({ name: context.options.essentials.merge, location });
+  context.assertDefined({ name: context.options.essentials.remove, location });
   for(let lvalue of items) {
     checkLValue(lvalue, context);
   }
@@ -215,7 +218,11 @@ function checkListDestructLValue({ items, rest }, context) {
   }
 }
 
-function checkMapDestructLValue({ items, rest }, context) {
+function checkMapDestructLValue({ items, rest, location }, context) {
+  context.assertDefined({ name: context.options.essentials.get, location });
+  context.assertDefined({ name: context.options.essentials.getp, location });
+  context.assertDefined({ name: context.options.essentials.merge, location });
+  context.assertDefined({ name: context.options.essentials.remove, location });
   for(let { key, lvalue } of items) {
     check(key, context);
     checkLValue(lvalue, context);
@@ -227,14 +234,15 @@ function checkMapDestructLValue({ items, rest }, context) {
 
 function checkLValue(lvalue, context) {
   switch(lvalue.type) {
-    case "skip": return checkSkipLValue(lvalue, context);
-    case "name": return checkNameLValue(lvalue, context);
-    case "alias": return checkAliasLValue(lvalue, context);
-    case "listDestruct": return checkListDestructLValue(lvalue, context);
-    case "mapDestruct": return checkMapDestructLValue(lvalue, context);
+    case "skip": checkSkipLValue(lvalue, context); break;
+    case "name": checkNameLValue(lvalue, context); break;
+    case "alias": checkAliasLValue(lvalue, context); break;
+    case "listDestruct": checkListDestructLValue(lvalue, context); break;
+    case "mapDestruct": checkMapDestructLValue(lvalue, context); break;
     default: new CheckError(`Internal error: unknown AST type ${lvalue.type}.`, lvalue.location);
   }
   if (lvalue.spec) {
+    context.assertDefined({ name: context.options.essentials.assert, location: lvalue.spec.location });
     check(lvalue.spec, context);
   }
 }
@@ -261,19 +269,19 @@ function checkImport({ module, value }, context) {
   }
 }
 
-function checkModuleImports({ name: { name: moduleName }, imports }, context) {
-  let imported = {};
+function checkModuleCoreImport(_, context) {
+  const { module, imports } = context.options.core;
+  context.define({ name: module });
   for(let _import of imports) {
-    const { module: importedModule, location } = _import;
-    if (importedModule) {
-      if (importedModule.name === moduleName) {
-        throw new CheckError(`Module ${moduleName} imports itself`, location);
-      }
-      if (imported[importedModule.name]) {
-        throw new CheckError(`Duplicate import: ${importName}`, location);
-      }
-      imported[importedModule.name] = true;
-    }
+    context.define({ name: _import });
+  }
+}
+
+function checkModuleImports(module, context) {
+  const { name: { name: moduleName }, imports } = module;
+  context.define({ name: moduleName });
+  checkModuleCoreImport(module, context);
+  for(let _import of imports) {
     checkImport(_import, context);
   }
 }
@@ -305,22 +313,14 @@ function checkModuleExport({ export: _export }, context) {
   checkExport(_export, context);
 }
 
-function checkEssentials(context) {
-  for(let name of ESSENTIALS) {
-    context.assertDefined({ name: name });
-  }
-}
-
 function checkApp(ast, context) {
   checkModuleImports(ast, context);
-  checkEssentials(context);
   checkModuleDefinitions(ast, context);
   context.assertDefined({ name: MAIN });
 }
 
 function checkLib(ast, context) {
   checkModuleImports(ast, context);
-  checkEssentials(context);
   checkModuleDefinitions(ast, context);
   checkModuleExport(ast, context);
 }
@@ -340,8 +340,7 @@ function check(ast, context) {
     case "skip":
     case "key":
     case "property":
-    case "symbol":
-    return;
+    case "symbol": return;
     case "name": return checkName(ast, context);
     case "list": return checkList(ast, context);
     case "map":  return checkMap(ast, context);

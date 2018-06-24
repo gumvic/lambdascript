@@ -348,7 +348,8 @@ goodMonad =
   where:(where / wordEnd { return null; }) {
     return withWhere({
       type: "monad",
-      items: items
+      items: items,
+      location: location()
     }, where);
   }
 
@@ -378,7 +379,8 @@ goodCase =
     return withWhere({
       type: "case",
       branches: branches,
-      otherwise: otherwise
+      otherwise: otherwise,
+      location: location()
     }, where);
   }
 

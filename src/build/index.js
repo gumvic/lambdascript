@@ -51,7 +51,6 @@ function readMonadaModule(file, context) {
   const srcFile = joinPath(srcDir, file);
   return readFile(srcFile, "utf8").then(src => {
     const ast = parse(src);
-    ast.imports = context.options.autoImports.concat(ast.imports);
     const module = {
       type: "monada",
       file: file,
@@ -157,42 +156,8 @@ function buildModule(module, context) {
   });
 }
 
-function autoImportToAST({ module, value }) {
-  module = {
-    type: "name",
-    name: module
-  };
-  if (typeof value === "string") {
-    value = {
-      type: "symbol",
-      name: value
-    };
-  }
-  else {
-    value = {
-      type: "symbols",
-      items: value.map(name => ({
-        key: {
-          type: "symbol",
-          name: name
-        },
-        name: {
-          type: "symbol",
-          name: name
-        }
-      }))
-    };
-  }
-  return {
-    type: "import",
-    module: module,
-    value: value
-  };
-}
-
 function build(srcDir, distDir, options) {
   options = options || defaultOptions;
-  options.autoImports = options.autoImports.map(autoImportToAST);
   const context = new Context (srcDir, distDir, options);
   return walk(srcDir)
     .then(files => files.map(({ root, name }) => relativePath(srcDir, `${root}/${name}`)))
