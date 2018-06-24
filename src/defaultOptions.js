@@ -68,7 +68,7 @@ module.exports = {
         "error",
         "isError",
 
-        "coerce",
+        "check",
         "generate",
         "assert",
 
