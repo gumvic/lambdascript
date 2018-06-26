@@ -428,7 +428,16 @@ call = callee:callee __ args:(noArgs / (arg:atom __ { return arg; })+) {
   };
 }
 
-invoke = method:property __ object:atom __ args:(arg:atom __ { return arg; })* {
+access = property:property __ object:atom {
+  return {
+    type: "access",
+    object: object,
+    property: property,
+    location: location()
+  };
+}
+
+invoke = method:property __ object:atom __ args:(noArgs / (arg:atom __ { return arg; })+) {
   return {
     type: "invoke",
     object: object,
@@ -438,7 +447,7 @@ invoke = method:property __ object:atom __ args:(arg:atom __ { return arg; })* {
   };
 }
 
-binaryOperand = call / invoke / callee
+binaryOperand = call / invoke / access / callee
 
 binary =
   first:binaryOperand
@@ -468,7 +477,16 @@ greedyCall = callee:callee _ args:(noArgs / (arg:atom _ { return arg; })+) {
   };
 }
 
-greedyInvoke = method:property _ object:atom _ args:(arg:atom _ { return arg; })* {
+greedyAccess = property:property _ object:atom {
+  return {
+    type: "access",
+    object: object,
+    property: property,
+    location: location()
+  };
+}
+
+greedyInvoke = method:property _ object:atom _ args:(noArgs / (arg:atom _ { return arg; })+) {
   return {
     type: "invoke",
     object: object,
@@ -478,7 +496,7 @@ greedyInvoke = method:property _ object:atom _ args:(arg:atom _ { return arg; })
   };
 }
 
-greedyBinaryOperand = greedyCall / greedyInvoke / callee
+greedyBinaryOperand = greedyCall / greedyInvoke / greedyAccess / callee
 
 greedyBinary =
   first:greedyBinaryOperand

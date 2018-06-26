@@ -220,7 +220,6 @@ function checkListDestructLValue({ items, rest, location }, context) {
 
 function checkMapDestructLValue({ items, rest, location }, context) {
   context.assertDefined({ name: context.options.essentials.get, location });
-  context.assertDefined({ name: context.options.essentials.getp, location });
   context.assertDefined({ name: context.options.essentials.merge, location });
   context.assertDefined({ name: context.options.essentials.remove, location });
   for(let { key, lvalue } of items) {

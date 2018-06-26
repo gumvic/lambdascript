@@ -134,9 +134,7 @@ function genAlias({ name, lvalue }, value, context) {
 function genCollDestructItem({ key, lvalue }, value, context) {
   value = {
     type: "CallExpression",
-    callee: key.type === "property" ?
-      genName({ name: context.options.essentials.getp }, context) :
-      genName({ name: context.options.essentials.get }, context),
+    callee: genName({ name: context.options.essentials.get }, context),
     arguments: [generate(value, context), generate(key, context)]
   }
   return genLValue(lvalue, value, context);
@@ -661,14 +659,23 @@ function genCall({ callee, args }, context) {
   };
 }
 
+function genAccess({ object, property }, context) {
+  return {
+    type: "MemberExpression",
+    object: generate(object, context),
+    property: genName(property, context),
+    computed: false
+  };
+}
+
 function genInvoke({ object, method, args }, context) {
   return {
     type: "CallExpression",
     callee: {
       type: "MemberExpression",
       object: generate(object, context),
-      property: generate(method, context),
-      computed: true
+      property: genName(method, context),
+      computed: false
     },
     arguments: args.map((arg) => generate(arg, context))
   };
@@ -888,6 +895,7 @@ function generate(ast, context) {
     case "scope": return genScope(ast, context);
     case "assert": return genAssert(ast, context);
     case "call": return genCall(ast, context);
+    case "access": return genAccess(ast, context);
     case "invoke": return genInvoke(ast, context);
     case "module": return genModule(ast, context);
     case "Program":

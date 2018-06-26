@@ -6,8 +6,6 @@ let b where
 end
 ```
 
-- ditch native property destructuring? maybe re-introduce property access like `.foo bar`?
-
 - `Point x y = whatever`, and `Point` will check in runtime if the `whatever` is a map and use it to init the record
 - let it create `point/isPoint`, then?
 - `Map` -> `map`, `map` -> `transform`/`each`/`fmap`?
@@ -53,8 +51,8 @@ reducer res x =
 - `&&` and `||` don't short circuit
 - some operators should have zero arity with default result of `0`, `false` or whatever makes sense for them
 - validate build options
-- js module should be able to declare its name
 - template strings
+- js module should be able to declare its name
 - source maps
 - REPL
 - tests
