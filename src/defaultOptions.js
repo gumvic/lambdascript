@@ -92,6 +92,7 @@ module.exports = {
     "merge": "merge",
     "remove": "remove",
     "monad": "monad",
-    "assert": "assert"
+    "assert": "assert",
+    "aFunction": "aFunction"
   }
 };

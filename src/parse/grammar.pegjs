@@ -39,19 +39,6 @@
       return expression;
     }
   }
-
-  function withSpec(expression, spec) {
-    if(spec) {
-      return {
-        type: "assert",
-        spec: spec,
-        value: expression
-      };
-    }
-    else {
-      return expression;
-    }
-  }
 }
 
 ast = _ ast:(module / expression) _ {
@@ -280,10 +267,6 @@ rest = "..." _ name:name {
   return name;
 }
 
-spec = "::" _ spec:atom {
-  return spec;
-}
-
 list "list" =
   "[" _
   items:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })? _
@@ -462,10 +445,8 @@ binary =
     first);
   }
 
-expression = expression:(binary / binaryOperand / operator) __ where:where? __ spec:spec? {
-  return withSpec(
-    withWhere(expression, where),
-    spec);
+expression = expression:(binary / binaryOperand / operator) __ where:where? {
+  return withWhere(expression, where);
 }
 
 greedyCall = callee:callee _ args:(noArgs / (arg:atom _ { return arg; })+) {
@@ -511,10 +492,8 @@ greedyBinary =
     first);
   }
 
-greedyExpression = expression:(greedyBinary / greedyBinaryOperand / operator) _ where:where? _ spec:spec? {
-  return withSpec(
-    withWhere(expression, where),
-    spec);
+greedyExpression = expression:(greedyBinary / greedyBinaryOperand / operator) _ where:where? {
+  return withWhere(expression, where);
 }
 
 badExpression = . {
@@ -593,19 +572,27 @@ alias = name:name _ "@" _ lvalue:lvalue {
   };
 }
 
-lvalue = lvalue:(skip / alias / name / destruct) _ spec:spec? {
-  if(spec) {
-    lvalue.spec = spec;
-  }
-  return lvalue;
+lvalue = skip / alias / name / destruct
+
+constantSpec = "::" _ spec:atom {
+  return spec;
+}
+
+functionSpec = "::" _ args:(arg:atom { return arg; })+ _ "->" _ body:atom {
+  return {
+    args: args,
+    body: body,
+    location: location()
+  };
 }
 
 constantDefinition =
-  lvalue:(lvalue / operator) _ "=" _ value:ensureExpression {
+  lvalue:(lvalue / operator) _ "=" _ value:ensureExpression _ spec:constantSpec? {
   return {
     type: "constant",
     lvalue: lvalue,
     value: value,
+    spec: spec,
     location: location()
   };
 }
@@ -620,7 +607,7 @@ recordDefinition = name:recordName __ args:(arg:name __ { return arg; })* {
 }
 
 functionDefinition =
-  name:(name / operator) _ spec:spec? _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "=" _ body:ensureExpression {
+  name:(name / operator) _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "=" _ body:ensureExpression _ spec:functionSpec? {
   return {
     type: "function",
     name: name,

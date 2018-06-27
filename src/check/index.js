@@ -100,9 +100,13 @@ function checkMonad({ items, location }, context) {
   _check(items, context);
 }
 
-function checkConstant({ lvalue, value }, context) {
+function checkConstant({ lvalue, value, spec }, context) {
   check(value, context);
   checkLValue(lvalue, context);
+  if (spec) {
+    context.assertDefined({ name: context.options.essentials.assert, location: spec.location });
+    check(spec, context);
+  }
 }
 
 function checkFunction({ variants }, context) {
@@ -117,7 +121,13 @@ function checkFunction({ variants }, context) {
     checkLambda({ args, body }, context);
     if (spec) {
       context.assertDefined({ name: context.options.essentials.assert, location: spec.location });
-      check(spec, context);
+      if (spec.args.length !== arity) {
+        throw new CheckError(`Bad spec for arity ${arity}`, spec.location);
+      }
+      for(let arg of spec.args) {
+        check(arg, context);
+      }
+      check(spec.body, context);
     }
   }
 }
@@ -167,12 +177,6 @@ function checkScope({ definitions, body }, context) {
   context = context.spawn();
   checkDefinitions(definitions, context);
   check(body, context);
-}
-
-function checkAssert({ spec, value, location }, context) {
-  context.assertDefined({ name: context.options.essentials.assert, location });
-  check(spec, context);
-  check(value, context);
 }
 
 function checkCall({ callee, args }, context) {
@@ -239,10 +243,6 @@ function checkLValue(lvalue, context) {
     case "listDestruct": checkListDestructLValue(lvalue, context); break;
     case "mapDestruct": checkMapDestructLValue(lvalue, context); break;
     default: new CheckError(`Internal error: unknown AST type ${lvalue.type}.`, lvalue.location);
-  }
-  if (lvalue.spec) {
-    context.assertDefined({ name: context.options.essentials.assert, location: lvalue.spec.location });
-    check(lvalue.spec, context);
   }
 }
 
@@ -347,7 +347,6 @@ function check(ast, context) {
     case "monad": return checkMonad(ast, context);
     case "case": return checkCase(ast, context);
     case "scope": return checkScope(ast, context);
-    case "assert": return checkAssert(ast, context);
     case "call": return checkCall(ast, context);
     case "access": return checkAccess(ast, context);
     case "invoke": return checkInvoke(ast, context);

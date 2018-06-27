@@ -214,9 +214,6 @@ function genMapDestruct(map, value, context) {
 }
 
 function genLValue(lvalue, value, context) {
-  if (lvalue.spec) {
-    value = genSpecAssert(lvalue.spec, value, context);
-  }
   switch(lvalue.type) {
     case "skip": return genSkipLValue(lvalue, value, context);
     case "name": return genNameLValue(lvalue, value, context);
@@ -322,8 +319,21 @@ function genSpecAssert(spec, value, context) {
   };
 }
 
-function genConstant({ lvalue, value }, context) {
+function genConstantWithSpec({ lvalue, value, spec }, context) {
+  return genLValue(lvalue, genSpecAssert(spec, value, context), context);
+}
+
+function genConstantWithoutSpec({ lvalue, value }, context) {
   return genLValue(lvalue, value, context);
+}
+
+function genConstant(constant, context) {
+  if (constant.spec) {
+    return genConstantWithSpec(constant, context);
+  }
+  else {
+    return genConstantWithoutSpec(constant, context);
+  }
 }
 
 function genFunctionVariantName({ name }, { args }, context) {
@@ -340,7 +350,18 @@ function genFunctionVariantArgs(_, { args }, context) {
   }));
 }
 
-function genFunctionVariantBody(_, variant, context) {
+function genFunctionVariantBodyWithSpec(_, variant, context) {
+  const { args, body, spec } = variant;
+  return genFunctionVariantArgs(_, variant, context)
+    .map((arg, i) => genLValue(args[i], genSpecAssert(spec.args[i], arg, context), context))
+    .reduce((a, b) => a.concat(b), [])
+    .concat({
+      type: "ReturnStatement",
+      argument: genSpecAssert(spec.body, body, context)
+    });
+}
+
+function genFunctionVariantBodyWithoutSpec(_, variant, context) {
   const { args, body } = variant;
   return genFunctionVariantArgs(_, variant, context)
     .map((arg, i) => genLValue(args[i], arg, context))
@@ -351,29 +372,53 @@ function genFunctionVariantBody(_, variant, context) {
     });
 }
 
-function genFunctionVariant(fun, variant, context) {
+function genFunctionVariantBody(_, variant, context) {
+  if (variant.spec) {
+    return genFunctionVariantBodyWithSpec(_, variant, context);
+  }
+  else {
+    return genFunctionVariantBodyWithoutSpec(_, variant, context);
+  }
+}
+
+function genFunctionVariantWithSpec(fun, variant, context) {
   const name = genFunctionVariantName(fun, variant, context);
-  const spec = variant.spec ?
-    [
-      {
-        type: "AssignmentExpression",
-        operator: "=",
-        left: name,
-        right: genSpecAssert(variant.spec, name, context)
-      }
-    ] :
-    [];
+  const spec = {
+    type: "CallExpression",
+    callee: genName({ name: context.options.essentials.aFunction }, context),
+    arguments: variant.spec.args.concat([variant.spec.body])
+      .map(spec => generate(spec, context))
+  };
+  const assert = {
+    type: "AssignmentExpression",
+    operator: "=",
+    left: name,
+    right: genSpecAssert(spec, name, context)
+  };
+  return genFunctionVariantWithoutSpec(fun, variant, context).concat([assert]);
+}
+
+function genFunctionVariantWithoutSpec(fun, variant, context) {
   return [
     {
       type: "FunctionDeclaration",
-      id: name,
+      id: genFunctionVariantName(fun, variant, context),
       params: genFunctionVariantArgs(fun, variant, context),
       body: {
         type: "BlockStatement",
         body: genFunctionVariantBody(fun, variant, context)
       }
     }
-  ].concat(spec);
+  ];
+}
+
+function genFunctionVariant(fun, variant, context) {
+  if (variant.spec) {
+    return genFunctionVariantWithSpec(fun, variant, context);
+  }
+  else {
+    return genFunctionVariantWithoutSpec(fun, variant, context);
+  }
 }
 
 function genFunctionDispatcher(fun, context) {
@@ -432,28 +477,6 @@ function genFunction(fun, context) {
   const dispatcher = genFunctionDispatcher(fun, context);
   return variants.concat(dispatcher);
 }
-
-/*function genFunction(fun, context) {
-  const spec = fun.spec;
-  const variants = fun.variants
-    .map(variant => genFunctionVariant(fun, variant, context));
-  const dispatcher = genFunctionDispatcher(fun, context);
-  if(spec) {
-    const name = generate(fun.name, context);
-    return variants.concat([
-      dispatcher,
-      {
-        type: "AssignmentExpression",
-        operator: "=",
-        left: name,
-        right: genSpecAssert(spec, name, context)
-      }
-    ]);
-  }
-  else {
-    return variants.concat(dispatcher);
-  }
-}*/
 
 function genRecordCtor({ name, args }, context) {
   return {
@@ -645,10 +668,6 @@ function genScope({ definitions, body }, context) {
     },
     arguments: []
   };
-}
-
-function genAssert({ spec, value }, context) {
-  return genSpecAssert(spec, value, context);
 }
 
 function genCall({ callee, args }, context) {
@@ -893,7 +912,6 @@ function generate(ast, context) {
     case "monad": return genMonad(ast, context);
     case "case": return genCase(ast, context);
     case "scope": return genScope(ast, context);
-    case "assert": return genAssert(ast, context);
     case "call": return genCall(ast, context);
     case "access": return genAccess(ast, context);
     case "invoke": return genInvoke(ast, context);

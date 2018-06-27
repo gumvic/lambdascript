@@ -6,6 +6,16 @@ let b where
 end
 ```
 
+- io
+```
+io f = \...args -> f ...args
+io o m = \...args -> invoke o m ...args
+```
+
+- better name for `maybe`
+- `isBoolean`/`isString`/`isKey` etc to core
+- `aTypeOf`
+
 - `Point x y = whatever`, and `Point` will check in runtime if the `whatever` is a map and use it to init the record
 - let it create `point/isPoint`, then?
 - `Map` -> `map`, `map` -> `transform`/`each`/`fmap`?
@@ -30,11 +40,6 @@ reducer res x =
   [res res] ?=>
   [res x res]
 ```
-
-- better name for `maybe`
-- `isBoolean`/`isString`/`isKey` etc to core
-- `aTypeOf`
-
 - how to prove specs `a` and `b` represent the same? `assert a (generate b) && assert b (generate a)`
 - therefore, we can have "type constraints" like `a -> b constraint a == b`, i. e. the specs are not necessarily the same themselves, but they still represent the same thing
 
@@ -45,13 +50,15 @@ reducer res x =
 - operators
 - `runSync`, `maybe` and any other built in parsers that this makes sense for
 
+- make monads lazier, and perhaps make `run` simpler, then, so that the actions are not wrapped into functions
 - variadic arguments and things like `foo ...foo 42 ...bar`
-- `Map` redefines ES `Map`, the same for Set
 - things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...foo, ...bar]`
+- `Map` redefines ES `Map`, the same for Set
 - `&&` and `||` don't short circuit
 - some operators should have zero arity with default result of `0`, `false` or whatever makes sense for them
-- validate build options
 - template strings
+
+- validate build options
 - js module should be able to declare its name
 - source maps
 - REPL
