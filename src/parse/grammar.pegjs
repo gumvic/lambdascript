@@ -3,21 +3,21 @@
     let groupedDefinitions = [];
     let functions = {};
     for(let definition of definitions) {
-      const { type, name, args, body, spec, location } = definition;
+      const { type, name, args, restArgs, body, spec, location } = definition;
       if (type === "function") {
         const id = name.name;
         if (!functions[id]) {
           definition = {
             type: type,
             name: name,
-            variants: [{ args, body, spec, location }],
+            variants: [{ args, restArgs, body, spec, location }],
             location: location
           };
           functions[id] = definition;
           groupedDefinitions.push(definition);
         }
         else {
-          functions[id].variants.push({ args, body, spec, location });
+          functions[id].variants.push({ args, restArgs, body, spec, location });
         }
       }
       else {
@@ -228,6 +228,33 @@ noArgs = "(" ")" {
   return [];
 }
 
+restArgs = "..." lvalue:lvalue {
+  return lvalue;
+}
+
+argsList =
+  noArgs {
+    return {
+      args: []
+    };
+  } / args:(arg:lvalue _ { return arg; })+ _ restArgs:restArgs? {
+    return {
+      args: args,
+      restArgs: restArgs
+    };
+  } / restArgs:restArgs {
+    return {
+      args: [],
+      restArgs: restArgs
+    };
+  }
+
+
+someArgs = (arg:(atom / spreadAtom) __ { return arg; })+
+someGreedyArgs = (arg:(atom / spreadAtom) _ { return arg; })+
+greedyArgs = noArgs / someGreedyArgs
+args = noArgs / someArgs
+
 property "property" = "." name:name {
   return {
     type: "property",
@@ -263,24 +290,44 @@ where = wordWhere _ where:(goodWhere / badWhere) {
 
 whereOrEnd =  where / end
 
-rest = "..." _ name:name {
-  return name;
+spreadAtom = "..." value:atom {
+  return {
+    type: "spread",
+    value: value,
+    location: location()
+  };
 }
+
+spreadExpression = "..." value:expression {
+  return {
+    type: "spread",
+    value: value,
+    location: location()
+  };
+}
+
+greedySpreadExpression = "..." value:greedyExpression {
+  return {
+    type: "spread",
+    value: value,
+    location: location()
+  };
+}
+
+listItem = greedyExpression / greedySpreadExpression
 
 list "list" =
   "[" _
-  items:(first:expression rest:(_ "," _ item:expression { return item; })* { return [first].concat(rest); })? _
-  rest:("," _ rest:rest { return rest; })?
+  items:(first:listItem rest:(_ "," _ item:listItem { return item; })* { return [first].concat(rest); })?
   _ "]" {
     return {
       type: "list",
       items: items || [],
-      rest: rest,
       location: location()
     };
   }
 
-mapKeyValueItem = key:expression _ "->" _ value:expression {
+mapKeyValueItem = key:greedyExpression _ "->" _ value:greedyExpression {
   return {
     key: key,
     value: value
@@ -294,25 +341,24 @@ mapKeyItem = key:name {
   };
 }
 
-mapItem = mapKeyValueItem / mapKeyItem
+mapItem = mapKeyValueItem / mapKeyItem / greedySpreadExpression
 
 map "map" =
   "{" _
-  items:(first:mapItem rest:(_ "," _ item:mapItem { return item; })* { return [first].concat(rest); })? _
-  rest:("," _ rest:rest { return rest; })?
+  items:(first:mapItem rest:(_ "," _ item:mapItem { return item; })* { return [first].concat(rest); })?
   _ "}" {
     return {
       type: "map",
       items: items || [],
-      rest: rest,
       location: location()
     };
   }
 
-lambda = "\\" _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "->" _ body:expression {
+lambda = "\\" _ argsList:argsList _ "->" _ body:expression {
   return {
     type: "lambda",
-    args: args,
+    args: argsList.args,
+    restArgs: argsList.restArgs,
     body: body,
     location: location()
   };
@@ -402,7 +448,7 @@ unary = operator:operator _ operand:atom {
 
 callee = unary / atom
 
-call = callee:callee __ args:(noArgs / (arg:atom __ { return arg; })+) {
+call = callee:callee __ args:args {
   return {
     type: "call",
     callee: callee,
@@ -420,7 +466,7 @@ access = property:property __ object:atom {
   };
 }
 
-invoke = method:property __ object:atom __ args:(noArgs / (arg:atom __ { return arg; })+) {
+invoke = method:property __ object:atom __ args:args {
   return {
     type: "invoke",
     object: object,
@@ -449,7 +495,7 @@ expression = expression:(binary / binaryOperand / operator) __ where:where? {
   return withWhere(expression, where);
 }
 
-greedyCall = callee:callee _ args:(noArgs / (arg:atom _ { return arg; })+) {
+greedyCall = callee:callee _ args:greedyArgs {
   return {
     type: "call",
     callee: callee,
@@ -467,7 +513,7 @@ greedyAccess = property:property _ object:atom {
   };
 }
 
-greedyInvoke = method:property _ object:atom _ args:(noArgs / (arg:atom _ { return arg; })+) {
+greedyInvoke = method:property _ object:atom _ args:greedyArgs {
   return {
     type: "invoke",
     object: object,
@@ -502,15 +548,19 @@ badExpression = . {
 
 ensureExpression = expression / badExpression
 
+restItems = "..." lvalue:lvalue {
+  return lvalue;
+}
+
 listDestruct =
   "[" _
   items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })* { return [first].concat(rest); }) _
-  rest:("," _ rest:rest { return rest; })?
+  restItems:("," _ restItems:restItems { return restItems; })?
   _ "]" {
   return {
     type: "listDestruct",
     items: items,
-    rest: rest,
+    restItems: restItems,
     location: location()
   };
 }
@@ -549,12 +599,12 @@ mapDestructItem = mapDestructKeyLValueItem / mapDestructPropertyItem / mapDestru
 mapDestruct =
   "{" _
   items:(first:mapDestructItem rest:(_ "," _ item:mapDestructItem { return item; })* { return [first].concat(rest); }) _
-  rest:("," _ rest:rest { return rest; })?
+  restItems:("," _ restItems:restItems { return restItems; })?
   _ "}" {
   return {
     type: "mapDestruct",
     items: items,
-    rest: rest,
+    restItems: restItems,
     location: location()
   };
 }
@@ -578,9 +628,10 @@ constantSpec = "::" _ spec:atom {
   return spec;
 }
 
-functionSpec = "::" _ args:(arg:atom { return arg; })+ _ "->" _ body:atom {
+functionSpec = "::" _ args:(arg:atom { return arg; })+ _ restArgs:spreadAtom? _ "->" _ body:atom {
   return {
     args: args,
+    restArgs: restArgs,
     body: body,
     location: location()
   };
@@ -607,11 +658,12 @@ recordDefinition = name:recordName __ args:(arg:name __ { return arg; })* {
 }
 
 functionDefinition =
-  name:(name / operator) _ args:(noArgs / (arg:lvalue _ { return arg; })+) _ "=" _ body:ensureExpression _ spec:functionSpec? {
+  name:(name / operator) _ argsList:argsList _ "=" _ body:ensureExpression _ spec:functionSpec? {
   return {
     type: "function",
     name: name,
-    args: args,
+    args: argsList.args,
+    restArgs: argsList.restArgs,
     body: body,
     spec: spec,
     location: location()

@@ -14,6 +14,16 @@ const ARG = {
   name: "$arg"
 };
 
+const PUSH = {
+  type: "Identifier",
+  name: "push"
+};
+
+const SET = {
+  type: "Identifier",
+  name: "set"
+};
+
 const VIA = {
   type: "Identifier",
   name: "$via"
@@ -146,38 +156,26 @@ function genCollDestructItems(items, value, context) {
     .reduce((a, b) => a.concat(b), []);
 }
 
-function genCollDestructWithRest({ items, rest }, value, context) {
-  if (rest) {
+function genCollDestructWithRest({ items, restItems }, value, context) {
+  if (restItems) {
     value = items.reduce((value, { key }) => ({
       type: "CallExpression",
       callee: genName({ name: context.options.essentials.remove }, context),
       arguments: [value, generate(key, context)]
     }), generate(value, context));
-    return [
-      {
-        type: "VariableDeclaration",
-        declarations: [
-          {
-            type: "VariableDeclarator",
-            id: generate(rest, context),
-            init: value
-          }
-        ],
-        kind: "const"
-      }
-    ];
+    return genLValue(restItems, value, context);
   }
   else {
     return [];
   }
 }
 
-function genCollDestruct({ items, rest }, value, context) {
+function genCollDestruct({ items, restItems }, value, context) {
   value = generate(value, context);
   if (value.type !== "Identifier" &&
       value.type !== "Literal") {
     return genCollDestructItems(items, value, context)
-      .concat(genCollDestructWithRest({ items, rest }, value, context));
+      .concat(genCollDestructWithRest({ items, restItems }, value, context));
   }
   else {
     const tmpName = context.oneOffName();
@@ -194,11 +192,11 @@ function genCollDestruct({ items, rest }, value, context) {
         kind: "const"
       }
     ].concat(genCollDestructItems(items, tmpName, context))
-     .concat(genCollDestructWithRest({ items, rest }, value, context));
+     .concat(genCollDestructWithRest({ items, restItems }, value, context));
   }
 }
 
-function genListDestruct({ items, rest }, value, context) {
+function genListDestruct({ items, restItems }, value, context) {
   items = items.map((lvalue, i) => ({
     key: {
       type: "literal",
@@ -206,7 +204,7 @@ function genListDestruct({ items, rest }, value, context) {
     },
     lvalue: lvalue
   }));
-  return genCollDestruct({ items, rest }, value, context);
+  return genCollDestruct({ items, restItems }, value, context);
 }
 
 function genMapDestruct(map, value, context) {
@@ -268,47 +266,88 @@ function genProperty({ name }, context) {
   };
 }
 
-function genWithRest(value, rest, context) {
-  return rest ?
-    {
-      type: "CallExpression",
-      callee: genName({ name: context.options.essentials.merge }, context),
-      arguments: [
-        value,
-        generate(rest, context)
-      ]
-    } :
-    value;
-}
+function genList({ items }, context) {
+  // TODO asMutable/asImmutable
 
-function genList({ items, rest }, context) {
-  return genWithRest({
+  const list = {
     type: "CallExpression",
     callee: genName({ name: context.options.essentials.list }, context),
     arguments: [
       {
         type: "ArrayExpression",
-        elements: items.map(item => generate(item, context))
+        elements: []
       }
     ]
-  }, rest, context);
+  };
+
+  function pushItem(list, item) {
+    return {
+      type: "CallExpression",
+      callee: {
+        type: "MemberExpression",
+        object: list,
+        property: PUSH,
+        computed: false
+      },
+      arguments: [item]
+    };
+  }
+
+  function mergeItem(list, item) {
+    return {
+      type: "CallExpression",
+      callee: genName({ name: context.options.essentials.merge }, context),
+      arguments: [list, item]
+    };
+  }
+
+  return items.reduce(
+    (list, item) => item.type === "spread" ?
+      mergeItem(list, generate(item.value, context)):
+      pushItem(list, generate(item, context)),
+    list);
 }
 
-function genMap({ items, rest }, context) {
-  return genWithRest({
+function genMap({ items }, context) {
+  // TODO asMutable/asImmutable
+
+  const map = {
     type: "CallExpression",
     callee: genName({ name: context.options.essentials.map }, context),
     arguments: [
       {
         type: "ArrayExpression",
-        elements: items
-          .map(({ key, value }) => ({
-            type: "ArrayExpression",
-            elements: [generate(key, context), generate(value, context)]
-          }))
+        elements: []
       }
     ]
-  }, rest, context);
+  };
+
+  function setItem(map, key, value) {
+    return {
+      type: "CallExpression",
+      callee: {
+        type: "MemberExpression",
+        object: map,
+        property: SET,
+        computed: false
+      },
+      arguments: [key, value]
+    };
+  }
+
+  function mergeItem(map, item) {
+    return {
+      type: "CallExpression",
+      callee: genName({ name: context.options.essentials.merge }, context),
+      arguments: [map, item]
+    };
+  }
+
+  return items.reduce(
+    (map, item) => item.type === "spread" ?
+      mergeItem(map, generate(item.value, context)):
+      setItem(map, generate(item.key, context), generate(item.value, context)),
+    map);
 }
 
 function genSpecAssert(spec, value, context) {
@@ -336,33 +375,87 @@ function genConstant(constant, context) {
   }
 }
 
-function genFunctionVariantName({ name }, { args }, context) {
+function genFunctiontName({ name }, context) {
+  return genName(name, context);
+}
+
+function genFunctionVariantName({ name }, { args, restArgs }, context) {
   return {
     type: "Identifier",
-    name: `${namify(name.name)}$${args.length}`
+    name: `${namify(name.name)}$${args.length}${restArgs ? "$rest" : ""}`
   };
 }
 
-function genFunctionVariantArgs(_, { args }, context) {
-  return args.map((arg, i) => ({
+function genFunctionVariantArgsList(_, { args, restArgs }, context) {
+  args = args.map((arg, i) => ({
     type: "Identifier",
     name: `$arg${i}`
   }));
+  if (restArgs) {
+    return args.concat({
+      type: "RestElement",
+      argument: {
+        type: "Identifier",
+        name: `$arg${args.length}`
+      }
+    });
+  }
+  else {
+    return args;
+  }
 }
 
-function genFunctionVariantBodyWithSpec(_, variant, context) {
-  const { args, body, spec } = variant;
+function genFunctionVariantArgs(_, { args, restArgs }, context) {
+  args = args.map((arg, i) => ({
+    type: "Identifier",
+    name: `$arg${i}`
+  }));
+  if (restArgs) {
+    return args.concat({
+      type: "CallExpression",
+      callee: genName({ name: context.options.essentials.list }, context),
+      arguments: [
+        {
+          type: "Identifier",
+          name: `$arg${args.length}`
+        }
+      ]
+    });
+  }
+  else {
+    return args;
+  }
+}
+
+function genFunctionVariantArityTest(_, { args, restArgs }, context) {
+  return {
+    type: "BinaryExpression",
+    operator: restArgs ? ">=" : "===",
+    left: ARITY,
+    right: {
+      type: "Literal",
+      value: args.length
+    }
+  };
+}
+
+/*function genFunctionVariantBodyWithSpec(_, variant, context) {
+  const { args, restArgs, body, spec } = variant;
   return genFunctionVariantArgs(_, variant, context)
     .map((arg, i) => genLValue(args[i], genSpecAssert(spec.args[i], arg, context), context))
+    //.concat(restArgs ? [genLValue(restArgs, genSpecAssert(, context), context)] : [])
     .reduce((a, b) => a.concat(b), [])
     .concat({
       type: "ReturnStatement",
       argument: genSpecAssert(spec.body, body, context)
     });
-}
+}*/
 
 function genFunctionVariantBodyWithoutSpec(_, variant, context) {
-  const { args, body } = variant;
+  const args = variant.restArgs ?
+    variant.args.concat(variant.restArgs) :
+    variant.args;
+  const body = variant.body;
   return genFunctionVariantArgs(_, variant, context)
     .map((arg, i) => genLValue(args[i], arg, context))
     .reduce((a, b) => a.concat(b), [])
@@ -381,7 +474,7 @@ function genFunctionVariantBody(_, variant, context) {
   }
 }
 
-function genFunctionVariantWithSpec(fun, variant, context) {
+/*function genFunctionVariantWithSpec(fun, variant, context) {
   const name = genFunctionVariantName(fun, variant, context);
   const spec = {
     type: "CallExpression",
@@ -396,14 +489,14 @@ function genFunctionVariantWithSpec(fun, variant, context) {
     right: genSpecAssert(spec, name, context)
   };
   return genFunctionVariantWithoutSpec(fun, variant, context).concat([assert]);
-}
+}*/
 
 function genFunctionVariantWithoutSpec(fun, variant, context) {
   return [
     {
       type: "FunctionDeclaration",
       id: genFunctionVariantName(fun, variant, context),
-      params: genFunctionVariantArgs(fun, variant, context),
+      params: genFunctionVariantArgsList(fun, variant, context),
       body: {
         type: "BlockStatement",
         body: genFunctionVariantBody(fun, variant, context)
@@ -421,7 +514,7 @@ function genFunctionVariant(fun, variant, context) {
   }
 }
 
-function genFunctionDispatcher(fun, context) {
+/*function genFunctionDispatcher(fun, context) {
   const variants = fun.variants.map(variant => ({
     type: "SwitchCase",
     test: {
@@ -466,6 +559,68 @@ function genFunctionDispatcher(fun, context) {
     body: {
       type: "BlockStatement",
       body: [body]
+    }
+  };
+}*/
+
+function genFunctionDispatcherBody(fun, context) {
+  function _generate(variants) {
+    if (!variants.length) {
+      return BAD_ARITY;
+    }
+    else {
+      const variant = variants[0];
+      variants = variants.slice(1);
+      return {
+        type: "IfStatement",
+        test: genFunctionVariantArityTest(fun, variant, context),
+        consequent: {
+          type: "BlockStatement",
+          body: [
+            {
+              type: "ReturnStatement",
+              argument: {
+                type: "CallExpression",
+                callee: genFunctionVariantName(fun, variant, context),
+                arguments: [
+                  {
+                    type: "SpreadElement",
+                    argument: {
+                      type: "Identifier",
+                      name: `$args`
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        alternate: {
+          type: "BlockStatement",
+          body: [_generate(variants)]
+        }
+      };
+    }
+  }
+  return _generate(fun.variants);
+}
+
+function genFunctionDispatcher(fun, context) {
+  return {
+    type: "FunctionDeclaration",
+    id: genFunctiontName(fun, context),
+    params: [
+      {
+        type: "RestElement",
+        argument: {
+          type: "Identifier",
+          name: "$args"
+        }
+      }
+    ],
+    body: {
+      type: "BlockStatement",
+      body: [genFunctionDispatcherBody(fun, context)]
     }
   };
 }
@@ -555,8 +710,8 @@ function genDefinitions(definitions, context) {
     .reduce((a, b) => a.concat(b), []);
 }
 
-function genLambda(lambda, context) {
-  const args = genFunctionVariantArgs(null, lambda, context);
+/*function genLambda(lambda, context) {
+  const argsList = genFunctionVariantArgsList(null, lambda, context);
   const body = genFunctionVariantBody(null, lambda, context);
   const badArity = {
     type: "IfStatement",
@@ -566,14 +721,37 @@ function genLambda(lambda, context) {
       left: ARITY,
       right: {
         type: "Literal",
-        value: args.length
+        value: argsList.length
       }
     },
     consequent: BAD_ARITY
   };
   return {
     type: "FunctionExpression",
-    params: args,
+    params: argsList,
+    body: {
+      type: "BlockStatement",
+      body: [badArity].concat(body)
+    }
+  };
+}*/
+
+function genLambda(lambda, context) {
+  const argsList = genFunctionVariantArgsList(null, lambda, context);
+  const body = genFunctionVariantBody(null, lambda, context);
+  const badArity = {
+    type: "IfStatement",
+    test: {
+      type: "UnaryExpression",
+      operator: "!",
+      argument: genFunctionVariantArityTest(null, lambda, context),
+      prefix: true
+    },
+    consequent: BAD_ARITY
+  };
+  return {
+    type: "FunctionExpression",
+    params: argsList,
     body: {
       type: "BlockStatement",
       body: [badArity].concat(body)
@@ -670,11 +848,23 @@ function genScope({ definitions, body }, context) {
   };
 }
 
+function genCallArg(arg, context) {
+  if (arg.type === "spread") {
+    return {
+      type: "SpreadElement",
+      argument: generate(arg.value, context)
+    };
+  }
+  else {
+    return generate(arg, context);
+  }
+}
+
 function genCall({ callee, args }, context) {
   return {
     type: "CallExpression",
     callee: generate(callee, context),
-    arguments: args.map((arg) => generate(arg, context))
+    arguments: args.map((arg) => genCallArg(arg, context))
   };
 }
 

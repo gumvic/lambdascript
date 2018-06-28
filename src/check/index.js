@@ -55,31 +55,47 @@ function checkName(ast, context) {
   context.assertDefined(ast);
 }
 
-function checkList({ items, rest, location }, context) {
-  context.assertDefined({ name: context.options.essentials.list, location });
-  for(let item of items) {
+function checkListItem(item, context) {
+  if (item.type === "spread") {
+    check(item.value, context);
+  }
+  else {
     check(item, context);
   }
-  if (rest) {
-    context.assertDefined(rest);
+}
+
+function checkList({ items, location }, context) {
+  context.assertDefined({ name: context.options.essentials.list, location });
+  for(let item of items) {
+    checkListItem(item, context);
   }
 }
 
-function checkMap({ items, rest, location }, context) {
+function checkMapItem(item, context) {
+  if (item.type === "spread") {
+    check(item.value, context);
+  }
+  else {
+    check(item.key, context);
+    check(item.value, context);
+  }
+}
+
+function checkMap({ items, location }, context) {
   context.assertDefined({ name: context.options.essentials.map, location });
-  for(let { key, value } of items) {
-    check(key, context);
-    check(value, context);
-  }
-  if (rest) {
-    context.assertDefined(rest);
+  for(let item of items) {
+    checkMapItem(item, context);
   }
 }
 
-function checkLambda({ args, body }, context) {
+function checkLambda({ args, restArgs, body, location }, context) {
   const _context = context.spawn();
   for(let arg of args) {
     checkLValue(arg, _context);
+  }
+  if (restArgs) {
+    context.assertDefined({ name: context.options.essentials.list, location });
+    checkLValue(restArgs, context);
   }
   check(body, _context);
 }
@@ -109,26 +125,48 @@ function checkConstant({ lvalue, value, spec }, context) {
   }
 }
 
-function checkFunction({ variants }, context) {
-  let definedVariants = {};
-  for(let variant of variants) {
-    const { args, body, spec, location } = variant;
+/*function checkFunctionVariant(variant, context) {
+  checkLambda(variant, context);
+  if (variant.spec) {
+    context.assertDefined({ name: context.options.essentials.assert, location: spec.location });
+    if (spec.args.length !== arity) {
+      throw new CheckError(`Bad spec for arity ${arity}`, spec.location);
+    }
+    for(let arg of spec.args) {
+      check(arg, context);
+    }
+    check(spec.body, context);
+  }
+}*/
+
+/*function checkFunctionVariants({ variants }, context) {
+  const variantsWithRestArgs = variants.filter(({ restArgs }) => !!restArgs);
+  if (variantsWithRestArgs.length > 1) {
+    throw new CheckError(`Duplicate arity`, variantsWithRestArgs[1].location);
+  }
+  if (variantsWithRestArgs.length === 1) {
+    const maxArity = variantsWithRestArgs[0].args.length;
+    const badVariant = variants
+      .filter(({ args, restArgs }) => !restArgs && args.length >= maxArity)[0];
+    if (badVariant) {
+      throw new CheckError(`Duplicate arity`, badVariant.location);
+    }
+  }
+  let arities = {};
+  for(const { args, location } of variants) {
     const arity = args.length;
-    if (definedVariants[arity]) {
-      throw new CheckError(`Duplicate definition for arity ${arity}`, location);
+    if (arities[arity]) {
+      throw new CheckError(`Duplicate arity`, location);
     }
-    definedVariants[arity] = variant;
-    checkLambda({ args, body }, context);
-    if (spec) {
-      context.assertDefined({ name: context.options.essentials.assert, location: spec.location });
-      if (spec.args.length !== arity) {
-        throw new CheckError(`Bad spec for arity ${arity}`, spec.location);
-      }
-      for(let arg of spec.args) {
-        check(arg, context);
-      }
-      check(spec.body, context);
-    }
+    arities[arity] = true;
+    checkLambda(variant, context);
+  }
+}*/
+
+function checkFunction({ variants }, context) {
+  // TODO check arities
+  for(let variant of variants) {
+    checkLambda(variant, context);
   }
 }
 
@@ -179,10 +217,19 @@ function checkScope({ definitions, body }, context) {
   check(body, context);
 }
 
+function checkCallArg(arg, context) {
+  if (arg.type === "spread") {
+    check(arg.value, context);
+  }
+  else {
+    check(arg, context);
+  }
+}
+
 function checkCall({ callee, args }, context) {
   check(callee, context);
   for(let arg of args) {
-    check(arg, context);
+    checkCallArg(arg, context);
   }
 }
 
@@ -210,19 +257,19 @@ function checkAliasLValue({ name, lvalue }, context) {
   checkLValue(lvalue, context);
 }
 
-function checkListDestructLValue({ items, rest, location }, context) {
+function checkListDestructLValue({ items, restItems, location }, context) {
   context.assertDefined({ name: context.options.essentials.get, location });
   context.assertDefined({ name: context.options.essentials.merge, location });
   context.assertDefined({ name: context.options.essentials.remove, location });
   for(let lvalue of items) {
     checkLValue(lvalue, context);
   }
-  if(rest) {
-    context.define(rest);
+  if (restItems) {
+    checkLValue(restItems, context);
   }
 }
 
-function checkMapDestructLValue({ items, rest, location }, context) {
+function checkMapDestructLValue({ items, restItems, location }, context) {
   context.assertDefined({ name: context.options.essentials.get, location });
   context.assertDefined({ name: context.options.essentials.merge, location });
   context.assertDefined({ name: context.options.essentials.remove, location });
@@ -230,8 +277,8 @@ function checkMapDestructLValue({ items, rest, location }, context) {
     check(key, context);
     checkLValue(lvalue, context);
   }
-  if(rest) {
-    context.define(rest);
+  if (restItems) {
+    checkLValue(restItems, context);
   }
 }
 

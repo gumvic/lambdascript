@@ -6,6 +6,43 @@ let b where
 end
 ```
 
+- parse error
+```
+#{
+  { a, b } = 42
+}
+```
+
+- global search and get rid of spec
+
+- `\x -> x` => `(x -> x)`?
+
+- maybe add decorators and do things like:
+```
+let spec x = # spec as a constant
+let spec f x ...args = # spec as a function
+
+@spec aNonNegativeNumber
+let n = 42
+
+@spec aNonNegativeNumber aNonNegativeNumber
+let fac n = ...
+```
+- but how to disable that in production?
+- aliases then should look like this:
+```
+let f { node, step } -> m = ...
+# vs
+let f m@{ node, step } = ...
+```
+- decorators should be chainable, which makes it impossible to use `@` for aliases:
+```
+@a b
+@c
+# is it what it looks like or @a b@c?
+let d =
+```
+
 - io
 ```
 io f = \...args -> f ...args
@@ -51,8 +88,6 @@ reducer res x =
 - `runSync`, `maybe` and any other built in parsers that this makes sense for
 
 - make monads lazier, and perhaps make `run` simpler, then, so that the actions are not wrapped into functions
-- variadic arguments and things like `foo ...foo 42 ...bar`
-- things like `{ :foo -> 42, ...bar, ...baz }` and `[42, ...foo, ...bar]`
 - `Map` redefines ES `Map`, the same for Set
 - `&&` and `||` don't short circuit
 - some operators should have zero arity with default result of `0`, `false` or whatever makes sense for them
