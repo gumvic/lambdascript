@@ -3,21 +3,21 @@
     let groupedDefinitions = [];
     let functions = {};
     for(let definition of definitions) {
-      const { type, name, args, restArgs, body, spec, location } = definition;
+      const { type, name, args, restArgs, body, location } = definition;
       if (type === "function") {
         const id = name.name;
         if (!functions[id]) {
           definition = {
             type: type,
             name: name,
-            variants: [{ args, restArgs, body, spec, location }],
+            variants: [{ args, restArgs, body, location }],
             location: location
           };
           functions[id] = definition;
           groupedDefinitions.push(definition);
         }
         else {
-          functions[id].variants.push({ args, restArgs, body, spec, location });
+          functions[id].variants.push({ args, restArgs, body, location });
         }
       }
       else {
@@ -624,26 +624,12 @@ alias = name:name _ "@" _ lvalue:lvalue {
 
 lvalue = skip / alias / name / destruct
 
-constantSpec = "::" _ spec:atom {
-  return spec;
-}
-
-functionSpec = "::" _ args:(arg:atom { return arg; })+ _ restArgs:spreadAtom? _ "->" _ body:atom {
-  return {
-    args: args,
-    restArgs: restArgs,
-    body: body,
-    location: location()
-  };
-}
-
 constantDefinition =
-  lvalue:(lvalue / operator) _ "=" _ value:ensureExpression _ spec:constantSpec? {
+  lvalue:(lvalue / operator) _ "=" _ value:ensureExpression {
   return {
     type: "constant",
     lvalue: lvalue,
     value: value,
-    spec: spec,
     location: location()
   };
 }
@@ -658,14 +644,13 @@ recordDefinition = name:recordName __ args:(arg:name __ { return arg; })* {
 }
 
 functionDefinition =
-  name:(name / operator) _ argsList:argsList _ "=" _ body:ensureExpression _ spec:functionSpec? {
+  name:(name / operator) _ argsList:argsList _ "=" _ body:ensureExpression {
   return {
     type: "function",
     name: name,
     args: argsList.args,
     restArgs: argsList.restArgs,
     body: body,
-    spec: spec,
     location: location()
   };
 }

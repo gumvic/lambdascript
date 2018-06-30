@@ -350,29 +350,8 @@ function genMap({ items }, context) {
     map);
 }
 
-function genSpecAssert(spec, value, context) {
-  return {
-    type: "CallExpression",
-    callee: genName({ name: context.options.essentials.assert }, context),
-    arguments: [generate(spec, context), generate(value, context)]
-  };
-}
-
-function genConstantWithSpec({ lvalue, value, spec }, context) {
-  return genLValue(lvalue, genSpecAssert(spec, value, context), context);
-}
-
-function genConstantWithoutSpec({ lvalue, value }, context) {
+function genConstant({ lvalue, value }, context) {
   return genLValue(lvalue, value, context);
-}
-
-function genConstant(constant, context) {
-  if (constant.spec) {
-    return genConstantWithSpec(constant, context);
-  }
-  else {
-    return genConstantWithoutSpec(constant, context);
-  }
 }
 
 function genFunctiontName({ name }, context) {
@@ -439,19 +418,7 @@ function genFunctionVariantArityTest(_, { args, restArgs }, context) {
   };
 }
 
-/*function genFunctionVariantBodyWithSpec(_, variant, context) {
-  const { args, restArgs, body, spec } = variant;
-  return genFunctionVariantArgs(_, variant, context)
-    .map((arg, i) => genLValue(args[i], genSpecAssert(spec.args[i], arg, context), context))
-    //.concat(restArgs ? [genLValue(restArgs, genSpecAssert(, context), context)] : [])
-    .reduce((a, b) => a.concat(b), [])
-    .concat({
-      type: "ReturnStatement",
-      argument: genSpecAssert(spec.body, body, context)
-    });
-}*/
-
-function genFunctionVariantBodyWithoutSpec(_, variant, context) {
+function genFunctionVariantBody(_, variant, context) {
   const args = variant.restArgs ?
     variant.args.concat(variant.restArgs) :
     variant.args;
@@ -465,103 +432,17 @@ function genFunctionVariantBodyWithoutSpec(_, variant, context) {
     });
 }
 
-function genFunctionVariantBody(_, variant, context) {
-  if (variant.spec) {
-    return genFunctionVariantBodyWithSpec(_, variant, context);
-  }
-  else {
-    return genFunctionVariantBodyWithoutSpec(_, variant, context);
-  }
-}
-
-/*function genFunctionVariantWithSpec(fun, variant, context) {
-  const name = genFunctionVariantName(fun, variant, context);
-  const spec = {
-    type: "CallExpression",
-    callee: genName({ name: context.options.essentials.aFunction }, context),
-    arguments: variant.spec.args.concat([variant.spec.body])
-      .map(spec => generate(spec, context))
-  };
-  const assert = {
-    type: "AssignmentExpression",
-    operator: "=",
-    left: name,
-    right: genSpecAssert(spec, name, context)
-  };
-  return genFunctionVariantWithoutSpec(fun, variant, context).concat([assert]);
-}*/
-
-function genFunctionVariantWithoutSpec(fun, variant, context) {
-  return [
-    {
-      type: "FunctionDeclaration",
-      id: genFunctionVariantName(fun, variant, context),
-      params: genFunctionVariantArgsList(fun, variant, context),
-      body: {
-        type: "BlockStatement",
-        body: genFunctionVariantBody(fun, variant, context)
-      }
-    }
-  ];
-}
-
 function genFunctionVariant(fun, variant, context) {
-  if (variant.spec) {
-    return genFunctionVariantWithSpec(fun, variant, context);
-  }
-  else {
-    return genFunctionVariantWithoutSpec(fun, variant, context);
-  }
-}
-
-/*function genFunctionDispatcher(fun, context) {
-  const variants = fun.variants.map(variant => ({
-    type: "SwitchCase",
-    test: {
-      type: "Literal",
-      value: variant.args.length
-    },
-    consequent: [
-      {
-        type: "ReturnStatement",
-        argument: {
-          type: "CallExpression",
-          callee: genFunctionVariantName(fun, variant, context),
-          arguments: variant.args.map((_, i) => ({
-            type: "MemberExpression",
-            object: ARGUMENTS,
-            property: {
-              type: "Literal",
-              value: i
-            },
-            computed: true
-          }))
-        }
-      }
-    ]
-  }));
-
-  const badArity = {
-    type: "SwitchCase",
-    consequent: [BAD_ARITY]
-  };
-
-  const body = {
-    type: "SwitchStatement",
-    discriminant: ARITY,
-    cases: variants.concat(badArity)
-  };
-
   return {
     type: "FunctionDeclaration",
-    id: generate(fun.name, context),
-    params: [],
+    id: genFunctionVariantName(fun, variant, context),
+    params: genFunctionVariantArgsList(fun, variant, context),
     body: {
       type: "BlockStatement",
-      body: [body]
+      body: genFunctionVariantBody(fun, variant, context)
     }
   };
-}*/
+}
 
 function genFunctionDispatcherBody(fun, context) {
   function _generate(variants) {
@@ -627,8 +508,7 @@ function genFunctionDispatcher(fun, context) {
 
 function genFunction(fun, context) {
   const variants = fun.variants
-    .map(variant => genFunctionVariant(fun, variant, context))
-    .reduce((a, b) => a.concat(b), []);
+    .map(variant => genFunctionVariant(fun, variant, context));
   const dispatcher = genFunctionDispatcher(fun, context);
   return variants.concat(dispatcher);
 }

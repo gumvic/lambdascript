@@ -116,52 +116,10 @@ function checkMonad({ items, location }, context) {
   _check(items, context);
 }
 
-function checkConstant({ lvalue, value, spec }, context) {
+function checkConstant({ lvalue, value }, context) {
   check(value, context);
   checkLValue(lvalue, context);
-  if (spec) {
-    context.assertDefined({ name: context.options.essentials.assert, location: spec.location });
-    check(spec, context);
-  }
 }
-
-/*function checkFunctionVariant(variant, context) {
-  checkLambda(variant, context);
-  if (variant.spec) {
-    context.assertDefined({ name: context.options.essentials.assert, location: spec.location });
-    if (spec.args.length !== arity) {
-      throw new CheckError(`Bad spec for arity ${arity}`, spec.location);
-    }
-    for(let arg of spec.args) {
-      check(arg, context);
-    }
-    check(spec.body, context);
-  }
-}*/
-
-/*function checkFunctionVariants({ variants }, context) {
-  const variantsWithRestArgs = variants.filter(({ restArgs }) => !!restArgs);
-  if (variantsWithRestArgs.length > 1) {
-    throw new CheckError(`Duplicate arity`, variantsWithRestArgs[1].location);
-  }
-  if (variantsWithRestArgs.length === 1) {
-    const maxArity = variantsWithRestArgs[0].args.length;
-    const badVariant = variants
-      .filter(({ args, restArgs }) => !restArgs && args.length >= maxArity)[0];
-    if (badVariant) {
-      throw new CheckError(`Duplicate arity`, badVariant.location);
-    }
-  }
-  let arities = {};
-  for(const { args, location } of variants) {
-    const arity = args.length;
-    if (arities[arity]) {
-      throw new CheckError(`Duplicate arity`, location);
-    }
-    arities[arity] = true;
-    checkLambda(variant, context);
-  }
-}*/
 
 function checkFunction({ variants }, context) {
   // TODO check arities

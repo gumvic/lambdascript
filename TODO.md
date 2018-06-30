@@ -13,8 +13,6 @@ end
 }
 ```
 
-- global search and get rid of spec
-
 - `\x -> x` => `(x -> x)`?
 
 - maybe add decorators and do things like:
