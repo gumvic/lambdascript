@@ -349,7 +349,7 @@ map "map" =
     };
   }
 
-lambda = "\\" _ argsList:argsList _ "->" _ body:ensureExpression {
+lambda = "(" _ argsList:argsList _ "->" _ body:ensureExpression _ ")" {
   return {
     type: "lambda",
     args: argsList.args,
