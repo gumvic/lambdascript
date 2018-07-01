@@ -68,6 +68,7 @@ module.exports = {
       "check",
       "generate",
       "assert",
+      "spec",
 
       "any",
       "aFunction",
