@@ -3,21 +3,21 @@
     let groupedDefinitions = [];
     let functions = {};
     for(let definition of definitions) {
-      const { type, name, args, restArgs, body, location } = definition;
+      const { type, decorators, name, args, restArgs, body, location } = definition;
       if (type === "function") {
         const id = name.name;
         if (!functions[id]) {
           definition = {
             type: type,
             name: name,
-            variants: [{ args, restArgs, body, location }],
+            variants: [{ decorators, args, restArgs, body, location }],
             location: location
           };
           functions[id] = definition;
           groupedDefinitions.push(definition);
         }
         else {
-          functions[id].variants.push({ args, restArgs, body, location });
+          functions[id].variants.push({ decorators, args, restArgs, body, location });
         }
       }
       else {
@@ -567,6 +567,10 @@ alias = name:name _ "@" _ lvalue:lvalue {
 
 lvalue = skip / alias / name / destruct
 
+decorator = "@" _ decorator:ensureExpression {
+  return decorator;
+}
+
 constantDefinition = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:ensureExpression {
   return {
     type: "constant",
@@ -596,7 +600,12 @@ functionDefinition = wordLet _ name:(name / operator) _ argsList:argsList _ "=" 
   };
 }
 
-definition = constantDefinition / recordDefinition / functionDefinition
+definition =
+  decorators:decorator* _
+  definition:(constantDefinition / recordDefinition / functionDefinition) {
+  definition.decorators = decorators;
+  return definition;
+}
 
 definitions = definitions:(definition:definition _ { return definition; })+ {
   return groupDefinitions(definitions);

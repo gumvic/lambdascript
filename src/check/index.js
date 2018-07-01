@@ -116,19 +116,32 @@ function checkMonad({ items, location }, context) {
   _check(items, context);
 }
 
-function checkConstant({ lvalue, value }, context) {
+function checkConstant({ lvalue, value, decorators }, context) {
+  for(let decorator of decorators) {
+    check(decorator, context);
+  }
   check(value, context);
   checkLValue(lvalue, context);
+}
+
+function checkFunctionVariant(variant, context) {
+  for(let decorator of variant.decorators) {
+    check(decorator, context);
+  }
+  checkLambda(variant, context);
 }
 
 function checkFunction({ variants }, context) {
   // TODO check arities
   for(let variant of variants) {
-    checkLambda(variant, context);
+    checkFunctionVariant(variant, context);
   }
 }
 
-function checkRecord({ name, args, location }, context) {
+function checkRecord({ name, args, decorators, location }, context) {
+  for(let decorator of decorators) {
+    check(decorator, context);
+  }
   context.assertDefined({ name: context.options.essentials.record, location });
   const _context = context.spawn();
   for(let arg of args) {
@@ -143,9 +156,8 @@ function checkDefinitions(definitions, context) {
     .filter(({ type }) => type === "function");
   const records = definitions
     .filter(({ type }) => type === "record");
-  for(let { name } of records) {
+  for(let { name, decorators } of records) {
     context.define(name);
-    context.define({ name: `is${name.name}` });
   }
   for(let { name } of functions) {
     context.define(name);

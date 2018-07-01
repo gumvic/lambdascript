@@ -13,8 +13,6 @@ end
 }
 ```
 
-- `\x -> x` => `(x -> x)`?
-
 - maybe add decorators and do things like:
 ```
 let spec x = # spec as a constant
@@ -32,13 +30,6 @@ let fac n = ...
 let f { node, step } -> m = ...
 # vs
 let f m@{ node, step } = ...
-```
-- decorators should be chainable, which makes it impossible to use `@` for aliases:
-```
-@a b
-@c
-# is it what it looks like or @a b@c?
-let d =
 ```
 
 - specs for rest args
@@ -90,6 +81,7 @@ reducer res x =
 - some operators should have zero arity with default result of `0`, `false` or whatever makes sense for them
 - template strings
 
+- inlined TODOs
 - validate build options
 - js module should be able to declare its name
 - source maps

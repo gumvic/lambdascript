@@ -350,7 +350,26 @@ function genMap({ items }, context) {
     map);
 }
 
-function genConstant({ lvalue, value }, context) {
+function genDecoration(value, decorators, context) {
+  function _generate(decorators) {
+    if (!decorators.length) {
+      return generate(value, context);
+    }
+    else {
+      const decorator = decorators[0];
+      decorators = decorators.slice(1);
+      return {
+        type: "CallExpression",
+        callee: generate(decorator, context),
+        arguments: [_generate(decorators)]
+      };
+    }
+  }
+  return _generate(decorators);
+}
+
+function genConstant({ lvalue, value, decorators }, context) {
+  value = genDecoration(value, decorators, context);
   return genLValue(lvalue, value, context);
 }
 
@@ -433,15 +452,18 @@ function genFunctionVariantBody(_, variant, context) {
 }
 
 function genFunctionVariant(fun, variant, context) {
-  return {
+  const name = genFunctionVariantName(fun, variant, context);
+  const declaration = {
     type: "FunctionDeclaration",
-    id: genFunctionVariantName(fun, variant, context),
+    id: name,
     params: genFunctionVariantArgsList(fun, variant, context),
     body: {
       type: "BlockStatement",
       body: genFunctionVariantBody(fun, variant, context)
     }
   };
+  const decoration = genDecoration(name, variant.decorators, context);
+  return [declaration].concat(decoration);
 }
 
 function genFunctionDispatcherBody(fun, context) {
@@ -508,7 +530,8 @@ function genFunctionDispatcher(fun, context) {
 
 function genFunction(fun, context) {
   const variants = fun.variants
-    .map(variant => genFunctionVariant(fun, variant, context));
+    .map(variant => genFunctionVariant(fun, variant, context))
+    .reduce((a, b) => a.concat(b), []);
   const dispatcher = genFunctionDispatcher(fun, context);
   return variants.concat(dispatcher);
 }
@@ -563,6 +586,7 @@ function genRecordPredicate({ name }, context) {
 }
 
 function genRecord(record, context) {
+  // TODO decorators
   const ctor = genRecordCtor(record, context);
   const predicate = genRecordPredicate(record, context);
   return {
