@@ -46,16 +46,19 @@ ast = _ ast:(module / expression) _ {
 }
 
 _ "whitespace" = ([ \t\n\r] / comment)*
-__ "whitespace" = [ \t]*
 
 nl = [\n\r] / [\n]
+
 oneLineComment = "#" (!nl .)*
 multilineComment = "#" "{" (multilineComment / (!"}" .))* "}"
 comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
   wordCase
+  / wordWhen
+  / wordElse
   / wordDo
+  / wordLet
   / wordWhere
   / wordEnd
   / wordModule
@@ -63,7 +66,10 @@ reservedWord "special word" =
   / wordExport
 
 wordCase "case" = "case" !beginNameChar
+wordWhen "when" = "when" !beginNameChar
+wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
+wordLet "let" = "let" !beginNameChar
 wordWhere "where" = "where" !beginNameChar
 wordEnd "end" = "end" !beginNameChar
 wordModule "module" = "module" !beginNameChar
@@ -224,35 +230,34 @@ skip "_" = "_" !beginNameChar {
   };
 }
 
+noArgsList = "(" ")" {
+  return {
+    args: []
+  };
+}
+
+someArgsList = args:(arg:lvalue _ { return arg; })+ _ restArgs:restArgsList? {
+  return {
+    args: args,
+    restArgs: restArgs
+  };
+}
+
+restArgsList = "..." restArgs:lvalue {
+  return {
+    args: [],
+    restArgs: restArgs
+  };
+}
+
+argsList = noArgsList / someArgsList / restArgsList
+
 noArgs = "(" ")" {
   return [];
 }
 
-restArgs = "..." lvalue:lvalue {
-  return lvalue;
-}
+someArgs = (arg:(atom / spreadAtom) _ { return arg; })+
 
-argsList =
-  noArgs {
-    return {
-      args: []
-    };
-  } / args:(arg:lvalue _ { return arg; })+ _ restArgs:restArgs? {
-    return {
-      args: args,
-      restArgs: restArgs
-    };
-  } / restArgs:restArgs {
-    return {
-      args: [],
-      restArgs: restArgs
-    };
-  }
-
-
-someArgs = (arg:(atom / spreadAtom) __ { return arg; })+
-someGreedyArgs = (arg:(atom / spreadAtom) _ { return arg; })+
-greedyArgs = noArgs / someGreedyArgs
 args = noArgs / someArgs
 
 property "property" = "." name:name {
@@ -288,8 +293,6 @@ where = wordWhere _ where:(goodWhere / badWhere) {
   return where;
 }
 
-whereOrEnd =  where / end
-
 spreadAtom = "..." value:atom {
   return {
     type: "spread",
@@ -298,7 +301,7 @@ spreadAtom = "..." value:atom {
   };
 }
 
-spreadExpression = "..." value:expression {
+spreadExpression = "..." value:ensureExpression {
   return {
     type: "spread",
     value: value,
@@ -306,15 +309,7 @@ spreadExpression = "..." value:expression {
   };
 }
 
-greedySpreadExpression = "..." value:greedyExpression {
-  return {
-    type: "spread",
-    value: value,
-    location: location()
-  };
-}
-
-listItem = greedyExpression / greedySpreadExpression
+listItem = expression / spreadExpression
 
 list "list" =
   "[" _
@@ -327,7 +322,7 @@ list "list" =
     };
   }
 
-mapKeyValueItem = key:greedyExpression _ "->" _ value:greedyExpression {
+mapKeyValueItem = key:expression _ "->" _ value:ensureExpression {
   return {
     key: key,
     value: value
@@ -341,7 +336,7 @@ mapKeyItem = key:name {
   };
 }
 
-mapItem = mapKeyValueItem / mapKeyItem / greedySpreadExpression
+mapItem = mapKeyValueItem / mapKeyItem / spreadExpression
 
 map "map" =
   "{" _
@@ -354,7 +349,7 @@ map "map" =
     };
   }
 
-lambda = "\\" _ argsList:argsList _ "->" _ body:expression {
+lambda = "\\" _ argsList:argsList _ "->" _ body:ensureExpression {
   return {
     type: "lambda",
     args: argsList.args,
@@ -362,6 +357,34 @@ lambda = "\\" _ argsList:argsList _ "->" _ body:expression {
     body: body,
     location: location()
   };
+}
+
+caseBranch = wordWhen _ condition:ensureExpression _ "->" _ value:ensureExpression {
+  return {
+    condition: condition,
+    value: value
+  };
+}
+
+caseOtherwise = wordElse _ otherwise:ensureExpression {
+  return otherwise;
+}
+
+goodCase = branches:(branch:caseBranch _ { return branch; })+ otherwise:caseOtherwise {
+  return {
+    type: "case",
+    branches: branches,
+    otherwise: otherwise,
+    location: location()
+  };
+}
+
+badCase = . {
+  error("Expected case", location());
+}
+
+case "case" = wordCase _ _case:(goodCase / badCase) _ end {
+  return _case;
 }
 
 monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression {
@@ -372,56 +395,23 @@ monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression {
   };
 }
 
-goodMonad =
-  items:(item:monadItem _ { return item; })+
-  where:(where / wordEnd { return null; }) {
-    return withWhere({
-      type: "monad",
-      items: items,
-      location: location()
-    }, where);
-  }
+goodMonad = items:(first:monadItem rest:(_ "," _ item:monadItem { return item; })* { return [first].concat(rest); }) {
+  return {
+    type: "monad",
+    items: items,
+    location: location()
+  };
+}
 
 badMonad = . {
   error("Expected monad", location());
 }
 
-monad "monad" = wordDo _ monad:(goodMonad / badMonad) {
+monad "monad" = wordDo _ monad:(goodMonad / badMonad) _ end {
   return monad;
 }
 
-caseBranch = condition:expression _ "->" _ value:expression {
-  return {
-    condition: condition,
-    value: value
-  };
-}
-
-caseOtherwise = "->" _ otherwise:expression {
-  return otherwise;
-}
-
-goodCase =
-  branches:(branch:caseBranch _ { return branch; })+
-  otherwise:caseOtherwise _
-  where:whereOrEnd {
-    return withWhere({
-      type: "case",
-      branches: branches,
-      otherwise: otherwise,
-      location: location()
-    }, where);
-  }
-
-badCase = . {
-  error("Expected case", location());
-}
-
-case "case" = wordCase _ _case:(goodCase / badCase) {
-  return _case;
-}
-
-subExpression "sub-expression" = "(" _ expression:greedyExpression _ ")" {
+subExpression "sub-expression" = "(" _ expression:expression _ ")" {
   return expression;
 }
 
@@ -448,7 +438,7 @@ unary = operator:operator _ operand:atom {
 
 callee = unary / atom
 
-call = callee:callee __ args:args {
+call = callee:callee _ args:args {
   return {
     type: "call",
     callee: callee,
@@ -457,7 +447,7 @@ call = callee:callee __ args:args {
   };
 }
 
-access = property:property __ object:atom {
+access = property:property _ object:atom {
   return {
     type: "access",
     object: object,
@@ -466,7 +456,7 @@ access = property:property __ object:atom {
   };
 }
 
-invoke = method:property __ object:atom __ args:args {
+invoke = method:property _ object:atom _ args:args {
   return {
     type: "invoke",
     object: object,
@@ -480,7 +470,7 @@ binaryOperand = call / invoke / access / callee
 
 binary =
   first:binaryOperand
-  rest:(__ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
+  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -491,54 +481,7 @@ binary =
     first);
   }
 
-expression = expression:(binary / binaryOperand / operator) __ where:where? {
-  return withWhere(expression, where);
-}
-
-greedyCall = callee:callee _ args:greedyArgs {
-  return {
-    type: "call",
-    callee: callee,
-    args: args,
-    location: location()
-  };
-}
-
-greedyAccess = property:property _ object:atom {
-  return {
-    type: "access",
-    object: object,
-    property: property,
-    location: location()
-  };
-}
-
-greedyInvoke = method:property _ object:atom _ args:greedyArgs {
-  return {
-    type: "invoke",
-    object: object,
-    method: method,
-    args: args,
-    location: location()
-  };
-}
-
-greedyBinaryOperand = greedyCall / greedyInvoke / greedyAccess / callee
-
-greedyBinary =
-  first:greedyBinaryOperand
-  rest:(_ operator:operator _ right:greedyBinaryOperand { return { operator, right }; })+ {
-  return rest.reduce(
-    (left, { operator, right }) => ({
-      type: "call",
-      callee: operator,
-      args: [left, right],
-      location: location()
-    }),
-    first);
-  }
-
-greedyExpression = expression:(greedyBinary / greedyBinaryOperand / operator) _ where:where? {
+expression = expression:(binary / binaryOperand / operator) _ where:where? {
   return withWhere(expression, where);
 }
 
@@ -624,8 +567,7 @@ alias = name:name _ "@" _ lvalue:lvalue {
 
 lvalue = skip / alias / name / destruct
 
-constantDefinition =
-  lvalue:(lvalue / operator) _ "=" _ value:ensureExpression {
+constantDefinition = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:ensureExpression {
   return {
     type: "constant",
     lvalue: lvalue,
@@ -634,7 +576,7 @@ constantDefinition =
   };
 }
 
-recordDefinition = name:recordName __ args:(arg:name __ { return arg; })* {
+recordDefinition = wordLet _ name:recordName _ args:(arg:name _ { return arg; })* {
   return {
     type: "record",
     name: name,
@@ -643,8 +585,7 @@ recordDefinition = name:recordName __ args:(arg:name __ { return arg; })* {
   };
 }
 
-functionDefinition =
-  name:(name / operator) _ argsList:argsList _ "=" _ body:ensureExpression {
+functionDefinition = wordLet _ name:(name / operator) _ argsList:argsList _ "=" _ body:ensureExpression {
   return {
     type: "function",
     name: name,

@@ -41,6 +41,8 @@ let f m@{ node, step } = ...
 let d =
 ```
 
+- specs for rest args
+
 - io
 ```
 io f = \...args -> f ...args
@@ -55,9 +57,6 @@ io o m = \...args -> invoke o m ...args
 - let it create `point/isPoint`, then?
 - `Map` -> `map`, `map` -> `transform`/`each`/`fmap`?
 
-- `n :: aBoolean = true`
-- `fac n::(aNumber 1) :: (aNumber 1) = ...`
-- `? { ... }` => `aMap { ... }`
 - `?`:
 ```
 user = ?{ :name -> ?:string }
