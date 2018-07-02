@@ -13,26 +13,22 @@ end
 }
 ```
 
-- maybe add decorators and do things like:
-```
-let spec x = # spec as a constant
-let spec f x ...args = # spec as a function
+- specs shouldn't bother with `error`/`isError`(purge them, then), whatever that's not falsey is an error
+- `maybe` has the default `f` that checks if `undefined`
 
-@spec aNonNegativeNumber
-let n = 42
+- `seq` to accept a function that returns either `[value, next]` or `Done`
+- `step` -> `next`?
 
-@spec aNonNegativeNumber aNonNegativeNumber
-let fac n = ...
-```
-- but how to disable that in production?
-- aliases then should look like this:
-```
-let f { node, step } -> m = ...
-# vs
-let f m@{ node, step } = ...
-```
-
+- how to disable `@spec` in production?
 - specs for rest args
+- `@spec` is suboptimal as it can't insert asserts for recursive functions:
+```
+@spec aNonNegativeNumber aNonNegativeNumber
+fac n = ...
+=>
+function fac() { ... fac(); ... }
+fac = spec(fac); // at this point fac isn't assigned yet, so when spec runs check on it, fac will recursively call the vanilla, pre-spec version, i. e., the version without asserts
+```
 
 - io
 ```
