@@ -42,8 +42,6 @@ module.exports = {
       "isMonad",
       "done",
       "isDone",
-      "error",
-      "isError",
       "has",
       "hasIn",
       "get",

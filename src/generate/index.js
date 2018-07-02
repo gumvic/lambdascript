@@ -462,8 +462,17 @@ function genFunctionVariant(fun, variant, context) {
       body: genFunctionVariantBody(fun, variant, context)
     }
   };
-  const decoration = genDecoration(name, variant.decorators, context);
-  return [declaration].concat(decoration);
+  if (variant.decorators.length) {
+    return declaration.concat({
+      type: "AssignmentExpression",
+      operator: "=",
+      left: name,
+      right: genDecoration(name, variant.decorators, context)
+    });
+  }
+  else {
+    return declaration;
+  }
 }
 
 function genFunctionDispatcherBody(fun, context) {
