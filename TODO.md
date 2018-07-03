@@ -13,9 +13,7 @@ end
 }
 ```
 
-- specs shouldn't bother with `error`/`isError`(purge them, then), whatever that's not falsey is an error
 - `maybe` has the default `f` that checks if `undefined`
-
 - `seq` to accept a function that returns either `[value, next]` or `Done`
 - `step` -> `next`?
 
@@ -65,10 +63,11 @@ reducer res x =
 - therefore, we can have "type constraints" like `a -> b constraint a == b`, i. e. the specs are not necessarily the same themselves, but they still represent the same thing
 
 - optimizations:
-- call arities directly when possible, without dispatching
+- functions with single arity don't need a dispatcher
 - native things like `throw`, `instanceof` etc
 - `===` when at least one is a primitive
 - operators
+- if there are no spreads in a `[]` or `{}` literal, use a simplified creation like `List([...])`
 - `runSync`, `maybe` and any other built in parsers that this makes sense for
 
 - make monads lazier, and perhaps make `run` simpler, then, so that the actions are not wrapped into functions

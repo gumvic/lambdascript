@@ -463,15 +463,18 @@ function genFunctionVariant(fun, variant, context) {
     }
   };
   if (variant.decorators.length) {
-    return declaration.concat({
-      type: "AssignmentExpression",
-      operator: "=",
-      left: name,
-      right: genDecoration(name, variant.decorators, context)
-    });
+    return [
+      declaration,
+      {
+        type: "AssignmentExpression",
+        operator: "=",
+        left: name,
+        right: genDecoration(name, variant.decorators, context)
+      }
+    ];
   }
   else {
-    return declaration;
+    return [declaration];
   }
 }
 
@@ -622,32 +625,6 @@ function genDefinitions(definitions, context) {
     .map(definition => genDefinition(definition, context))
     .reduce((a, b) => a.concat(b), []);
 }
-
-/*function genLambda(lambda, context) {
-  const argsList = genFunctionVariantArgsList(null, lambda, context);
-  const body = genFunctionVariantBody(null, lambda, context);
-  const badArity = {
-    type: "IfStatement",
-    test: {
-      type: "BinaryExpression",
-      operator: "!==",
-      left: ARITY,
-      right: {
-        type: "Literal",
-        value: argsList.length
-      }
-    },
-    consequent: BAD_ARITY
-  };
-  return {
-    type: "FunctionExpression",
-    params: argsList,
-    body: {
-      type: "BlockStatement",
-      body: [badArity].concat(body)
-    }
-  };
-}*/
 
 function genLambda(lambda, context) {
   const argsList = genFunctionVariantArgsList(null, lambda, context);
