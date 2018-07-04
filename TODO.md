@@ -13,34 +13,17 @@ end
 }
 ```
 
-- `maybe` has the default `f` that checks if `undefined`
+- `maybe` has the default `f` that checks if `undefined`, better name for `maybe`
 - `seq` to accept a function that returns either `[value, next]` or `Done`
-- `step` -> `next`?
-
-- how to disable `@spec` in production?
-- specs for rest args
-- `@spec` is suboptimal as it can't insert asserts for recursive functions:
-```
-@spec aNonNegativeNumber aNonNegativeNumber
-fac n = ...
-=>
-function fac() { ... fac(); ... }
-fac = spec(fac); // at this point fac isn't assigned yet, so when spec runs check on it, fac will recursively call the vanilla, pre-spec version, i. e., the version without asserts
-```
-
-- io
-```
-io f = \...args -> f ...args
-io o m = \...args -> invoke o m ...args
-```
-
-- better name for `maybe`
+- `step` -> `next`? or `then`?
+- `run` should work on promises only
+- how to disable `@checks` in production?
+- better `reduce`
 - `isBoolean`/`isString`/`isKey` etc to core
-- `aTypeOf`
-
 - `Point x y = whatever`, and `Point` will check in runtime if the `whatever` is a map and use it to init the record
 - let it create `point/isPoint`, then?
 - `Map` -> `map`, `map` -> `transform`/`each`/`fmap`?
+- more advanced spreads like `let f ...args lastArg`, `let [...xs, lastX] = [...]` etc
 
 - `?`:
 ```

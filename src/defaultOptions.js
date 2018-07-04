@@ -66,11 +66,12 @@ module.exports = {
       "check",
       "generate",
       "assert",
-      "spec",
 
       "any",
       "aFunction",
       "aMap",
+
+      "checks",
 
       "map",
       "filter",
