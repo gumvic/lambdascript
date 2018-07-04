@@ -50,7 +50,7 @@ _ "whitespace" = ([ \t\n\r] / comment)*
 nl = [\n\r] / [\n]
 
 oneLineComment = "#" (!nl .)*
-multilineComment = "#" "{" (multilineComment / (!"}" .))* "}"
+multilineComment = "#{" (multilineComment / (!"}#" .))* "}#"
 comment = multilineComment / oneLineComment
 
 reservedWord "special word" =

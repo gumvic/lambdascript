@@ -6,13 +6,6 @@ let b where
 end
 ```
 
-- parse error
-```
-#{
-  { a, b } = 42
-}
-```
-
 - `maybe` has the default `f` that checks if `undefined`, better name for `maybe`
 - `seq` to accept a function that returns either `[value, next]` or `Done`
 - `step` -> `next`? or `then`?
