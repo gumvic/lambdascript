@@ -3,21 +3,21 @@
     let groupedDefinitions = [];
     let functions = {};
     for(let definition of definitions) {
-      const { type, decorators, name, args, restArgs, body, location } = definition;
+      const { type, name, args, restArgs, body, location } = definition;
       if (type === "function") {
         const id = name.name;
         if (!functions[id]) {
           definition = {
             type: type,
             name: name,
-            variants: [{ decorators, args, restArgs, body, location }],
+            variants: [{ args, restArgs, body, location }],
             location: location
           };
           functions[id] = definition;
           groupedDefinitions.push(definition);
         }
         else {
-          functions[id].variants.push({ decorators, args, restArgs, body, location });
+          functions[id].variants.push({ args, restArgs, body, location });
         }
       }
       else {
@@ -25,19 +25,6 @@
       }
     }
     return groupedDefinitions;
-  }
-
-  function withWhere(expression, where) {
-    if(where) {
-      return {
-        type: "scope",
-        definitions: where.definitions,
-        body: expression
-      };
-    }
-    else {
-      return expression;
-    }
   }
 }
 
@@ -54,24 +41,24 @@ multilineComment = "#{" (multilineComment / (!"}#" .))* "}#"
 comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
-  wordCase
+  wordFn
   / wordWhen
   / wordElse
   / wordDo
+  / wordReturn
   / wordLet
-  / wordWhere
-  / wordEnd
+  / wordIn
   / wordModule
   / wordImport
   / wordExport
 
-wordCase "case" = "case" !beginNameChar
+wordFn "fn" = "fn" !beginNameChar
 wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
+wordReturn "return" = "return" !beginNameChar
 wordLet "let" = "let" !beginNameChar
-wordWhere "where" = "where" !beginNameChar
-wordEnd "end" = "end" !beginNameChar
+wordIn "in" = "in" !beginNameChar
 wordModule "module" = "module" !beginNameChar
 wordImport "import" = "import" !beginNameChar
 wordExport "export" = "export" !beginNameChar
@@ -104,7 +91,7 @@ recordName "record name" =
     };
   }
 
-moduleNameChar = [0-9a-zA-Z_\.\/\-]
+moduleNameChar = [0-9a-zA-Z_\.\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
 moduleName "module name" =
   !reservedWord
   chars:moduleNameChar+
@@ -116,7 +103,7 @@ moduleName "module name" =
     };
   }
 
-reservedOperator = ("=" / "->" / "<-") !operatorChar
+reservedOperator = ("=" / "->") !operatorChar
 operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\$]
 operator "operator" =
   !reservedOperator
@@ -128,34 +115,117 @@ operator "operator" =
   };
 }
 
+skip "_" = "_" !beginNameChar {
+  return {
+    type: "skip",
+    location: location()
+  };
+}
+
+lvalueRest "rest" = "..." lvalue:lvalue {
+  return lvalue;
+}
+
+lvalueSkip = skip {
+  return {
+    type: "lvalue.skip",
+    location: skip.location
+  };
+}
+
+lvalueName = name:name {
+  return {
+    type: "lvalue.name",
+    name: name.name,
+    location: name.location
+  };
+}
+
+lvalueList =
+  "[" _
+  items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })* { return [first].concat(rest); }) _
+  restItems:("," _ restItems:lvalueRest { return restItems; })?
+  _ "]" {
+  return {
+    type: "lvalue.list",
+    items: items,
+    restItems: restItems,
+    location: location()
+  };
+}
+
+lvalueMapKeyLValueItem = key:expression _ ":" _ lvalue:lvalue {
+  return {
+    key: key,
+    lvalue: lvalue
+  };
+}
+
+lvalueMapKeyItem = key:name {
+  return {
+    key: {
+      type: "string",
+      value: key.name,
+      location: key.location
+    },
+    lvalue: {
+      type: "lvalue.name",
+      value: key.name,
+      location: key.location
+    }
+  };
+}
+
+lvalueMapItem = lvalueMapKeyLValueItem / lvalueMapKeyItem
+
+lvalueMap =
+  "{" _
+  items:(first:lvalueMapItem rest:(_ "," _ item:lvalueMapItem { return item; })* { return [first].concat(rest); }) _
+  restItems:("," _ restItems:lvalueRest { return restItems; })?
+  _ "}" {
+  return {
+    type: "lvalue.map",
+    items: items,
+    restItems: restItems,
+    location: location()
+  };
+}
+
+lvalueAlias = name:name "@" lvalue:lvalue {
+  return {
+    type: "lvalue.alias",
+    name: name,
+    lvalue: lvalue,
+    location: location()
+  };
+}
+
+lvalue = lvalueSkip / lvalueAlias / lvalueName / lvalueList / lvalueMap
+
 undefined "undefined" = "undefined" !beginNameChar {
   return {
-    type: "literal",
-    value: undefined,
+    type: "undefined",
     location: location()
   };
 }
 
 null "null" = "null" !beginNameChar {
   return {
-    type: "literal",
-    value: null,
+    type: "null",
     location: location()
   };
 }
 
 false "false" = "false" !beginNameChar {
   return {
-    type: "literal",
-    value: false,
+    type: "false",
     location: location()
   };
 }
 
 true "true" = "true" !beginNameChar {
   return {
-    type: "literal",
-    value: true,
+    type: "true",
     location: location()
   };
 }
@@ -171,8 +241,8 @@ plus          = "+"
 zero          = "0"
 number "number" = int frac? exp? {
   return {
-    type: "literal",
-    value: parseFloat(text()),
+    type: "number",
+    value: text(),
     location: location()
   };
 }
@@ -201,115 +271,28 @@ DIGIT  = [0-9]
 HEXDIG = [0-9a-f]i
 string "string" = quotation_mark chars:char* quotation_mark {
   return {
-    type: "literal",
+    type: "string",
     value: chars.join(""),
     location: location()
   };
 }
 
-key "key" = ":" name:name {
-  return {
-    type: "key",
-    value: name.name,
-    location: location()
-  };
+spread = "..." value:expression {
+  return value;
 }
 
-literal =
-  undefined
-  / null
-  / false
-  / true
-  / number
-  / string
-
-skip "_" = "_" !beginNameChar {
-  return {
-    type: "skip",
-    location: location()
-  };
-}
-
-noArgsList = "(" ")" {
-  return {
-    args: []
-  };
-}
-
-someArgsList = args:(arg:lvalue _ { return arg; })+ _ restArgs:restArgsList? {
+argsList =
+  "(" _
+  args:(first:lvalue rest:(_ "," _ arg:lvalue { return arg; })* { return [first].concat(rest); })? _
+  restArgs:("," _ restArgs:lvalueRest { return restArgs; })?
+  _ ")" {
   return {
     args: args,
     restArgs: restArgs
   };
 }
 
-restArgsList = "..." restArgs:lvalue {
-  return {
-    args: [],
-    restArgs: restArgs
-  };
-}
-
-argsList = noArgsList / someArgsList / restArgsList
-
-noArgs = "(" ")" {
-  return [];
-}
-
-someArgs = (arg:(atom / spreadAtom) _ { return arg; })+
-
-args = noArgs / someArgs
-
-property "property" = "." name:name {
-  return {
-    type: "property",
-    name: name.name,
-    location: location()
-  };
-}
-
-goodEnd = wordEnd {
-  return null;
-}
-
-badEnd = . {
-  error("Expected end", location());
-}
-
-end = goodEnd / badEnd
-
-goodWhere = definitions:definitions _ end {
-  return {
-    type: "where",
-    definitions: definitions
-  };
-}
-
-badWhere = . {
-  error("Expected where", location());
-}
-
-where = wordWhere _ where:(goodWhere / badWhere) {
-  return where;
-}
-
-spreadAtom = "..." value:atom {
-  return {
-    type: "spread",
-    value: value,
-    location: location()
-  };
-}
-
-spreadExpression = "..." value:ensureExpression {
-  return {
-    type: "spread",
-    value: value,
-    location: location()
-  };
-}
-
-listItem = expression / spreadExpression
+listItem = expression / spread
 
 list "list" =
   "[" _
@@ -322,7 +305,7 @@ list "list" =
     };
   }
 
-mapKeyValueItem = key:expression _ "->" _ value:ensureExpression {
+mapKeyValueItem = key:expression _ ":" _ value:expression {
   return {
     key: key,
     value: value
@@ -336,7 +319,7 @@ mapKeyItem = key:name {
   };
 }
 
-mapItem = mapKeyValueItem / mapKeyItem / spreadExpression
+mapItem = mapKeyValueItem / mapKeyItem / spread
 
 map "map" =
   "{" _
@@ -349,9 +332,9 @@ map "map" =
     };
   }
 
-lambda = "(" _ argsList:argsList _ "->" _ body:ensureExpression _ ")" {
+function = wordFn _ argsList:argsList _ "->" _ body:expression {
   return {
-    type: "lambda",
+    type: "function",
     args: argsList.args,
     restArgs: argsList.restArgs,
     body: body,
@@ -359,18 +342,18 @@ lambda = "(" _ argsList:argsList _ "->" _ body:ensureExpression _ ")" {
   };
 }
 
-caseBranch = wordWhen _ condition:ensureExpression _ "->" _ value:ensureExpression {
+caseBranch = wordWhen _ condition:expression _ ":" _ value:expression {
   return {
     condition: condition,
     value: value
   };
 }
 
-caseOtherwise = wordElse _ otherwise:ensureExpression {
+caseOtherwise = wordElse _ ":" _ otherwise:expression {
   return otherwise;
 }
 
-goodCase = branches:(branch:caseBranch _ { return branch; })+ otherwise:caseOtherwise {
+case "case" = branches:(branch:caseBranch _ { return branch; })+ otherwise:caseOtherwise {
   return {
     type: "case",
     branches: branches,
@@ -379,15 +362,7 @@ goodCase = branches:(branch:caseBranch _ { return branch; })+ otherwise:caseOthe
   };
 }
 
-badCase = . {
-  error("Expected case", location());
-}
-
-case "case" = wordCase _ _case:(goodCase / badCase) _ end {
-  return _case;
-}
-
-monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression {
+monadItem = via:(via:lvalue _ "=" _ { return via; })? value:expression {
   return {
     via: via,
     value: value,
@@ -395,20 +370,64 @@ monadItem = via:(via:lvalue _ "<-" _ { return via; })? value:expression {
   };
 }
 
-goodMonad = items:(first:monadItem rest:(_ "," _ item:monadItem { return item; })* { return [first].concat(rest); }) {
+monadDo = wordDo _ item:monadItem {
+  return item;
+}
+
+monadReturn = wordReturn _ item:monadItem {
+  return item;
+}
+
+monad "monad" = items:(item:monadDo _ { return item; })+ lastItem:monadReturn {
   return {
     type: "monad",
-    items: items,
+    items: items.concat([lastItem]),
     location: location()
   };
 }
 
-badMonad = . {
-  error("Expected monad", location());
+definitionConstant = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:expression {
+  return {
+    type: "definition.constant",
+    lvalue: lvalue,
+    value: value,
+    location: location()
+  };
 }
 
-monad "monad" = wordDo _ monad:(goodMonad / badMonad) _ end {
-  return monad;
+definitionRecord = wordLet _ name:recordName _ args:(arg:name _ { return arg; })* {
+  return {
+    type: "definition.record",
+    name: name,
+    args: args,
+    location: location()
+  };
+}
+
+definitionFunction = wordLet _ name:(name / operator) _ argsList:argsList _ "->" _ body:expression {
+  return {
+    type: "definition.function",
+    name: name,
+    args: argsList.args,
+    restArgs: argsList.restArgs,
+    body: body,
+    location: location()
+  };
+}
+
+definition = definitionConstant / definitionRecord / definitionFunction
+
+definitions = definitions:(definition:definition _ { return definition; })+ {
+  return groupDefinitions(definitions);
+}
+
+scope "let" = definitions:definitions _ body:(wordIn _ body:expression { return body; }) {
+  return {
+    type: "scope",
+    definitions: definitions,
+    body: body,
+    location: location()
+  };
 }
 
 subExpression "sub-expression" = "(" _ expression:expression _ ")" {
@@ -416,15 +435,20 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
 }
 
 atom =
-  literal
+  undefined
+  / null
+  / false
+  / true
+  / number
+  / string
   / skip
-  / key
   / name
   / list
   / map
-  / lambda
+  / function
   / monad
   / case
+  / scope
   / subExpression
 
 unary = operator:operator _ operand:atom {
@@ -438,12 +462,29 @@ unary = operator:operator _ operand:atom {
 
 callee = unary / atom
 
+arg = expression / spread
+
+args =
+  "(" _
+  args:(first:arg rest:(_ "," _ arg:arg { return arg; })* { return [first].concat(rest); })?
+  _ ")" {
+  return args || [];
+}
+
 call = callee:callee _ args:args {
   return {
     type: "call",
     callee: callee,
     args: args,
     location: location()
+  };
+}
+
+property = "." property:name {
+  return {
+    type: "property",
+    name: property.name,
+    location: property.location
   };
 }
 
@@ -481,135 +522,7 @@ binary =
     first);
   }
 
-expression = expression:(binary / binaryOperand / operator) _ where:where? {
-  return withWhere(expression, where);
-}
-
-badExpression = . {
-  error("Expected expression", location());
-}
-
-ensureExpression = expression / badExpression
-
-restItems = "..." lvalue:lvalue {
-  return lvalue;
-}
-
-listDestruct =
-  "[" _
-  items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })* { return [first].concat(rest); }) _
-  restItems:("," _ restItems:restItems { return restItems; })?
-  _ "]" {
-  return {
-    type: "listDestruct",
-    items: items,
-    restItems: restItems,
-    location: location()
-  };
-}
-
-mapDestructKeyLValueItem = key:(expression / property) _ "->" _ lvalue:lvalue {
-  return {
-    key: key,
-    lvalue: lvalue
-  };
-}
-
-mapDestructPropertyItem = property:property {
-  return {
-    key: property,
-    lvalue: {
-      type: "name",
-      name: property.name,
-      location: property.location
-    }
-  };
-}
-
-mapDestructKeyItem = name:name {
-  return {
-    key: {
-      type: "key",
-      value: name.name,
-      location: name.location
-    },
-    lvalue: name
-  };
-}
-
-mapDestructItem = mapDestructKeyLValueItem / mapDestructPropertyItem / mapDestructKeyItem
-
-mapDestruct =
-  "{" _
-  items:(first:mapDestructItem rest:(_ "," _ item:mapDestructItem { return item; })* { return [first].concat(rest); }) _
-  restItems:("," _ restItems:restItems { return restItems; })?
-  _ "}" {
-  return {
-    type: "mapDestruct",
-    items: items,
-    restItems: restItems,
-    location: location()
-  };
-}
-
-recordDestruct = "TODO"
-
-destruct = listDestruct / mapDestruct / recordDestruct
-
-alias = name:name _ "@" _ lvalue:lvalue {
-  return {
-    type: "alias",
-    name: name,
-    lvalue: lvalue,
-    location: location()
-  };
-}
-
-lvalue = skip / alias / name / destruct
-
-decorator = "@" _ decorator:ensureExpression {
-  return decorator;
-}
-
-constantDefinition = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:ensureExpression {
-  return {
-    type: "constant",
-    lvalue: lvalue,
-    value: value,
-    location: location()
-  };
-}
-
-recordDefinition = wordLet _ name:recordName _ args:(arg:name _ { return arg; })* {
-  return {
-    type: "record",
-    name: name,
-    args: args,
-    location: location()
-  };
-}
-
-functionDefinition = wordLet _ name:(name / operator) _ argsList:argsList _ "=" _ body:ensureExpression {
-  return {
-    type: "function",
-    name: name,
-    args: argsList.args,
-    restArgs: argsList.restArgs,
-    body: body,
-    location: location()
-  };
-}
-
-definition =
-  decorators:decorator* _
-  definition:(constantDefinition / recordDefinition / functionDefinition) {
-  definition.decorators = decorators;
-  return definition;
-}
-
-definitions = definitions:(definition:definition _ { return definition; })+ {
-  return groupDefinitions(definitions);
-}
+expression = binary / binaryOperand / operator
 
 symbol = name:(name / operator) {
   return {
@@ -619,7 +532,7 @@ symbol = name:(name / operator) {
   };
 }
 
-symbolsKeyNameItem = key:symbol _ "->" _ name:symbol {
+symbolsKeyNameItem = key:symbol _ ":" _ name:symbol {
   return {
     key: key,
     name: name
