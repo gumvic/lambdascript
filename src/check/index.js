@@ -1,362 +1,520 @@
+const immutable = require("immutable");
 const CheckError = require("./error");
-
 const defaultOptions = require("../defaultOptions");
 
-const MAIN = "main";
+/* Types */
 
-class Context {
-  constructor(options, parent) {
-    this.options = options;
-    this.parent = parent;
-    this.defined = [];
-    this.forbidden = this.parent ?
-      Object.values(options.essentials) :
-      [];
+/*
+fn(number) -> number => fn[a'](a') -> a'
+checkFunction:
+1) replaceMorphs -- forall morphs -> random scalars
+2) For args, checkLValue
+3) assert cast reify(check(body)) to res
+*/
+
+const TYPE_MISMATCH = "mismatch";
+const TYPE_MORPH = "morph";
+const TYPE_ANY = "any";
+const TYPE_OR = "or";
+const TYPE_FUNCTION = "function";
+const TYPE_SCALAR = "scalar";
+
+const any = {
+  type: TYPE_ANY
+};
+
+function morph(name) {
+  return {
+    type: TYPE_MORPH,
+    name: name
+  };
+}
+
+function scalar(name) {
+  return {
+    type: TYPE_SCALAR,
+    name: name
+  };
+}
+
+function fun(morphs, args, res) {
+  return {
+    type: TYPE_FUNCTION,
+    morphs: morphs,
+    args: args,
+    res: res
+  };
+}
+
+function mismatch(to, from) {
+	return {
+  	type: TYPE_MISMATCH,
+    to: to,
+  	from: from
+ 	};
+}
+
+function isMismatched({ type }) {
+	return type === TYPE_MISMATCH;
+}
+
+let typeNameCounter = 0;
+function uniqueTypeName() {
+	return `t${typeNameCounter++}`;
+}
+
+function uniqueMorph() {
+  return morph(uniqueTypeName());
+}
+
+function uniqueScalar() {
+  return morph(uniqueTypeName());
+}
+
+function readableType(type, context) {
+	switch(type.type) {
+    case TYPE_MISMATCH:
+    	return `Can't cast ${readableType(type.from, context)} to ${readableType(type.to, context)}`;
+    case TYPE_MORPH:
+    	return context.get(type.name) ? readableType(context.get(type.name), context) : `${type.name}'`;
+    case TYPE_ANY:
+    	return "*";
+    case TYPE_OR:
+    	return `(${type.types.map(t => readableType(t, context)).join(" | ")})`;
+    case TYPE_FUNCTION:
+    	return `(${type.args.map(t => readableType(t, context)).join(" ")} -> ${readableType(type.res, context)})`;
+    case TYPE_SCALAR:
+    	return type.name;
   }
+}
 
-  define({ name, location }) {
-    if (this.isDefinedLocally({ name, location }) ||
-        this.forbidden.indexOf(name) >= 0) {
-      throw new CheckError(`Duplicate definition: ${name}`, location);
+function replaceMorphs(type, morphs) {
+	switch(type.type) {
+    case TYPE_MISMATCH:
+    	return type;
+    case TYPE_MORPH:
+    	return morphs.get(type.name, type);
+    case TYPE_ANY:
+    	return type;
+    case TYPE_OR:
+    	return {
+      	...type,
+        types: type.types.map(t => replaceMorphs(t, morphs))
+      };
+    case TYPE_FUNCTION:
+      morphs = morphs.filter((_, name) => type.morphs.indexOf(name) < 0);
+      return {
+        ...type,
+        args: type.args.map(t => replaceMorphs(t, morphs)),
+        res: replaceMorphs(type.res, morphs)
+      };
+    case TYPE_SCALAR:
+    	return type;
+  }
+}
+
+/*function reify(type, context) {
+	switch(type.type) {
+  	case TYPE_MISMATCH:
+    	return type;
+    case TYPE_UNKNOWN:
+    	return type;
+    case TYPE_MORPH:
+    	return context.get(type.name) ? reify(context.get(type.name), context) : scalar(type.name);
+    case TYPE_ANY:
+    	return type;
+    case TYPE_OR:
+    	return {
+      	...type,
+        types: type.types.map(t => reify(t, context))
+      };
+    case TYPE_FUNCTION:
+      //context = context.filter((_, name) => type.morphs.indexOf(name) < 0);
+      return {
+        ...type,
+        args: type.args.map(t => reify(t, context)),
+        res: reify(type.res, context)
+      };
+    case TYPE_SCALAR:
+    	return type;
+  }
+}*/
+
+function castMorphToMorph(to, from, context) {
+	if (to.name === from.name) {
+  	return {
+    	type: to,
+      context: context
+    };
+  }
+  else {
+  	return castToMorph(to, from, context);
+  }
+}
+
+function castToMorph(to, from, context) {
+	if (!context.get(to.name)) {
+  	return {
+    	type: to,
+      context: context.set(to.name, from)
+    };
+  }
+  else {
+  	return cast(context.get(to.name), from, context);
+  }
+}
+
+function castFromMorph(to, from, context) {
+	if (!context.get(from.name)) {
+  	return {
+    	type: to,
+      context: context.set(from.name, to)
+    };
+  }
+  else {
+  	return cast(to, context.get(from.name), context);
+  }
+}
+
+function castAnyToAny(to, from, context) {
+	return {
+   	type: to,
+    context: context
+  };
+}
+
+function castToAny(to, from, context) {
+	return {
+   	type: to,
+    context: context
+  };
+}
+
+function castFromAny(to, from, context) {
+	return {
+  	type: mismatch(to, from),
+    context: context
+  };
+}
+
+function castOrToOr(to, from, context) {
+	return castFromOr(to, from, context);
+}
+
+function castToOr(to, from, context) {
+	const prevContext = context;
+  for(let _to of to.types) {
+  	const { type, context: nextContext } = cast(_to, from, context);
+    if (!isMismatched(type)) {
+      return {
+      	type: to,
+        context: nextContext
+      };
+    }
+  }
+  return {
+  	type: mismatch(to, from),
+    context: prevContext
+  };
+}
+
+function castFromOr(to, from, context) {
+	const prevContext = context;
+  for (let _from of from.types) {
+  	const { type, context: nextContext } = cast(to, _from, context);
+    if (isMismatched(type)) {
+    	return {
+  			type: mismatch(to, from),
+    		context: prevContext
+  		};
     }
     else {
-      this.defined.push(name);
+    	context = nextContext;
     }
   }
+  return {
+  	type: to,
+    context: context
+  };
+}
 
-  isDefinedLocally({ name }) {
-    return this.defined.indexOf(name) >= 0;
-  }
-
-  isDefined(ast) {
-    if (this.isDefinedLocally(ast)) {
-      return true;
-    }
-    else if (this.parent) {
-      return this.parent.isDefined(ast);
+function tryCastFunctionArgs({ args: toArgs }, { args: fromArgs }, context) {
+	for (let i = 0; i < toArgs.length; i++) {
+		const toArg = toArgs[i];
+		const fromArg = fromArgs[i];
+    const { type, context: nextContext } = cast(fromArg, toArg, context);
+    if (isMismatched(type)) {
+    	return null;
     }
     else {
-      return false;
+    	context = nextContext;
     }
   }
+  return context;
+}
 
-  assertDefined({ name, location }) {
-    if (!this.isDefined({ name, location })) {
-      throw new CheckError(`Name not defined: ${name}`, location);
-    }
+function tryCastFunctionRes({ res: toRes }, { res: fromRes }, context) {
+	const { type, context: nextContext } = cast(toRes, fromRes, context);
+  if (isMismatched(type)) {
+  	return null;
+  }
+	else {
+		return nextContext;
+	}
+}
+
+function replaceFunctionMorphs(fun, f) {
+	if (!fun.morphs.length) {
+  	return fun;
+  }
+  else {
+  	const morphs = immutable.Map(
+      fun.morphs.map(morphName => [morphName, f(morphName)]));
+    return {
+    	...fun,
+      args: fun.args.map(t => replaceMorphs(t, morphs)),
+      res: replaceMorphs(fun.res, morphs)
+    };
+  }
+}
+
+function castFunctionToFunction(to, from, context) {
+	if (to.args.length !== from.args.length) {
+  	return {
+  		type: mismatch(to, from),
+    	context: context
+  	};
   }
 
-  spawn() {
-    return new Context(this.options, this);
+  const prevTo = to;
+  const prevFrom = from;
+  const prevContext = context;
+
+  to = replaceFunctionMorphs(to, uniqueMorph);
+  from = replaceFunctionMorphs(from, uniqueMorph);
+
+  context = tryCastFunctionArgs(to, from, context);
+  if (!context) {
+  	return {
+  		type: mismatch(prevTo, prevFrom),
+    	context: prevContext
+  	};
   }
+
+  context = tryCastFunctionRes(to, from, context);
+  if (!context) {
+  	return {
+  		type: mismatch(prevTo, prevFrom),
+    	context: prevContext
+  	};
+  }
+
+  return {
+  	type: prevTo,
+    context: context
+  };
+}
+
+function castScalarToScalar(to, from, context) {
+	return {
+  	type: to.name === from.name ? to : mismatch(to, from),
+    context: context
+  };
+}
+
+function cast(to, from, context) {
+	if (to.type === TYPE_MISMATCH) {
+  	return {
+    	type: to,
+      context: context
+    };
+  }
+  else if (from.type === TYPE_MISMATCH) {
+  	return {
+    	type: from,
+      context: context
+    };
+  }
+  else if (to.type === TYPE_MORPH &&
+  				 from.type === TYPE_MORPH) {
+     return castMorphToMorph(to, from, context);
+  }
+  else if (to.type === TYPE_MORPH) {
+     return castToMorph(to, from, context);
+  }
+  else if (from.type === TYPE_MORPH) {
+     return castFromMorph(to, from, context);
+  }
+  else if (to.type === TYPE_ANY &&
+  				 from.type === TYPE_ANY) {
+  	return castAnyToAny(to, from, context);
+  }
+  else if (to.type === TYPE_ANY) {
+  	return castToAny(to, from, context);
+  }
+  else if (from.type === TYPE_ANY) {
+  	return castFromAny(to, from, context);
+  }
+  else if (to.type === TYPE_OR &&
+  				 from.type === TYPE_OR) {
+  	return castOrToOr(to, from, context);
+  }
+  else if (to.type === TYPE_OR) {
+  	return castToOr(to, from, context);
+  }
+  else if (from.type === TYPE_OR) {
+  	return castFromOr(to, from, context);
+  }
+  else if (to.type === TYPE_FUNCTION &&
+  				 from.type === TYPE_FUNCTION) {
+  	return castFunctionToFunction(to, from, context);
+  }
+  else if (to.type === TYPE_SCALAR &&
+  				 from.type === TYPE_SCALAR) {
+  	return castScalarToScalar(to, from, context);
+  }
+  else {
+  	return {
+    	type: mismatch(to, from),
+      context: context
+    };
+  }
+}
+
+/* Check */
+
+function define({ name, value, location }, context) {
+  const defined = context.names.get(name);
+  if (defined) {
+    throw new CheckError(`Name already defined: ${name}`, location);
+  }
+  else {
+    return {
+      ...context,
+      names: names.update(name, value)
+    };
+  }
+}
+
+function defined({ name, location }, context) {
+  const type = context.names.get(name);
+  if (!type) {
+    throw new CheckError(`Name not defined: ${name}`, location);
+  }
+  else {
+    return type;
+  }
+}
+
+// TODO: check forall integrity
+function checkType() {}
+
+function checkUndefined(ast, context) {
+  return {
+    type: scalar("undefined"),
+    context: context
+  };
+}
+
+function checkNull(ast, context) {
+  return {
+    type: scalar("null"),
+    context: context
+  };
+}
+
+function checkFalse(ast, context) {
+  return {
+    type: scalar("false"),
+    context: context
+  };
+}
+
+function checkTrue(ast, context) {
+  return {
+    type: scalar("true"),
+    context: context
+  };
+}
+
+function checkNumber(ast, context) {
+  return {
+    type: scalar("number"),
+    context: context
+  };
+}
+
+function checkString(ast, context) {
+  return {
+    type: scalar("string"),
+    context: context
+  };
 }
 
 function checkName(ast, context) {
-  context.assertDefined(ast);
+  return {
+    type: defined(ast, context),
+    context: context
+  };
 }
 
-function checkListItem(item, context) {
-  if (item.type === "spread") {
-    check(item.value, context);
+function checkCallCallee({ callee }, context) {
+  return check(callee, context);
+}
+
+function checkCallArgs({ args }, context) {
+  return args.reduce(
+    ({ types, context }, arg) => {
+      const { type, context: newContext } = check(arg, context);
+      return {
+        types: [...types, type],
+        context: newContext
+      };
+    },
+    {
+      types: [],
+      context: context
+    });
+}
+
+function checkCallApplication(calleeType, argTypes, { location }, context) {
+  const resType = uniqueMorph();
+  const requiredCalleeType = fun([], argTypes, resType);
+  const { type, context: types } = cast(requiredCalleeType, calleeType, context.types);
+  if (isMismatched(type)) {
+    throw CheckError(readableType(type), location);
   }
   else {
-    check(item, context);
+    return {
+      type: resType,
+      context: { ...newContext, types: types }
+    };
   }
 }
 
-function checkList({ items, location }, context) {
-  context.assertDefined({ name: context.options.essentials.list, location });
-  for(let item of items) {
-    checkListItem(item, context);
-  }
+function checkCall(ast, context) {
+  const { type: calleeType, context: calleeContext } = checkCallCallee(ast, context);
+  const { types: argTypes, context: argsContext } = checkCallArgs(ast, calleeContext);
+  return checkCallApplication(calleeType, argTypes, ast, argsContext);
 }
 
-function checkMapItem(item, context) {
-  if (item.type === "spread") {
-    check(item.value, context);
-  }
-  else {
-    check(item.key, context);
-    check(item.value, context);
-  }
-}
-
-function checkMap({ items, location }, context) {
-  context.assertDefined({ name: context.options.essentials.map, location });
-  for(let item of items) {
-    checkMapItem(item, context);
-  }
-}
-
-function checkLambda({ args, restArgs, body, location }, context) {
-  const _context = context.spawn();
-  for(let arg of args) {
-    checkLValue(arg, _context);
-  }
-  if (restArgs) {
-    context.assertDefined({ name: context.options.essentials.list, location });
-    checkLValue(restArgs, context);
-  }
-  check(body, _context);
-}
-
-function checkMonad({ items, location }, context) {
-  context.assertDefined({ name: context.options.essentials.monad, location });
-  function _check(items, context) {
-    if (items.length) {
-      const { via, value, location } = items[0];
-      check(value, context);
-      if (via) {
-        context = context.spawn();
-        checkLValue(via, context);
-      }
-      _check(items.slice(1), context);
-    }
-  }
-  _check(items, context);
-}
-
-function checkConstant({ lvalue, value, decorators }, context) {
-  for(let decorator of decorators) {
-    check(decorator, context);
-  }
-  check(value, context);
-  checkLValue(lvalue, context);
-}
-
-function checkFunctionVariant(variant, context) {
-  for(let decorator of variant.decorators) {
-    check(decorator, context);
-  }
-  checkLambda(variant, context);
-}
-
-function checkFunction({ variants }, context) {
-  // TODO check arities
-  for(let variant of variants) {
-    checkFunctionVariant(variant, context);
-  }
-}
-
-function checkRecord({ name, args, decorators, location }, context) {
-  for(let decorator of decorators) {
-    check(decorator, context);
-  }
-  context.assertDefined({ name: context.options.essentials.record, location });
-  const _context = context.spawn();
-  for(let arg of args) {
-    checkLValue(arg, _context);
-  }
-}
-
-function checkDefinitions(definitions, context) {
-  const constants = definitions
-    .filter(({ type }) => type === "constant");
-  const functions = definitions
-    .filter(({ type }) => type === "function");
-  const records = definitions
-    .filter(({ type }) => type === "record");
-  for(let { name, decorators } of records) {
-    context.define(name);
-  }
-  for(let { name } of functions) {
-    context.define(name);
-  }
-  for(let constant of constants) {
-    checkConstant(constant, context);
-  }
-  for(let fun of functions) {
-    checkFunction(fun, context);
-  }
-  for(let record of records) {
-    checkRecord(record, context);
-  }
-}
-
-function checkCase({ branches, otherwise }, context) {
-  for(let { condition, value } of branches) {
-    check(condition, context);
-    check(value, context);
-  }
-  check(otherwise, context);
-}
-
-function checkScope({ definitions, body }, context) {
-  context = context.spawn();
-  checkDefinitions(definitions, context);
-  check(body, context);
-}
-
-function checkCallArg(arg, context) {
-  if (arg.type === "spread") {
-    check(arg.value, context);
-  }
-  else {
-    check(arg, context);
-  }
-}
-
-function checkCall({ callee, args }, context) {
-  check(callee, context);
-  for(let arg of args) {
-    checkCallArg(arg, context);
-  }
-}
-
-function checkAccess({ object }, context) {
-  check(object, context);
-}
-
-function checkInvoke({ object, args }, context) {
-  check(object, context);
-  for(let arg of args) {
-    check(arg, context);
-  }
-}
-
-function checkSkipLValue(_, context) {
+function checkScope(ast, context) {
 
 }
 
-function checkNameLValue(name, context) {
-  context.define(name);
-}
-
-function checkAliasLValue({ name, lvalue }, context) {
-  context.define(name);
-  checkLValue(lvalue, context);
-}
-
-function checkListDestructLValue({ items, restItems, location }, context) {
-  context.assertDefined({ name: context.options.essentials.get, location });
-  context.assertDefined({ name: context.options.essentials.merge, location });
-  context.assertDefined({ name: context.options.essentials.remove, location });
-  for(let lvalue of items) {
-    checkLValue(lvalue, context);
-  }
-  if (restItems) {
-    checkLValue(restItems, context);
-  }
-}
-
-function checkMapDestructLValue({ items, restItems, location }, context) {
-  context.assertDefined({ name: context.options.essentials.get, location });
-  context.assertDefined({ name: context.options.essentials.merge, location });
-  context.assertDefined({ name: context.options.essentials.remove, location });
-  for(let { key, lvalue } of items) {
-    check(key, context);
-    checkLValue(lvalue, context);
-  }
-  if (restItems) {
-    checkLValue(restItems, context);
-  }
-}
-
-function checkLValue(lvalue, context) {
-  switch(lvalue.type) {
-    case "skip": checkSkipLValue(lvalue, context); break;
-    case "name": checkNameLValue(lvalue, context); break;
-    case "alias": checkAliasLValue(lvalue, context); break;
-    case "listDestruct": checkListDestructLValue(lvalue, context); break;
-    case "mapDestruct": checkMapDestructLValue(lvalue, context); break;
-    default: new CheckError(`Internal error: unknown AST type ${lvalue.type}.`, lvalue.location);
-  }
-}
-
-function checkImport({ module, value }, context) {
-  if (module) {
-    context.define(module);
-  }
-  if (value.type === "symbols") {
-    let imported = {};
-    for(let { key, name } of value.items) {
-      if (imported[key.name]) {
-        throw new CheckError(`Already imported: ${key.name}`, key.location);
-      }
-      context.define(name);
-      imported[key.name] = true;
-    }
-  }
-  else if (value.type === "symbol") {
-    context.define(value);
-  }
-  else {
-    new CheckError(`Internal error: unknown AST type ${value.type}.`, value.location);
-  }
-}
-
-function checkModuleCoreImport(_, context) {
-  const { module, imports } = context.options.core;
-  context.define({ name: module });
-  for(let _import of imports) {
-    context.define({ name: _import });
-  }
-}
-
-function checkModuleImports(module, context) {
-  const { name: { name: moduleName }, imports } = module;
-  context.define({ name: moduleName });
-  checkModuleCoreImport(module, context);
-  for(let _import of imports) {
-    checkImport(_import, context);
-  }
-}
-
-function checkModuleDefinitions({ definitions }, context) {
-  checkDefinitions(definitions, context);
-}
-
-function checkExport({ value, location }, context) {
-  if (value.type === "symbols") {
-    let exported = {};
-    for(let { key, name } of value.items) {
-      context.assertDefined(key);
-      if (exported[name.name]) {
-        throw new CheckError(`Already exported: ${name.name}`, name.location);
-      }
-      exported[name.name] = true;
-    }
-  }
-  else if (value.type === "symbol") {
-    context.assertDefined(value);
-  }
-  else {
-    new CheckError(`Internal error: unknown AST type ${value.type}.`, value.location);
-  }
-}
-
-function checkModuleExport({ export: _export }, context) {
-  checkExport(_export, context);
-}
-
-function checkApp(ast, context) {
-  checkModuleImports(ast, context);
-  checkModuleDefinitions(ast, context);
-  context.assertDefined({ name: MAIN });
-}
-
-function checkLib(ast, context) {
-  checkModuleImports(ast, context);
-  checkModuleDefinitions(ast, context);
-  checkModuleExport(ast, context);
-}
-
-function checkModule(ast, context) {
-  if (!ast.export) {
-    return checkApp(ast, context);
-  }
-  else {
-    return checkLib(ast, context);
-  }
+function checkFunction(ast, context) {
+  //replaceFunctionMorphs(, uniqueScalar);
 }
 
 function check(ast, context) {
   switch (ast.type) {
-    case "literal":
-    case "skip":
-    case "key":
-    case "property":
-    case "symbol": return;
+    case "undefined": return checkUndefined(ast, context);
+    case "null": return checkNull(ast, context);
+    case "false": return checkFalse(ast, context);
+    case "true": return checkTrue(ast, context);
+    case "number": return checkNumber(ast, context);
+    case "string": return checkString(ast, context);
+    case "skip": return checkSkip(ast, context);
     case "name": return checkName(ast, context);
     case "list": return checkList(ast, context);
     case "map":  return checkMap(ast, context);
@@ -373,6 +531,10 @@ function check(ast, context) {
 }
 
 module.exports = function(ast, options) {
-  options = options || defaultOptions;
-  return check(ast, new Context(options));
+  const context = {
+    options: options || defaultOptions,
+    types: immutable.Map(),
+    names: immutable.Map()
+  };
+  return check(ast, context);
 };
