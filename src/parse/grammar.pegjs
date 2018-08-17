@@ -1,35 +1,8 @@
-{
-  function groupDefinitions(definitions) {
-    let groupedDefinitions = [];
-    let functions = {};
-    for(let definition of definitions) {
-      const { type, name, args, restArgs, body, location } = definition;
-      if (type === "function") {
-        const id = name.name;
-        if (!functions[id]) {
-          definition = {
-            type: type,
-            name: name,
-            variants: [{ args, restArgs, body, location }],
-            location: location
-          };
-          functions[id] = definition;
-          groupedDefinitions.push(definition);
-        }
-        else {
-          functions[id].variants.push({ args, restArgs, body, location });
-        }
-      }
-      else {
-        groupedDefinitions.push(definition);
-      }
-    }
-    return groupedDefinitions;
-  }
-}
-
-ast = _ ast:(module / expression) _ {
-  return ast;
+program = steps:(step:(definition / expression) _ { return step; })+ {
+  return {
+    type: "program",
+    steps: steps
+  };
 }
 
 _ "whitespace" = ([ \t\n\r] / comment)*
@@ -41,23 +14,27 @@ multilineComment = "#{" (multilineComment / (!"}#" .))* "}#"
 comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
-  wordFn
+  wordCase
   / wordWhen
   / wordElse
   / wordDo
   / wordReturn
   / wordLet
+  / wordVal
+  / wordFn
   / wordIn
   / wordModule
   / wordImport
   / wordExport
 
-wordFn "fn" = "fn" !beginNameChar
+wordCase "case" = "case" !beginNameChar
 wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
 wordReturn "return" = "return" !beginNameChar
 wordLet "let" = "let" !beginNameChar
+wordVal "val" = "val" !beginNameChar
+wordFn "fn" = "fn" !beginNameChar
 wordIn "in" = "in" !beginNameChar
 wordModule "module" = "module" !beginNameChar
 wordImport "import" = "import" !beginNameChar
@@ -121,86 +98,6 @@ skip "_" = "_" !beginNameChar {
     location: location()
   };
 }
-
-lvalueRest "rest" = "..." lvalue:lvalue {
-  return lvalue;
-}
-
-lvalueSkip = skip {
-  return {
-    type: "lvalue.skip",
-    location: skip.location
-  };
-}
-
-lvalueName = name:name {
-  return {
-    type: "lvalue.name",
-    name: name.name,
-    location: name.location
-  };
-}
-
-lvalueList =
-  "[" _
-  items:(first:lvalue rest:(_ "," _ item:lvalue { return item; })* { return [first].concat(rest); }) _
-  restItems:("," _ restItems:lvalueRest { return restItems; })?
-  _ "]" {
-  return {
-    type: "lvalue.list",
-    items: items,
-    restItems: restItems,
-    location: location()
-  };
-}
-
-lvalueMapKeyLValueItem = key:expression _ ":" _ lvalue:lvalue {
-  return {
-    key: key,
-    lvalue: lvalue
-  };
-}
-
-lvalueMapKeyItem = key:name {
-  return {
-    key: {
-      type: "string",
-      value: key.name,
-      location: key.location
-    },
-    lvalue: {
-      type: "lvalue.name",
-      value: key.name,
-      location: key.location
-    }
-  };
-}
-
-lvalueMapItem = lvalueMapKeyLValueItem / lvalueMapKeyItem
-
-lvalueMap =
-  "{" _
-  items:(first:lvalueMapItem rest:(_ "," _ item:lvalueMapItem { return item; })* { return [first].concat(rest); }) _
-  restItems:("," _ restItems:lvalueRest { return restItems; })?
-  _ "}" {
-  return {
-    type: "lvalue.map",
-    items: items,
-    restItems: restItems,
-    location: location()
-  };
-}
-
-lvalueAlias = name:name "@" lvalue:lvalue {
-  return {
-    type: "lvalue.alias",
-    name: name,
-    lvalue: lvalue,
-    location: location()
-  };
-}
-
-lvalue = lvalueSkip / lvalueAlias / lvalueName / lvalueList / lvalueMap
 
 undefined "undefined" = "undefined" !beginNameChar {
   return {
@@ -277,22 +174,7 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-spread = "..." value:expression {
-  return value;
-}
-
-argsList =
-  "(" _
-  args:(first:lvalue rest:(_ "," _ arg:lvalue { return arg; })* { return [first].concat(rest); })? _
-  restArgs:("," _ restArgs:lvalueRest { return restArgs; })?
-  _ ")" {
-  return {
-    args: args,
-    restArgs: restArgs
-  };
-}
-
-listItem = expression / spread
+listItem = expression
 
 list "list" =
   "[" _
@@ -319,7 +201,7 @@ mapKeyItem = key:name {
   };
 }
 
-mapItem = mapKeyValueItem / mapKeyItem / spread
+mapItem = mapKeyValueItem / mapKeyItem
 
 map "map" =
   "{" _
@@ -332,11 +214,17 @@ map "map" =
     };
   }
 
-function = wordFn _ argsList:argsList _ "->" _ body:expression {
+argsList =
+  "(" _
+  args:(first:name rest:(_ "," _ arg:name { return arg; })* { return [first].concat(rest); })? _
+  _ ")" {
+  return args || [];
+}
+
+function = wordFn _ args:argsList _ "->" _ body:expression {
   return {
     type: "function",
-    args: argsList.args,
-    restArgs: argsList.restArgs,
+    args: args,
     body: body,
     location: location()
   };
@@ -353,7 +241,7 @@ caseOtherwise = wordElse _ ":" _ otherwise:expression {
   return otherwise;
 }
 
-case "case" = branches:(branch:caseBranch _ { return branch; })+ otherwise:caseOtherwise {
+case "case" = wordCase _ branches:(branch:caseBranch _ { return branch; })+ otherwise:caseOtherwise {
   return {
     type: "case",
     branches: branches,
@@ -362,66 +250,32 @@ case "case" = branches:(branch:caseBranch _ { return branch; })+ otherwise:caseO
   };
 }
 
-monadItem = via:(via:lvalue _ "=" _ { return via; })? value:expression {
-  return {
-    via: via,
-    value: value,
-    location: location()
-  };
-}
-
-monadDo = wordDo _ item:monadItem {
-  return item;
-}
-
-monadReturn = wordReturn _ item:monadItem {
-  return item;
-}
-
-monad "monad" = items:(item:monadDo _ { return item; })+ lastItem:monadReturn {
-  return {
-    type: "monad",
-    items: items.concat([lastItem]),
-    location: location()
-  };
-}
-
-definitionConstant = wordLet _ lvalue:(lvalue / operator) _ "=" _ value:expression {
+definitionConstant = wordVal _ name:name _ "=" _ value:expression {
   return {
     type: "definition.constant",
-    lvalue: lvalue,
+    name: name,
     value: value,
     location: location()
   };
 }
 
-definitionRecord = wordLet _ name:recordName _ args:(arg:name _ { return arg; })* {
-  return {
-    type: "definition.record",
-    name: name,
-    args: args,
-    location: location()
-  };
-}
-
-definitionFunction = wordLet _ name:(name / operator) _ argsList:argsList _ "->" _ body:expression {
+definitionFunction = wordFn _ name:name _ args:argsList _ "->" _ body:expression {
   return {
     type: "definition.function",
     name: name,
-    args: argsList.args,
-    restArgs: argsList.restArgs,
+    args: args,
     body: body,
     location: location()
   };
 }
 
-definition = definitionConstant / definitionRecord / definitionFunction
+definition = definitionConstant / definitionFunction
 
-definitions = definitions:(definition:definition _ { return definition; })+ {
-  return groupDefinitions(definitions);
-}
-
-scope "let" = definitions:definitions _ body:(wordIn _ body:expression { return body; }) {
+scope "let" =
+  wordLet _
+  definitions:(definition:definition _ { return definition; })+ _
+  wordIn _
+  body:(wordIn _ body:expression { return body; }) {
   return {
     type: "scope",
     definitions: definitions,
@@ -446,7 +300,6 @@ atom =
   / list
   / map
   / function
-  / monad
   / case
   / scope
   / subExpression
@@ -462,52 +315,20 @@ unary = operator:operator _ operand:atom {
 
 callee = unary / atom
 
-arg = expression / spread
-
-args =
+call =
+  callee:callee _
   "(" _
-  args:(first:arg rest:(_ "," _ arg:arg { return arg; })* { return [first].concat(rest); })?
+  args:(first:expression rest:(_ "," _ arg:expression { return arg; })* { return [first].concat(rest); })?
   _ ")" {
-  return args || [];
-}
-
-call = callee:callee _ args:args {
   return {
     type: "call",
     callee: callee,
-    args: args,
+    args: args || [],
     location: location()
   };
 }
 
-property = "." property:name {
-  return {
-    type: "property",
-    name: property.name,
-    location: property.location
-  };
-}
-
-access = property:property _ object:atom {
-  return {
-    type: "access",
-    object: object,
-    property: property,
-    location: location()
-  };
-}
-
-invoke = method:property _ object:atom _ args:args {
-  return {
-    type: "invoke",
-    object: object,
-    method: method,
-    args: args,
-    location: location()
-  };
-}
-
-binaryOperand = call / invoke / access / callee
+binaryOperand = call / callee
 
 binary =
   first:binaryOperand
@@ -523,102 +344,3 @@ binary =
   }
 
 expression = binary / binaryOperand / operator
-
-symbol = name:(name / operator) {
-  return {
-    type: "symbol",
-    name: name.name,
-    location: name.location
-  };
-}
-
-symbolsKeyNameItem = key:symbol _ ":" _ name:symbol {
-  return {
-    key: key,
-    name: name
-  };
-}
-
-symbolsKeyItem = name:symbol {
-  return {
-    key: name,
-    name: name
-  };
-}
-
-symbolsItem = symbolsKeyNameItem / symbolsKeyItem
-
-symbols = "{" _
-  items:(first:symbolsItem rest:(_ "," _ item:symbolsItem { return item; })* { return [first].concat(rest); })
-  _ "}" {
-  return {
-    type: "symbols",
-    items: items
-  };
-}
-
-importFromNowhere "import" = value:symbols {
-  return {
-    type: "import",
-    value: value,
-    location: location()
-  };
-}
-
-importFromSomewhere "import" = module:moduleName _ value:(symbol / symbols) {
-  return {
-    type: "import",
-    module: module,
-    value: value,
-    location: location()
-  };
-}
-
-goodImport = importFromSomewhere / importFromNowhere
-
-badImport = . {
-  error("Expected import", location());
-}
-
-import = wordImport _ _import:(goodImport / badImport) {
-  return _import;
-}
-
-goodExport = value:(symbol / symbols) {
-  return {
-    type: "export",
-    value: value,
-    location: location()
-  };
-}
-
-badExport = . {
-  error("Expected export", location());
-}
-
-export "export" = wordExport _ _export:(goodExport / badExport) {
-  return _export;
-}
-
-goodModule =
-  name:moduleName _
-  imports:(_import:import _ { return _import; })*
-  definitions:definitions? _
-  _export:export? {
-  return {
-    type: "module",
-    name: name,
-    imports: imports,
-    export: _export,
-    definitions: definitions || [],
-    location: location()
-  };
-}
-
-badModule = . {
-  error("Expected module", location());
-}
-
-module "module" = wordModule _ module:(goodModule / badModule) {
-  return module;
-}

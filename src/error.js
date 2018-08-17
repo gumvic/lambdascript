@@ -1,6 +1,6 @@
-class Error {
+module.exports = class extends Error {
   constructor(message, location) {
-    this.message = message;
+    super(message);
     location = location || {};
     this.location = {
       file: location.file,
@@ -8,6 +8,4 @@ class Error {
       end: location.end || {}
     };
   }
-}
-
-module.exports = Error;
+};
