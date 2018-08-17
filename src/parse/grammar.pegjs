@@ -1,7 +1,7 @@
-program = steps:(step:(definition / expression) _ { return step; })+ {
+program = statements:(statement:(definition / expression) _ { return statement; })+ {
   return {
     type: "program",
-    steps: steps
+    statements: statements
   };
 }
 

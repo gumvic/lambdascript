@@ -5,48 +5,6 @@ const parse = require("./src/parse");
 const check = require("./src/check");
 const generate = require("./src/generate");
 
-/*const tAny = {
-  type: "any",
-  description: "*",
-  check() {
-    return true;
-  }
-};
-
-function tPrimitive(type, description) {
-  return {
-    type,
-    description,
-    check({ type: _type }) {
-      return _type === type;
-    }
-  };
-}
-
-const tNumber = tPrimitive("number", "number");
-
-function tPrimitiveValue(value) {
-
-}
-
-function tVariant(types) {
-  return {
-    type: "variant",
-    types: types,
-    description: `(${types.map(({ description }) => description).join(" | ")})`,
-    check(type) {
-      if (type.type === "variant") {
-        for(let _type of type.types) {
-
-        }
-      }
-      else {
-
-      }
-    }
-  };
-}*/
-
 const tAny = {
   example() {
     return {
@@ -76,9 +34,6 @@ function tPrimitive(type) {
     }
   };
 }
-
-const tNumber = tPrimitive("number");
-const tString = tPrimitive("string");
 
 function tVariant(...types) {
   return {
@@ -113,6 +68,9 @@ function tVariant(...types) {
     }
   };
 };
+
+const tNumber = tPrimitive("number");
+const tString = tPrimitive("string");
 
 function initEnvironment() {
   global.immutable = immutable;

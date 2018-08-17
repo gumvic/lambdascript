@@ -154,6 +154,10 @@ function genMap({ items }, context) {
   };
 }
 
+function groupStatements(statements) {
+  return statements.reduce((statements, statement) => statements.concat(statement), []);
+}
+
 function genConstantDefinition({ name, value }, context) {
   return {
     type: "VariableDeclaration",
@@ -169,17 +173,25 @@ function genConstantDefinition({ name, value }, context) {
 }
 
 function genFunctionDefinition(fun, context) {
-  return {
-    type: "VariableDeclaration",
-    declarations: [
-      {
-        type: "VariableDeclarator",
-        id: generate(fun.name, context),
-        init: genFunction(fun, context)
-      }
-    ],
-    kind: "const"
-  };
+  const name = generate(fun.name, context)
+  return [
+    {
+      type: "VariableDeclaration",
+      declarations: [
+        {
+          type: "VariableDeclarator",
+          id: name
+        }
+      ],
+      kind: "let"
+    },
+    {
+      type: "AssignmentExpression",
+      operator: "=",
+      left: name,
+      right: genFunction(fun, context)
+    }
+  ];
 }
 
 function genDefinition(definition, context) {
@@ -190,14 +202,12 @@ function genDefinition(definition, context) {
   }
 }
 
-function genDefinitions(definitions, context) {
-  return definitions
-    .map(definition => genDefinition(definition, context))
-    .reduce((a, b) => a.concat(b), []);
-}
-
-function genFunction(fun, context) {
-
+function genFunction({ args, body }, context) {
+  return {
+    type: "ArrowFunctionExpression",
+    params: [],
+    body: generate(body, context)
+  };
 }
 
 function genCase({ branches, otherwise }, context) {
@@ -224,15 +234,17 @@ function genScope({ definitions, body }, context) {
   return {
     type: "CallExpression",
     callee: {
-      type: "FunctionExpression",
+      type: "ArrowFunctionExpression",
       params: [],
       body: {
         type: "BlockStatement",
-        body: genDefinitions(definitions, context)
-          .concat({
-            type: "ReturnStatement",
-            argument: generate(body, context)
-          })
+        body: groupStatements(
+          definitions
+            .map(definition => genDefinition(definition, context))
+            .concat({
+              type: "ReturnStatement",
+              argument: generate(body, context)
+            }))
       }
     },
     arguments: []
@@ -262,20 +274,34 @@ function genProgramConstantDefinition({ name, value }, context) {
 }
 
 function genProgramFunctionDefinition(fun, context) {
-  return {
-    type: "AssignmentExpression",
-    operator: "=",
-    left: {
-      type: "MemberExpression",
-      object: GLOBAL,
-      property: generate(fun.name, context),
-      computed: false
+  const name = generate(fun.name, context)
+  return [
+    {
+      type: "AssignmentExpression",
+      operator: "=",
+      left: {
+        type: "MemberExpression",
+        object: GLOBAL,
+        property: name,
+        computed: false
+      },
+      right: genFunction(fun, context)
     },
-    right: genFunction(fun, context)
-  };
+    {
+      type: "AssignmentExpression",
+      operator: "=",
+      left: {
+        type: "MemberExpression",
+        object: GLOBAL,
+        property: name,
+        computed: false
+      },
+      right: genFunction(fun, context)
+    }
+  ];
 }
 
-function genProgramStep(step, context) {
+function genProgramStatement(step, context) {
   switch(step.type) {
     case "definition.constant": return genProgrConstantDefinition(definition, context);
     case "definition.function": return genProgramFunctionDefinition(definition, context);
@@ -283,10 +309,11 @@ function genProgramStep(step, context) {
   }
 }
 
-function genProgram({ steps }, context) {
+function genProgram({ statements }, context) {
   return {
     type: "Program",
-    body: steps.map((step) => genProgramStep(step, context))
+    body: groupStatements(
+      statements.map((step) => genProgramStatement(step, context)))
   };
 }
 
