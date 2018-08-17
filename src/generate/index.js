@@ -16,7 +16,7 @@ const IMMUTABLE_LIST = {
   object: IMMUTABLE,
   property: {
     type: "Identifier",
-    name: "list"
+    name: "List"
   },
   computed: false
 };
@@ -26,7 +26,7 @@ const IMMUTABLE_MAP = {
   object: IMMUTABLE,
   property: {
     type: "Identifier",
-    name: "map"
+    name: "Map"
   },
   computed: false
 };
