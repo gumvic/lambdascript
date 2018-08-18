@@ -159,11 +159,7 @@ function genMap({ items }, context) {
   };
 }
 
-function groupStatements(statements) {
-  return statements.reduce((statements, statement) => statements.concat(statement), []);
-}
-
-function genConstantDefinition({ name, value }, context) {
+function genLocalDefinition({ name, value }, context) {
   return {
     type: "VariableDeclaration",
     declarations: [
@@ -175,36 +171,6 @@ function genConstantDefinition({ name, value }, context) {
     ],
     kind: "const"
   };
-}
-
-function genFunctionDefinition(fun, context) {
-  const name = generate(fun.name, context)
-  return [
-    {
-      type: "VariableDeclaration",
-      declarations: [
-        {
-          type: "VariableDeclarator",
-          id: name
-        }
-      ],
-      kind: "let"
-    },
-    {
-      type: "AssignmentExpression",
-      operator: "=",
-      left: name,
-      right: genFunction(fun, context)
-    }
-  ];
-}
-
-function genDefinition(definition, context) {
-  switch(definition.type) {
-    case "definition.constant": return genConstantDefinition(definition, context);
-    case "definition.function": return genFunctionDefinition(definition, context);
-    default: throw new GenerationError(`Internal error: unknown AST type ${definition.type}.`, definition.location);
-  }
 }
 
 function genFunction({ args, body }, context) {
@@ -243,13 +209,12 @@ function genScope({ definitions, body }, context) {
       params: [],
       body: {
         type: "BlockStatement",
-        body: groupStatements(
-          definitions
-            .map(definition => genDefinition(definition, context))
-            .concat({
-              type: "ReturnStatement",
-              argument: generate(body, context)
-            }))
+        body: definitions
+          .map(definition => genLocalDefinition(definition, context))
+          .concat({
+            type: "ReturnStatement",
+            argument: generate(body, context)
+          })
       }
     },
     arguments: []
@@ -264,61 +229,31 @@ function genCall({ callee, args }, context) {
   };
 }
 
-function genProgramConstantDefinition({ name, value }, context) {
+function genGlobalDefinition({ name, value }, context) {
   return {
-    type: "AssignmentExpression",
-    operator: "=",
-    left: {
-      type: "MemberExpression",
-      object: GLOBAL,
-      property: generate(name, context),
-      computed: false
-    },
-    right: generate(value, context)
+    type: "BlockStatement",
+    body: [
+      {
+        type: "AssignmentExpression",
+        operator: "=",
+        left: generate(name, context),
+        right: generate(value, context)
+      }
+    ]
   };
 }
 
-function genProgramFunctionDefinition(fun, context) {
-  const name = generate(fun.name, context)
-  return [
-    {
-      type: "AssignmentExpression",
-      operator: "=",
-      left: {
-        type: "MemberExpression",
-        object: GLOBAL,
-        property: name,
-        computed: false
-      },
-      right: UNDEFINED
-    },
-    {
-      type: "AssignmentExpression",
-      operator: "=",
-      left: {
-        type: "MemberExpression",
-        object: GLOBAL,
-        property: name,
-        computed: false
-      },
-      right: genFunction(fun, context)
-    }
-  ];
-}
-
-function genProgramStatement(step, context) {
-  switch(step.type) {
-    case "definition.constant": return genProgrConstantDefinition(definition, context);
-    case "definition.function": return genProgramFunctionDefinition(definition, context);
-    default: return generate(step, context);
+function genStatement(statement, context) {
+  switch(statement.type) {
+    case "definition": return genGlobalDefinition(statement, context);
+    default: return generate(statement, context);
   }
 }
 
 function genProgram({ statements }, context) {
   return {
     type: "Program",
-    body: groupStatements(
-      statements.map((step) => genProgramStatement(step, context)))
+    body: statements.map((step) => genStatement(step, context))
   };
 }
 

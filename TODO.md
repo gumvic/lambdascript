@@ -11,7 +11,7 @@ in
 end
 ```
 - consecutive calls: `f(x)(y)`
-- new line to break expressions where possible, and lighter syntax
+- if we define `f` globally while checking, and then the check fails, it should be de-defined, including the case when the previous value should be brought back
 - optimize native things like `throw`, `instanceof` etc
 - optimize to `===` when at least one is a primitive
 - optimize operators

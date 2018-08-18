@@ -245,26 +245,30 @@ case "case" =
   };
 }
 
-definitionConstant = name:name _ "=" _ value:expression {
+constantDefinition = name:name _ "=" _ value:expression {
   return {
-    type: "definition.constant",
+    type: "definition",
     name: name,
     value: value,
     location: location()
   };
 }
 
-definitionFunction = name:name _ args:argsList _ "->" _ body:expression {
+functionDefinition = name:name _ args:argsList _ "->" _ body:expression {
   return {
-    type: "definition.function",
+    type: "definition",
     name: name,
-    args: args,
-    body: body,
+    value: {
+      type: "function",
+      args: args,
+      body: body,
+      location: location()
+    },
     location: location()
   };
 }
 
-definition = definitionConstant / definitionFunction
+definition = constantDefinition / functionDefinition
 
 scope "let" =
   wordLet _

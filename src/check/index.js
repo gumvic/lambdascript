@@ -1,62 +1,69 @@
 const CheckError = require("./error");
 
-class Context {
-  constructor(parent) {
-    this.parent = parent;
+class GlobalContext {
+  define({ name }, meta) {
+    global.monada$env[name] = meta;
+  }
+
+  getDefined({ name, location }) {
+    throw new CheckError(`Not defined: ${name}`, location);
   }
 
   spawn() {
-    return new Context(this);
+    return new LocalContext(this);
+  }
+}
+
+class LocalContext {
+  constructor(parent) {
+    this.parent = parent;
+    this.defined = {};
+  }
+
+  define({ name, location }, meta) {
+    if (this.defined[name]) {
+      throw new CheckError(`Already defined: ${name}`, location);
+    }
+    else {
+      this.defined[name] = meta;
+    }
+  }
+
+  getDefined({ name, location }) {
+    return this.defined[name] || this.parent.getDefined({ name, location });
+  }
+
+  spawn() {
+    return new LocalContext(this);
   }
 }
 
 function checkUndefined(ast, context) {
-  return {
-    type: scalar("undefined"),
-    context: context
-  };
+
 }
 
 function checkNull(ast, context) {
-  return {
-    type: scalar("null"),
-    context: context
-  };
+
 }
 
 function checkFalse(ast, context) {
-  return {
-    type: scalar("false"),
-    context: context
-  };
+
 }
 
 function checkTrue(ast, context) {
-  return {
-    type: scalar("true"),
-    context: context
-  };
+
 }
 
 function checkNumber(ast, context) {
-  return {
-    type: scalar("number"),
-    context: context
-  };
+
 }
 
 function checkString(ast, context) {
-  return {
-    type: scalar("string"),
-    context: context
-  };
+
 }
 
 function checkName(ast, context) {
-  return {
-    type: defined(ast, context),
-    context: context
-  };
+
 }
 
 function checkScope(ast, context) {
@@ -89,5 +96,5 @@ function check(ast, context) {
 
 module.exports = function(ast) {
   return ast;
-  //return check(ast, context);
+  //return check(ast, new GlobalContext());
 };

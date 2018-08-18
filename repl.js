@@ -150,8 +150,11 @@ function repl(src) {
 
 function run() {
   initEnvironment();
-  repl(`print({ "foo": 42 })`);
-  repl(`print((fn(x) -> x)(42))`);
+  repl(`xx = 42`);
+  repl(`f() -> f`);
+  repl(`ff() -> xx`);
+  repl(`print(f())`);
+  repl(`print(ff())`);
 }
 
 run();
