@@ -117,7 +117,7 @@ const tNumber = tPrimitive("number");
 const tString = tPrimitive("string");
 
 function initEnvironment() {
-  global.monada$env = {
+  global.monada$meta = {
     print: tFunction(tAny, tUndefined)
   };
   global.immutable = immutable;

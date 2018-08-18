@@ -1,14 +1,9 @@
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
 
-const UNDEFINED = {
+const MONADA_META = {
   type: "Identifier",
-  name: "undefined"
-};
-
-const GLOBAL = {
-  type: "Identifier",
-  name: "global"
+  name: "monada$meta"
 };
 
 const IMMUTABLE = {
@@ -229,15 +224,35 @@ function genCall({ callee, args }, context) {
   };
 }
 
-function genGlobalDefinition({ name, value }, context) {
+function genGlobalDefinition({ name, value, meta }, context) {
+  name = generate(name, context);
+  value = generate(value, context);
+  meta = meta ?
+    generate(meta, context) :
+    {
+      type: "CallExpression",
+      callee: IMMUTABLE_MAP,
+      arguments: []
+    };
   return {
     type: "BlockStatement",
     body: [
       {
         type: "AssignmentExpression",
         operator: "=",
-        left: generate(name, context),
-        right: generate(value, context)
+        left: {
+          type: "MemberExpression",
+          object: MONADA_META,
+          property: name,
+          computed: false
+        },
+        right: meta
+      },
+      {
+        type: "AssignmentExpression",
+        operator: "=",
+        left: name,
+        right: value
       }
     ]
   };

@@ -1,6 +1,6 @@
 const CheckError = require("./error");
 
-class GlobalContext {
+/*class GlobalContext {
   define({ name }, meta) {
     global.monada$env[name] = meta;
   }
@@ -36,10 +36,43 @@ class LocalContext {
   spawn() {
     return new LocalContext(this);
   }
+}*/
+
+class Context {
+  constructor(definitions, parent) {
+    this.definitions = definitions;
+    this.parent = parent;
+  }
+
+  define({ name, location }, meta) {
+    if (this.definitions[name]) {
+      throw new CheckError(`Already defined: ${name}`, location);
+    }
+    else {
+      this.definitions[name] = meta;
+    }
+  }
+
+  getDefined({ name, location }) {
+    const meta = this.definitions[name];
+    if (meta) {
+      return meta;
+    }
+    else if (this.parent) {
+      return this.parent.getDefined({ name, location });
+    }
+    else {
+      throw new CheckError(`Not defined: ${name}`, location);
+    }
+  }
+
+  spawn() {
+    return new Context({}, this);
+  }
 }
 
 function checkUndefined(ast, context) {
-
+  
 }
 
 function checkNull(ast, context) {
@@ -95,6 +128,5 @@ function check(ast, context) {
 }
 
 module.exports = function(ast) {
-  return ast;
-  //return check(ast, new GlobalContext());
+  return check(ast, new Context(global.monada$meta));
 };
