@@ -1,13 +1,14 @@
-program = statements:(statement:(definition / expression) _ { return statement; })+ {
+program = _ statements:(statement:(definition / expression) _ { return statement; })+ {
   return {
     type: "program",
     statements: statements
   };
 }
 
-_ "whitespace" = ([ \t\n\r] / comment)*
-
 nl = [\n\r] / [\n]
+
+_ "whitespace" = ([ \t\n\r] / comment)*
+__ "whitespace" = ([ \t] / comment)*
 
 oneLineComment = "#" (!nl .)*
 multilineComment = "#{" (multilineComment / (!"}#" .))* "}#"
@@ -15,30 +16,20 @@ comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
   wordCase
-  / wordWhen
   / wordElse
   / wordDo
-  / wordReturn
   / wordLet
-  / wordVal
   / wordFn
   / wordIn
-  / wordModule
-  / wordImport
-  / wordExport
+  / wordEnd
 
 wordCase "case" = "case" !beginNameChar
-wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
-wordReturn "return" = "return" !beginNameChar
 wordLet "let" = "let" !beginNameChar
-wordVal "val" = "val" !beginNameChar
 wordFn "fn" = "fn" !beginNameChar
 wordIn "in" = "in" !beginNameChar
-wordModule "module" = "module" !beginNameChar
-wordImport "import" = "import" !beginNameChar
-wordExport "export" = "export" !beginNameChar
+wordEnd "end" = "end" !beginNameChar
 
 beginNameChar = [a-zA-Z_]
 nameChar = [0-9a-zA-Z_']
@@ -230,18 +221,22 @@ function = wordFn _ args:argsList _ "->" _ body:expression {
   };
 }
 
-caseBranch = wordWhen _ condition:expression _ ":" _ value:expression {
+caseBranch = condition:expression _ ":" _ value:expression {
   return {
     condition: condition,
     value: value
   };
 }
 
-caseOtherwise = wordElse _ ":" _ otherwise:expression {
+caseOtherwise = wordElse _ otherwise:expression {
   return otherwise;
 }
 
-case "case" = wordCase _ branches:(branch:caseBranch _ { return branch; })+ otherwise:caseOtherwise {
+case "case" =
+  wordCase _
+  branches:(branch:caseBranch _ { return branch; })+
+  otherwise:caseOtherwise _
+  wordEnd {
   return {
     type: "case",
     branches: branches,
@@ -250,7 +245,7 @@ case "case" = wordCase _ branches:(branch:caseBranch _ { return branch; })+ othe
   };
 }
 
-definitionConstant = wordVal _ name:name _ "=" _ value:expression {
+definitionConstant = name:name _ "=" _ value:expression {
   return {
     type: "definition.constant",
     name: name,
@@ -259,7 +254,7 @@ definitionConstant = wordVal _ name:name _ "=" _ value:expression {
   };
 }
 
-definitionFunction = wordFn _ name:name _ args:argsList _ "->" _ body:expression {
+definitionFunction = name:name _ args:argsList _ "->" _ body:expression {
   return {
     type: "definition.function",
     name: name,
@@ -275,7 +270,8 @@ scope "let" =
   wordLet _
   definitions:(definition:definition _ { return definition; })+ _
   wordIn _
-  body:(wordIn _ body:expression { return body; }) {
+  body:expression _
+  wordEnd {
   return {
     type: "scope",
     definitions: definitions,
@@ -300,11 +296,9 @@ atom =
   / list
   / map
   / function
-  / case
-  / scope
   / subExpression
 
-unary = operator:operator _ operand:atom {
+unary = operator:operator __ operand:atom {
   return {
     type: "call",
     callee: operator,
@@ -316,7 +310,7 @@ unary = operator:operator _ operand:atom {
 callee = unary / atom
 
 call =
-  callee:callee _
+  callee:callee __
   "(" _
   args:(first:expression rest:(_ "," _ arg:expression { return arg; })* { return [first].concat(rest); })?
   _ ")" {
@@ -332,7 +326,7 @@ binaryOperand = call / callee
 
 binary =
   first:binaryOperand
-  rest:(_ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
+  rest:(__ operator:operator _ right:binaryOperand { return { operator, right }; })+ {
   return rest.reduce(
     (left, { operator, right }) => ({
       type: "call",
@@ -343,4 +337,4 @@ binary =
     first);
   }
 
-expression = binary / binaryOperand / operator
+expression = case / scope / binary / binaryOperand / operator

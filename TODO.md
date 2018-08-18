@@ -10,6 +10,7 @@ in
   end
 end
 ```
+- consecutive calls: `f(x)(y)`
 - new line to break expressions where possible, and lighter syntax
 - optimize native things like `throw`, `instanceof` etc
 - optimize to `===` when at least one is a primitive
