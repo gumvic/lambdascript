@@ -10,7 +10,7 @@ in
   end
 end
 ```
-- optimizations:
+- new line to break expressions where possible, and lighter syntax
 - optimize native things like `throw`, `instanceof` etc
 - optimize to `===` when at least one is a primitive
 - optimize operators

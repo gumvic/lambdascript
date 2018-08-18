@@ -1,6 +1,11 @@
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
 
+const UNDEFINED = {
+  type: "Identifier",
+  name: "undefined"
+};
+
 const GLOBAL = {
   type: "Identifier",
   name: "global"
@@ -205,7 +210,7 @@ function genDefinition(definition, context) {
 function genFunction({ args, body }, context) {
   return {
     type: "ArrowFunctionExpression",
-    params: [],
+    params: args.map((arg) => genName(arg, context)),
     body: generate(body, context)
   };
 }
@@ -285,7 +290,7 @@ function genProgramFunctionDefinition(fun, context) {
         property: name,
         computed: false
       },
-      right: genFunction(fun, context)
+      right: UNDEFINED
     },
     {
       type: "AssignmentExpression",
