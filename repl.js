@@ -28,17 +28,18 @@ function tPrimitive(type, value) {
   return {
     example() {
       return {
-        type
+        type,
+        value
       };
     },
     cast(other) {
       const { type: otherType, value: otherValue } = other.example();
-      return
+      return (
         (type === otherType) &&
-        (value === undefined || value === otherValue);
+        (value === undefined || value === otherValue));
     },
     toString() {
-      return value === undefined ? type : value;
+      return value === undefined ? type : `${type}(${value})`;
     }
   };
 }
@@ -78,12 +79,27 @@ function tVariant(...types) {
 };
 
 function tFunction(...args) {
+  function castArgs(_args) {
+    if (_args.length !== args.length) {
+      return false;
+    }
+    else {
+      for (let i = 0; i < _args.length; i++) {
+        if (!cast(args[i], _args[i])) {
+          return false;
+        }
+      }
+      return true;
+    }
+  }
   function ensureFn(x) {
     return typeof x === "function" ?
-      x :
-      (..._args) => _args.length === args.length && x;
+      (...args) => x(...args) :
+      () => x;
   }
-  const fn = ensureFn(args.pop());
+  const res = args.pop();
+  const resFn = ensureFn(res);
+  const fn = (...args) => castArgs(args) && resFn(...args);
   return {
     example() {
       return {
@@ -94,7 +110,7 @@ function tFunction(...args) {
     cast(other) {
       const { type: otherType, fn: otherFn } = other;
       if (otherType === "function") {
-        const res = fn(...args);
+        const res = resFn(...args);
         const otherRes = otherFn(...args);
         return res && otherRes && cast(res, otherRes);
       }
@@ -103,7 +119,7 @@ function tFunction(...args) {
       }
     },
     toString() {
-      return "->"
+      return `fn(${args.map((arg) => arg.toString()).join(", ")}) -> ${res.toString()}`;
     }
   };
 };
@@ -118,9 +134,19 @@ const tString = tPrimitive("string");
 
 function initEnvironment() {
   global.monada$meta = {
-    print: tFunction(tAny, tUndefined)
+    print: {
+      type: tFunction(tAny, tUndefined)
+    }
   };
   global.immutable = immutable;
+  global.tUndefined = tUndefined;
+  global.tNull = tNull;
+  global.tFalse = tFalse;
+  global.tTrue = tTrue;
+  global.tBoolean = tBoolean;
+  global.tNumber = tNumber;
+  global.tString = tString;
+  global.tPrimitive = tPrimitive;
   global.print = (x) => console.log(x);
 }
 
@@ -150,11 +176,7 @@ function repl(src) {
 
 function run() {
   initEnvironment();
-  repl(`xx = 42`);
-  repl(`f() -> f`);
-  repl(`ff() -> xx`);
-  repl(`print(f())`);
-  repl(`print(ff())`);
+  repl(`print(42)`);
 }
 
 run();

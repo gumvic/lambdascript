@@ -227,13 +227,18 @@ function genCall({ callee, args }, context) {
 function genGlobalDefinition({ name, value, meta }, context) {
   name = generate(name, context);
   value = generate(value, context);
-  meta = meta ?
+  /*meta = meta ?
     generate(meta, context) :
     {
       type: "CallExpression",
       callee: IMMUTABLE_MAP,
       arguments: []
-    };
+    };*/
+  meta = {
+    type: "CallExpression",
+    callee: IMMUTABLE_MAP,
+    arguments: []
+  };
   return {
     type: "BlockStatement",
     body: [

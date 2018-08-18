@@ -40,7 +40,8 @@ class LocalContext {
 
 class Context {
   constructor(definitions, parent) {
-    this.definitions = definitions;
+    // TODO: optimize -- there might be thousands of definitions in global context
+    this.definitions = { ...definitions };
     this.parent = parent;
   }
 
@@ -71,40 +72,185 @@ class Context {
   }
 }
 
+/*function typeOfUndefined(ast, context) {
+  return global.tUndefined;
+}
+
+function typeOfNull(ast, context) {
+  return global.tNull;
+}
+
+function typeOfFalse(ast, context) {
+  return global.tFalse;
+}
+
+function typeOfTrue(ast, context) {
+  return global.tTrue;
+}
+
+function typeOfNumber(ast, context) {
+  return global.tNumber;
+}
+
+function typeOfString(ast, context) {
+  return global.tString;
+}
+
+function typeOfName(ast, context) {
+  return context.getDefined(ast).get("type");
+}
+
+function typeOfScope(ast, context) {
+
+}
+
+function typeOfFunction(ast, context) {
+
+}
+
+function typeOf(ast, context) {
+  switch (ast.type) {
+    case "skip": return typeOfSkip(ast, context);
+    case "undefined": return typeOfUndefined(ast, context);
+    case "null": return typeOfNull(ast, context);
+    case "false": return typeOfFalse(ast, context);
+    case "true": return typeOfTrue(ast, context);
+    case "number": return typeOfNumber(ast, context);
+    case "string": return typeOfString(ast, context);
+    case "name": return typeOfName(ast, context);
+    case "list": return typeOfList(ast, context);
+    case "map":  return typeOfMap(ast, context);
+    case "function": return typeOfFunction(ast, context);
+    case "case": return typeOfCase(ast, context);
+    case "scope": return typeOfScope(ast, context);
+    case "call": return typeOfCall(ast, context);
+    default: throw new CheckError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
+  }
+}*/
+
 function checkUndefined(ast, context) {
-  
+  return {
+    ...ast,
+    $type: global.tUndefined
+  };
 }
 
 function checkNull(ast, context) {
-
+  return {
+    ...ast,
+    $type: global.tNull
+  };
 }
 
 function checkFalse(ast, context) {
-
+  return {
+    ...ast,
+    $type: global.tFalse
+  };
 }
 
 function checkTrue(ast, context) {
-
+  return {
+    ...ast,
+    $type: global.tTrue
+  };
 }
 
 function checkNumber(ast, context) {
-
+  return {
+    ...ast,
+    $type: global.tPrimitive("number", parseFloat(ast.value))
+  };
 }
 
 function checkString(ast, context) {
+  return {
+    ...ast,
+    $type: global.tPrimitive("string", ast.value)
+  };
+}
 
+function checkList(ast, context) {
+  return ast;
+}
+
+function checkMap(ast, context) {
+  return ast;
 }
 
 function checkName(ast, context) {
-
-}
-
-function checkScope(ast, context) {
-
+  return {
+    ...ast,
+    $type: context.getDefined(ast).type
+  };
 }
 
 function checkFunction(ast, context) {
+  /*context = context.spawn();
+  for(let arg of ast.args) {
+    context.define(arg);
+  }
+  const body = check(ast.body, context);*/
+  return ast;
+}
 
+function checkCall(ast, context) {
+  const callee = check(ast.callee, context);
+  const calleeType = callee.$type;
+  const args = ast.args.map((arg) => check(arg, context));
+  const argTypes = args.map((arg) => arg.$type);
+  const { type, fn } = calleeType.example();
+  let resType;
+  if (type !== "function" ||
+      !(resType = fn(...argTypes))) {
+    const calleeTypeDescription = calleeType.toString();
+    const argTypesDescription = argTypes.map((type) => type.toString()).join(", ");
+    throw new CheckError(`Can't apply ${calleeTypeDescription} to (${argTypesDescription})`, ast.location);
+  }
+  return {
+    ...ast,
+    callee,
+    args,
+    $type: resType
+  };
+}
+
+function checkCase(ast, context) {
+  return ast;
+}
+
+function checkScope(ast, context) {
+  context = context.spawn();
+  const definitions = ast.definitions.map((definition) => check(definition, context));
+  const body = check(ast.body, context);
+  return {
+    ...ast,
+    definitions,
+    body,
+    $type: body.$type
+  };
+}
+
+function checkDefinition(ast, context) {
+  context.define(ast.name);
+  const value = check(ast.value, context);
+  const meta = {
+    type: value.$type
+  };
+  return {
+    ...ast,
+    value,
+    meta
+  };
+}
+
+function checkProgram(ast, context) {
+  context = context.spawn();
+  const statements = ast.statements.map((statement) => check(statement, context));
+  return {
+    ...ast,
+    statements
+  };
 }
 
 function check(ast, context) {
@@ -120,10 +266,12 @@ function check(ast, context) {
     case "list": return checkList(ast, context);
     case "map":  return checkMap(ast, context);
     case "function": return checkFunction(ast, context);
+    case "call": return checkCall(ast, context);
     case "case": return checkCase(ast, context);
     case "scope": return checkScope(ast, context);
-    case "call": return checkCall(ast, context);
-    default: throw new CheckError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
+    case "definition": return checkDefinition(ast, context);
+    case "program": return checkProgram(ast, context);
+    default: throw new TypeError(`Internal error: unknown AST type ${ast.type}.`);
   }
 }
 
