@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+const { EOL } = require("os");
 const immutable = require("immutable");
 const parse = require("./src/parse");
 const check = require("./src/check");
@@ -77,12 +78,28 @@ function initEnvironment() {
   global.print = (x) => console.log(x);
 }
 
+function formatError(e, src) {
+  if (e.location) {
+    const line = e.location.start.line - 1;
+    const column = e.location.start.column;
+    return [e.message, src.split(EOL)[line], "^".padStart(column)].join(EOL);
+  }
+  else {
+    return e.stack;
+  }
+}
+
 function repl(src) {
-  const js =
-    generate(
-      check(
-        parse(src)));
-  eval(js);
+  try {
+    const js =
+      generate(
+        check(
+          parse(src)));
+    eval(js);
+  }
+  catch(e) {
+    console.log(formatError(e, src));
+  }
 }
 
 function run() {
