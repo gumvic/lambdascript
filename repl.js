@@ -6,13 +6,17 @@ const parse = require("./src/parse");
 const check = require("./src/check");
 const generate = require("./src/generate");
 
+function cast(to, from) {
+  return to.cast(from);
+}
+
 const tAny = {
   example() {
     return {
       type: "any"
     };
   },
-  check(other) {
+  cast(other) {
     return true;
   },
   toString() {
@@ -20,18 +24,21 @@ const tAny = {
   }
 };
 
-function tPrimitive(type) {
+function tPrimitive(type, value) {
   return {
     example() {
       return {
         type
       };
     },
-    check(other) {
-      return type === other.example().type;
+    cast(other) {
+      const { type: otherType, value: otherValue } = other.example();
+      return
+        (type === otherType) &&
+        (value === undefined || value === otherValue);
     },
     toString() {
-      return type;
+      return value === undefined ? type : value;
     }
   };
 }
@@ -44,12 +51,12 @@ function tVariant(...types) {
         types
       };
     },
-    check(other) {
-      const example = other.example();
-      if (example.type === "variant") {
+    cast(other) {
+      const { type: otherType, types: otherTypes } = other.example();
+      if (otherType === "variant") {
         const type = variant(...types);
-        for (let _other of example.types) {
-          if (!check(type, _other)) {
+        for (let _other of otherTypes) {
+          if (!cast(type, _other)) {
             return false;
           }
         }
@@ -57,7 +64,7 @@ function tVariant(...types) {
       }
       else {
         for (let type of types) {
-          if (check(type, other)) {
+          if (cast(type, other)) {
             return true;
           }
         }
@@ -70,10 +77,49 @@ function tVariant(...types) {
   };
 };
 
+function tFunction(...args) {
+  function ensureFn(x) {
+    return typeof x === "function" ?
+      x :
+      (..._args) => _args.length === args.length && x;
+  }
+  const fn = ensureFn(args.pop());
+  return {
+    example() {
+      return {
+        type: "function",
+        fn
+      };
+    },
+    cast(other) {
+      const { type: otherType, fn: otherFn } = other;
+      if (otherType === "function") {
+        const res = fn(...args);
+        const otherRes = otherFn(...args);
+        return res && otherRes && cast(res, otherRes);
+      }
+      else {
+        return false;
+      }
+    },
+    toString() {
+      return "->"
+    }
+  };
+};
+
+const tUndefined = tPrimitive("undefined");
+const tNull = tPrimitive("null");
+const tFalse = tPrimitive("false");
+const tTrue = tPrimitive("true");
+const tBoolean = tVariant(tFalse, tTrue);
 const tNumber = tPrimitive("number");
 const tString = tPrimitive("string");
 
 function initEnvironment() {
+  global.monada$env = {
+    print: tFunction(tAny, tUndefined)
+  };
   global.immutable = immutable;
   global.print = (x) => console.log(x);
 }
