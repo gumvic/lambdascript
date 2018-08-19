@@ -72,62 +72,6 @@ class Context {
   }
 }
 
-/*function typeOfUndefined(ast, context) {
-  return global.tUndefined;
-}
-
-function typeOfNull(ast, context) {
-  return global.tNull;
-}
-
-function typeOfFalse(ast, context) {
-  return global.tFalse;
-}
-
-function typeOfTrue(ast, context) {
-  return global.tTrue;
-}
-
-function typeOfNumber(ast, context) {
-  return global.tNumber;
-}
-
-function typeOfString(ast, context) {
-  return global.tString;
-}
-
-function typeOfName(ast, context) {
-  return context.getDefined(ast).get("type");
-}
-
-function typeOfScope(ast, context) {
-
-}
-
-function typeOfFunction(ast, context) {
-
-}
-
-function typeOf(ast, context) {
-  switch (ast.type) {
-    case "skip": return typeOfSkip(ast, context);
-    case "undefined": return typeOfUndefined(ast, context);
-    case "null": return typeOfNull(ast, context);
-    case "false": return typeOfFalse(ast, context);
-    case "true": return typeOfTrue(ast, context);
-    case "number": return typeOfNumber(ast, context);
-    case "string": return typeOfString(ast, context);
-    case "name": return typeOfName(ast, context);
-    case "list": return typeOfList(ast, context);
-    case "map":  return typeOfMap(ast, context);
-    case "function": return typeOfFunction(ast, context);
-    case "case": return typeOfCase(ast, context);
-    case "scope": return typeOfScope(ast, context);
-    case "call": return typeOfCall(ast, context);
-    default: throw new CheckError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
-  }
-}*/
-
 function checkUndefined(ast, context) {
   return {
     ...ast,
@@ -234,9 +178,18 @@ function checkScope(ast, context) {
 function checkDefinition(ast, context) {
   context.define(ast.name);
   const value = check(ast.value, context);
-  const meta = {
-    type: value.$type
-  };
+  /*const meta = {
+    type: "map",
+    items: [
+      {
+        key: {
+          type: "string",
+          value: "type"
+        },
+        value:
+      }
+    ]
+  };*/
   return {
     ...ast,
     value,

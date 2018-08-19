@@ -1,9 +1,9 @@
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
 
-const MONADA_META = {
+const DEFINE = {
   type: "Identifier",
-  name: "monada$meta"
+  name: "define"
 };
 
 const IMMUTABLE = {
@@ -240,6 +240,11 @@ function genGlobalDefinition({ name, value, meta }, context) {
     arguments: []
   };
   return {
+    type: "CallExpression",
+    callee: DEFINE,
+    arguments: [name, value, meta]
+  };
+  /*return {
     type: "BlockStatement",
     body: [
       {
@@ -260,7 +265,7 @@ function genGlobalDefinition({ name, value, meta }, context) {
         right: value
       }
     ]
-  };
+  };*/
 }
 
 function genStatement(statement, context) {

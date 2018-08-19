@@ -124,30 +124,39 @@ function tFunction(...args) {
   };
 };
 
-const tUndefined = tPrimitive("undefined");
-const tNull = tPrimitive("null");
-const tFalse = tPrimitive("false");
-const tTrue = tPrimitive("true");
-const tBoolean = tVariant(tFalse, tTrue);
-const tNumber = tPrimitive("number");
-const tString = tPrimitive("string");
+function define(name, value, meta) {
+  global.monada$meta[name] = meta;
+  global[name] = value;
+  return value;
+}
+
+function compile(src) {
+  const parsed = parse(src);
+  const checked = check(parsed);
+  const generated = generate(checked);
+  return eval(generated);
+}
 
 function initEnvironment() {
-  global.monada$meta = {
-    print: {
-      type: tFunction(tAny, tUndefined)
-    }
-  };
-  global.immutable = immutable;
-  global.tUndefined = tUndefined;
-  global.tNull = tNull;
-  global.tFalse = tFalse;
-  global.tTrue = tTrue;
-  global.tBoolean = tBoolean;
-  global.tNumber = tNumber;
-  global.tString = tString;
-  global.tPrimitive = tPrimitive;
-  global.print = (x) => console.log(x);
+  global.monada$meta = {};
+
+  define("define", define);
+
+  define("immutable", immutable);
+
+  define("tAny", tAny);
+  define("tUndefined", tPrimitive("undefined"));
+  define("tNull", tPrimitive("null"));
+  define("tFalse", tPrimitive("false"));
+  define("tTrue", tPrimitive("true"));
+  define("tBoolean", tVariant(tPrimitive("false"), tPrimitive("true")));
+  define("tNumber", tPrimitive("number"));
+  define("tString", tPrimitive("string"));
+  define("tPrimitive", tPrimitive);
+
+  define("print", (x) => console.log(x), {
+    type: tFunction(tAny, tUndefined)
+  });
 }
 
 function formatError(e, src) {
@@ -163,11 +172,7 @@ function formatError(e, src) {
 
 function repl(src) {
   try {
-    const js =
-      generate(
-        check(
-          parse(src)));
-    eval(js);
+    compile(src);
   }
   catch(e) {
     console.log(formatError(e, src));
@@ -177,6 +182,7 @@ function repl(src) {
 function run() {
   initEnvironment();
   repl(`print(42)`);
+  //repl(`print(print(42), null)`);
 }
 
 run();
