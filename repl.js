@@ -8,126 +8,9 @@ const parse = require("./src/parse");
 const check = require("./src/check");
 const generate = require("./src/generate");
 
-/*function cast(to, from) {
-  return to.cast(from);
-}
-
-const tAny = {
-  example() {
-    return {
-      type: "any"
-    };
-  },
-  cast(other) {
-    return true;
-  },
-  toString() {
-    return "*";
-  }
-};
-
-function tPrimitive(type, value) {
-  return {
-    example() {
-      return {
-        type,
-        value
-      };
-    },
-    cast(other) {
-      const { type: otherType, value: otherValue } = other.example();
-      return (
-        (type === otherType) &&
-        (value === undefined || value === otherValue));
-    },
-    toString() {
-      return value === undefined ? type : `${type}(${value})`;
-    }
-  };
-}
-
-function tVariant(...types) {
-  return {
-    example() {
-      return {
-        type: "variant",
-        types
-      };
-    },
-    cast(other) {
-      const { type: otherType, types: otherTypes } = other.example();
-      if (otherType === "variant") {
-        const type = variant(...types);
-        for (let _other of otherTypes) {
-          if (!cast(type, _other)) {
-            return false;
-          }
-        }
-        return true;
-      }
-      else {
-        for (let type of types) {
-          if (cast(type, other)) {
-            return true;
-          }
-        }
-        return false;
-      }
-    },
-    toString() {
-      return `(${types.map((type) => type.toString()).join(" | ")})`;
-    }
-  };
-};
-
-function tFunction(...args) {
-  function castArgs(_args) {
-    if (_args.length !== args.length) {
-      return false;
-    }
-    else {
-      for (let i = 0; i < _args.length; i++) {
-        if (!cast(args[i], _args[i])) {
-          return false;
-        }
-      }
-      return true;
-    }
-  }
-  function ensureFn(x) {
-    return typeof x === "function" ?
-      (...args) => x(...args) :
-      () => x;
-  }
-  const res = args.pop();
-  const resFn = ensureFn(res);
-  const fn = (...args) => castArgs(args) && resFn(...args);
-  return {
-    example() {
-      return {
-        type: "function",
-        fn
-      };
-    },
-    cast(other) {
-      const { type: otherType, fn: otherFn } = other;
-      if (otherType === "function") {
-        const res = resFn(...args);
-        const otherRes = otherFn(...args);
-        return res && otherRes && cast(res, otherRes);
-      }
-      else {
-        return false;
-      }
-    },
-    toString() {
-      return `fn(${args.map((arg) => arg.toString()).join(", ")}) -> ${res.toString()}`;
-    }
-  };
-};*/
-
 function cast(to, from) {
-  return to.castFrom(from);
+  const castFrom = get(to, "castFrom");
+  return castFrom(from);
 }
 
 const tAny = {
@@ -135,9 +18,7 @@ const tAny = {
   castFrom(other) {
     return true;
   },
-  toString() {
-    return "*";
-  }
+  readable: "*"
 };
 
 function tPrimitive(type, value) {
@@ -151,37 +32,55 @@ function tPrimitive(type, value) {
         (type === otherType) &&
         (value === undefined || value === otherValue));
     },
-    toString() {
-      return value === undefined ? type : `${type}(${value})`;
-    }
+    readable: value === undefined ? type : `${type}(${value})`
   };
 }
 
-function tFunction(...args) {
-  function castArgs(_args) {
-    if (_args.length !== args.length) {
-      return false;
-    }
-    else {
-      for (let i = 0; i < _args.length; i++) {
-        if (!cast(args[i], _args[i])) {
-          return false;
-        }
+function checkFunctionArgs(args, _args) {
+  if (_args.length !== args.length) {
+    return false;
+  }
+  else {
+    for (let i = 0; i < _args.length; i++) {
+      if (!cast(args[i], _args[i])) {
+        return false;
       }
-      return true;
     }
+    return true;
   }
-  function ensureFn(x) {
-    return typeof x === "function" ?
-      (...args) => x(...args) :
-      () => x;
-  }
-  const res = args.pop();
-  const resFn = ensureFn(res);
-  const fn = (...args) => castArgs(args) && resFn(...args);
+}
+
+function staticFunction(args, res) {
+  const readableArgs = args.map((arg) => get(arg, "readable"));
+  const readableRes = get(res, "readable");
   return {
     type: "function",
-    fn,
+    fn(..._args) {
+      return checkFunctionArgs(args, _args) && res;
+    },
+    castFrom(other) {
+      const otherType = get(other, "type");
+      if (otherType === "function") {
+        const otherFn = get(other, "fn");
+        const otherRes = otherFn(...args);
+        return res && otherRes && cast(res, otherRes);
+      }
+      else {
+        return false;
+      }
+    },
+    readable: `fn(${readableArgs.join(", ")}) -> ${readableRes}`
+  };
+}
+
+function dynamicFunction(args, resFn) {
+  const readableArgs = args.map((arg) => get(arg, "readable"));
+  const readableRes = "?";
+  return {
+    type: "function",
+    fn(..._args) {
+      return checkFunctionArgs(args, _args) && resFn(..._args);
+    },
     castFrom(other) {
       const otherType = get(other, "type");
       if (otherType === "function") {
@@ -194,13 +93,22 @@ function tFunction(...args) {
         return false;
       }
     },
-    toString() {
-      return `fn(${args.map((arg) => arg.toString()).join(", ")}) -> ${res.toString()}`;
-    }
+    readable: `fn(${readableArgs.join(", ")}) -> ${readableRes}`
   };
+}
+
+function tFunction(...args) {
+  const res = args.pop();
+  if (typeof res === "function") {
+    return dynamicFunction(args, res);
+  }
+  else {
+    return staticFunction(args, res);
+  }
 };
 
 function tVariant(...types) {
+  const readableTypes = types.map((type) => get(type, "readable"));
   function castFrom(other) {
     const otherType = get(other, "type");
     if (otherType === "variant") {
@@ -225,9 +133,7 @@ function tVariant(...types) {
     type: "variant",
     types,
     castFrom,
-    toString() {
-      return `(${types.map((type) => type.toString()).join(" | ")})`;
-    }
+    readable: `(${readableTypes.join(" | ")})`
   };
 }
 
@@ -300,9 +206,9 @@ function run() {
   //repl(`print(x)`);
   repl(`
     let
-      x = print(42)
+      x = print(42) + 42
     in
-      print(x(x))
+      print(x)
     end`);
 }
 
