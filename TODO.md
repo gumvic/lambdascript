@@ -11,7 +11,7 @@ in
 end
 ```
 - consecutive calls: `f(x)(y)`
-- `define` (make `generate` just call it instead of generating globals), `compile`
+- make `generate` also `eval`, and call `define` directly
 - for programs, `parse` the whole thing, but then `check`/`generate` step by step
 - meta, types functions etc all should expect immutable, so stick to `immutable.get` etc instead of direct access
 - make types simpler, like:
