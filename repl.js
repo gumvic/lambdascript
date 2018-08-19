@@ -2,6 +2,7 @@
 
 const { EOL } = require("os");
 const immutable = require("immutable");
+const { namify } = require("./src/utils");
 const parse = require("./src/parse");
 const check = require("./src/check");
 const generate = require("./src/generate");
@@ -125,9 +126,13 @@ function tFunction(...args) {
 };
 
 function define(name, value, meta) {
-  global.monada$meta[name] = meta;
-  global[name] = value;
+  global.monada$meta[name] = meta || {};
+  global[namify(name)] = value;
   return value;
+}
+
+function getMeta(name) {
+  return global.monada$meta[name];
 }
 
 function compile(src) {
@@ -141,6 +146,8 @@ function initEnvironment() {
   global.monada$meta = {};
 
   define("define", define);
+  define("getMeta", getMeta);
+  define("compile", compile);
 
   define("immutable", immutable);
 
@@ -181,8 +188,16 @@ function repl(src) {
 
 function run() {
   initEnvironment();
-  repl(`print(42)`);
+  //repl(`print(42)`);
   //repl(`print(print(42), null)`);
+  repl(`x = 42`);
+  repl(`print(x)`);
+  /*repl(`
+    let
+      x = print(42)
+    in
+      print(x)
+    end`);*/
 }
 
 run();

@@ -1,3 +1,4 @@
+const { namify } = require("../utils");
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
 
@@ -31,6 +32,7 @@ const IMMUTABLE_MAP = {
   computed: false
 };
 
+// TODO make Context signify if it's global or not, get rid of genGlobalDefinition/genDefinition
 class Context {
   constructor(parent) {
     this.parent = parent;
@@ -39,37 +41,6 @@ class Context {
   spawn() {
     return new Context(this);
   }
-}
-
-function namify(name) {
-  return name
-    .replace(
-      /^(do|if|in|for|let|new|try|var|case|else|enum|eval|null|undefined|this|true|void|with|await|break|catch|class|const|false|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/g,
-      function(match) {
-        return `$${match}`;
-      })
-    .replace(
-      /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?\.\']/g,
-      function(match) {
-        switch(match) {
-          case "+": return "$plus";
-          case "-": return "$dash";
-          case "*": return "$star";
-          case "/": return "$slash";
-          case ">": return "$right";
-          case "<": return "$left";
-          case "=": return "$equals";
-          case "%": return "$percent";
-          case "!": return "$bang";
-          case "|": return "$pipe";
-          case "&": return "$and";
-          case "^": return "$caret";
-          case "~": return "$tilda";
-          case "?": return "$question";
-          case ".": return "$dot";
-          case "'": return "$quote";
-        }
-      });
 }
 
 function genSkip(ast, context) {
@@ -225,19 +196,14 @@ function genCall({ callee, args }, context) {
 }
 
 function genGlobalDefinition({ name, value, meta }, context) {
-  name = generate(name, context);
+  name = {
+    type: "Literal",
+    value: name.name
+  };
   value = generate(value, context);
-  /*meta = meta ?
-    generate(meta, context) :
-    {
-      type: "CallExpression",
-      callee: IMMUTABLE_MAP,
-      arguments: []
-    };*/
   meta = {
-    type: "CallExpression",
-    callee: IMMUTABLE_MAP,
-    arguments: []
+    type: "Literal",
+    value: null
   };
   return {
     type: "CallExpression",

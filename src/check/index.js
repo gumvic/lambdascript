@@ -1,12 +1,28 @@
+const { get } = require("immutable");
 const CheckError = require("./error");
 
-/*class GlobalContext {
-  define({ name }, meta) {
-    global.monada$env[name] = meta;
+class GlobalContext {
+  constructor() {
+    this.meta = {};
   }
 
-  getDefined({ name, location }) {
-    throw new CheckError(`Not defined: ${name}`, location);
+  define({ name, location }, meta) {
+    if (global.getMeta(name) || this.meta[name]) {
+      throw new CheckError(`Already defined: ${name}`, location);
+    }
+    else {
+      this.meta[name] = meta;
+    }
+  }
+
+  getMeta({ name, location }) {
+    const meta = global.getMeta(name) || this.meta[name];
+    if (!meta) {
+      throw new CheckError(`Not defined: ${name}`, location);
+    }
+    else {
+      return meta;
+    }
   }
 
   spawn() {
@@ -17,58 +33,24 @@ const CheckError = require("./error");
 class LocalContext {
   constructor(parent) {
     this.parent = parent;
-    this.defined = {};
+    this.meta = {};
   }
 
   define({ name, location }, meta) {
-    if (this.defined[name]) {
+    if (this.meta[name]) {
       throw new CheckError(`Already defined: ${name}`, location);
     }
     else {
-      this.defined[name] = meta;
+      this.meta[name] = meta;
     }
   }
 
-  getDefined({ name, location }) {
-    return this.defined[name] || this.parent.getDefined({ name, location });
+  getMeta({ name, location }) {
+    return this.meta[name] || this.parent.getMeta({ name, location });
   }
 
   spawn() {
     return new LocalContext(this);
-  }
-}*/
-
-class Context {
-  constructor(definitions, parent) {
-    // TODO: optimize -- there might be thousands of definitions in global context
-    this.definitions = { ...definitions };
-    this.parent = parent;
-  }
-
-  define({ name, location }, meta) {
-    if (this.definitions[name]) {
-      throw new CheckError(`Already defined: ${name}`, location);
-    }
-    else {
-      this.definitions[name] = meta;
-    }
-  }
-
-  getDefined({ name, location }) {
-    const meta = this.definitions[name];
-    if (meta) {
-      return meta;
-    }
-    else if (this.parent) {
-      return this.parent.getDefined({ name, location });
-    }
-    else {
-      throw new CheckError(`Not defined: ${name}`, location);
-    }
-  }
-
-  spawn() {
-    return new Context({}, this);
   }
 }
 
@@ -125,7 +107,7 @@ function checkMap(ast, context) {
 function checkName(ast, context) {
   return {
     ...ast,
-    $type: context.getDefined(ast).type
+    $type: get(context.getMeta(ast), "type")
   };
 }
 
@@ -176,20 +158,11 @@ function checkScope(ast, context) {
 }
 
 function checkDefinition(ast, context) {
-  context.define(ast.name);
   const value = check(ast.value, context);
-  /*const meta = {
-    type: "map",
-    items: [
-      {
-        key: {
-          type: "string",
-          value: "type"
-        },
-        value:
-      }
-    ]
-  };*/
+  const meta = {
+    type: value.$type
+  }
+  context.define(ast.name, meta);
   return {
     ...ast,
     value,
@@ -229,5 +202,5 @@ function check(ast, context) {
 }
 
 module.exports = function(ast) {
-  return check(ast, new Context(global.monada$meta));
+  return check(ast, new GlobalContext());
 };
