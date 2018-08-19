@@ -205,17 +205,20 @@ map "map" =
     };
   }
 
-argsList =
+funArgs =
   "(" _
   args:(first:name rest:(_ "," _ arg:name { return arg; })* { return [first].concat(rest); })? _
   _ ")" {
-  return args || [];
+  return {
+    args: args || [],
+    location: location()
+  };
 }
 
-function = wordFn _ args:argsList _ "->" _ body:expression {
+function = wordFn _ args:funArgs _ "->" _ body:expression {
   return {
     type: "function",
-    args: args,
+    args: args.args,
     body: body,
     location: location()
   };
@@ -254,13 +257,13 @@ constantDefinition = name:name _ "=" _ value:expression {
   };
 }
 
-functionDefinition = name:name _ args:argsList _ "->" _ body:expression {
+functionDefinition = name:name _ args:funArgs _ "->" _ body:expression {
   return {
     type: "definition",
     name: name,
     value: {
       type: "function",
-      args: args,
+      args: args.args,
       body: body,
       location: location()
     },
@@ -313,17 +316,22 @@ unary = operator:operator __ operand:atom {
 
 callee = unary / atom
 
-call =
-  callee:callee __
-  "(" _
+callArgs = "(" _
   args:(first:expression rest:(_ "," _ arg:expression { return arg; })* { return [first].concat(rest); })?
-  _ ")" {
+_ ")" {
   return {
-    type: "call",
-    callee: callee,
     args: args || [],
     location: location()
   };
+}
+
+call = callee:callee __ chain:(args:callArgs __ { return args; })+ {
+  return chain.reduce((callee, args) => ({
+    type: "call",
+    callee: callee,
+    args: args.args,
+    location: args.location
+  }), callee);
 }
 
 binaryOperand = call / callee

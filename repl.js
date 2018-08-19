@@ -173,6 +173,9 @@ function initEnvironment() {
   define("tString", tPrimitive("string"));
   define("tPrimitive", tPrimitive);
 
+  define("id", (x) => x, {
+    type: tFunction(tAny, (x) => x)
+  });
   define("print", (x) => console.log(x), {
     type: tFunction(tAny, tUndefined)
   });
@@ -204,12 +207,13 @@ function run() {
   //repl(`print(print(42), null)`);
   //repl(`x = 42`);
   //repl(`print(x)`);
-  repl(`
+  /*repl(`
     let
-      x = print(42) + 42
+      x = print(42)
     in
       print(x)
-    end`);
+    end`);*/
+  repl(`print(id)(print)`);
 }
 
 run();
