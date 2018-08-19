@@ -125,7 +125,8 @@ function checkCall(ast, context) {
   const calleeType = callee.$type;
   const args = ast.args.map((arg) => check(arg, context));
   const argTypes = args.map((arg) => arg.$type);
-  const { type, fn } = calleeType.example();
+  const type = get(calleeType, "type");
+  const fn = get(calleeType, "fn");
   let resType;
   if (type !== "function" ||
       !(resType = fn(...argTypes))) {

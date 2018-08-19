@@ -2,12 +2,13 @@
 
 const { EOL } = require("os");
 const immutable = require("immutable");
+const get = immutable.get;
 const { namify } = require("./src/utils");
 const parse = require("./src/parse");
 const check = require("./src/check");
 const generate = require("./src/generate");
 
-function cast(to, from) {
+/*function cast(to, from) {
   return to.cast(from);
 }
 
@@ -123,7 +124,112 @@ function tFunction(...args) {
       return `fn(${args.map((arg) => arg.toString()).join(", ")}) -> ${res.toString()}`;
     }
   };
+};*/
+
+function cast(to, from) {
+  return to.castFrom(from);
+}
+
+const tAny = {
+  type: "any",
+  castFrom(other) {
+    return true;
+  },
+  toString() {
+    return "*";
+  }
 };
+
+function tPrimitive(type, value) {
+  return {
+    type,
+    value,
+    castFrom(other) {
+      const otherType = get(other, "type");
+      const otherValue = get(other, "value");
+      return (
+        (type === otherType) &&
+        (value === undefined || value === otherValue));
+    },
+    toString() {
+      return value === undefined ? type : `${type}(${value})`;
+    }
+  };
+}
+
+function tFunction(...args) {
+  function castArgs(_args) {
+    if (_args.length !== args.length) {
+      return false;
+    }
+    else {
+      for (let i = 0; i < _args.length; i++) {
+        if (!cast(args[i], _args[i])) {
+          return false;
+        }
+      }
+      return true;
+    }
+  }
+  function ensureFn(x) {
+    return typeof x === "function" ?
+      (...args) => x(...args) :
+      () => x;
+  }
+  const res = args.pop();
+  const resFn = ensureFn(res);
+  const fn = (...args) => castArgs(args) && resFn(...args);
+  return {
+    type: "function",
+    fn,
+    castFrom(other) {
+      const otherType = get(other, "type");
+      if (otherType === "function") {
+        const otherFn = get(other, "fn");
+        const res = resFn(...args);
+        const otherRes = otherFn(...args);
+        return res && otherRes && cast(res, otherRes);
+      }
+      else {
+        return false;
+      }
+    },
+    toString() {
+      return `fn(${args.map((arg) => arg.toString()).join(", ")}) -> ${res.toString()}`;
+    }
+  };
+};
+
+function tVariant(...types) {
+  function castFrom(other) {
+    const otherType = get(other, "type");
+    if (otherType === "variant") {
+      const otherTypes = get(other, "types");
+      for (let _other of otherTypes) {
+        if (!castFrom(_other)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    else {
+      for (let type of types) {
+        if (cast(type, other)) {
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+  return {
+    type: "variant",
+    types,
+    castFrom,
+    toString() {
+      return `(${types.map((type) => type.toString()).join(" | ")})`;
+    }
+  };
+}
 
 function define(name, value, meta) {
   global.monada$meta[name] = meta || {};
@@ -190,14 +296,14 @@ function run() {
   initEnvironment();
   //repl(`print(42)`);
   //repl(`print(print(42), null)`);
-  repl(`x = 42`);
-  repl(`print(x)`);
-  /*repl(`
+  //repl(`x = 42`);
+  //repl(`print(x)`);
+  repl(`
     let
       x = print(42)
     in
-      print(x)
-    end`);*/
+      print(x(x))
+    end`);
 }
 
 run();
