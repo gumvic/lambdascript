@@ -2,15 +2,17 @@
 
 const { EOL } = require("os");
 const immutable = require("immutable");
-const get = immutable.get;
 const { namify } = require("./src/utils");
 const parse = require("./src/parse");
 const check = require("./src/check");
 const generate = require("./src/generate");
 
-function cast(to, from) {
-  const castFrom = get(to, "castFrom");
-  return castFrom(from);
+function castType(to, from) {
+  return to.castFrom(from);
+}
+
+function readableType({ readable }) {
+  return readable;
 }
 
 const tAny = {
@@ -25,9 +27,7 @@ function tPrimitive(type, value) {
   return {
     type,
     value,
-    castFrom(other) {
-      const otherType = get(other, "type");
-      const otherValue = get(other, "value");
+    castFrom({ type: otherType, value: otherValue }) {
       return (
         (type === otherType) &&
         (value === undefined || value === otherValue));
@@ -42,7 +42,7 @@ function checkFunctionArgs(args, _args) {
   }
   else {
     for (let i = 0; i < _args.length; i++) {
-      if (!cast(args[i], _args[i])) {
+      if (!castType(args[i], _args[i])) {
         return false;
       }
     }
@@ -51,19 +51,17 @@ function checkFunctionArgs(args, _args) {
 }
 
 function staticFunction(args, res) {
-  const readableArgs = args.map((arg) => get(arg, "readable"));
-  const readableRes = get(res, "readable");
+  const readableArgs = args.map(readableType);
+  const readableRes = readableType(res);
   return {
     type: "function",
     fn(..._args) {
       return checkFunctionArgs(args, _args) && res;
     },
-    castFrom(other) {
-      const otherType = get(other, "type");
+    castFrom({ type: otherType, fn: otherFn }) {
       if (otherType === "function") {
-        const otherFn = get(other, "fn");
         const otherRes = otherFn(...args);
-        return res && otherRes && cast(res, otherRes);
+        return otherRes && castType(res, otherRes);
       }
       else {
         return false;
@@ -74,20 +72,18 @@ function staticFunction(args, res) {
 }
 
 function dynamicFunction(args, resFn) {
-  const readableArgs = args.map((arg) => get(arg, "readable"));
+  const readableArgs = args.map(readableType);
   const readableRes = "?";
   return {
     type: "function",
     fn(..._args) {
       return checkFunctionArgs(args, _args) && resFn(..._args);
     },
-    castFrom(other) {
-      const otherType = get(other, "type");
+    castFrom({ type: otherType, fn: otherFn }) {
       if (otherType === "function") {
-        const otherFn = get(other, "fn");
         const res = resFn(...args);
         const otherRes = otherFn(...args);
-        return res && otherRes && cast(res, otherRes);
+        return res && otherRes && castType(res, otherRes);
       }
       else {
         return false;
@@ -108,11 +104,9 @@ function tFunction(...args) {
 };
 
 function tVariant(...types) {
-  const readableTypes = types.map((type) => get(type, "readable"));
-  function castFrom(other) {
-    const otherType = get(other, "type");
+  const readableTypes = types.map(readableType);
+  function castFrom({ type: otherType, types: otherTypes }) {
     if (otherType === "variant") {
-      const otherTypes = get(other, "types");
       for (let _other of otherTypes) {
         if (!castFrom(_other)) {
           return false;
@@ -122,7 +116,7 @@ function tVariant(...types) {
     }
     else {
       for (let type of types) {
-        if (cast(type, other)) {
+        if (castType(type, other)) {
           return true;
         }
       }
@@ -163,6 +157,9 @@ function initEnvironment() {
 
   define("immutable", immutable);
 
+  define("castType", castType);
+  define("readableType", readableType);
+
   define("tAny", tAny);
   define("tUndefined", tPrimitive("undefined"));
   define("tNull", tPrimitive("null"));
@@ -176,6 +173,9 @@ function initEnvironment() {
   define("id", (x) => x, {
     type: tFunction(tAny, (x) => x)
   });
+  define("+", (a, b) => a + b, {
+    type: tFunction(tNumber, tNumber, tNumber)
+  })
   define("print", (x) => console.log(x), {
     type: tFunction(tAny, tUndefined)
   });
@@ -204,16 +204,16 @@ function repl(src) {
 function run() {
   initEnvironment();
   //repl(`print(42)`);
-  //repl(`print(print(42), null)`);
+  repl(`print(42 + null)`);
   //repl(`x = 42`);
   //repl(`print(x)`);
   /*repl(`
     let
       x = print(42)
     in
-      print(x)
+      print(x(x))
     end`);*/
-  repl(`print(id)(print)`);
+  //repl(`print(id)(print)`);
 }
 
 run();

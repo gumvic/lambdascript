@@ -125,12 +125,12 @@ function checkCall(ast, context) {
   const calleeType = callee.$type;
   const args = ast.args.map((arg) => check(arg, context));
   const argTypes = args.map((arg) => arg.$type);
-  const resType =
-    get(calleeType, "type") === "function" &&
-    get(calleeType, "fn")(...argTypes);
-  if (!resType) {
-    const readableCalleeType = get(calleeType, "readable");
-    const readableArgTypes = argTypes.map((arg) => get(arg, "readable"));
+  const { type: calleeTypeType, fn: calleeTypeFn } = calleeType;
+  let resType;
+  if (calleeTypeType != "function" ||
+      !(resType = calleeTypeFn(...argTypes))) {
+    const readableCalleeType = global.readableType(calleeType);
+    const readableArgTypes = argTypes.map(global.readableType);
     throw new CheckError(`Can't apply ${readableCalleeType} to (${readableArgTypes.join(", ")})`, ast.location);
   }
   return {
