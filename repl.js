@@ -204,7 +204,7 @@ function repl(src) {
 function run() {
   initEnvironment();
   //repl(`print(42)`);
-  repl(`print(42 + null)`);
+  repl(`print(42 + 43)`);
   //repl(`x = 42`);
   //repl(`print(x)`);
   /*repl(`
