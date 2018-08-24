@@ -344,7 +344,7 @@ binary =
       type: "call",
       callee: operator,
       args: [left, right],
-      location: location()
+      location: operator.location
     }),
     first);
   }
