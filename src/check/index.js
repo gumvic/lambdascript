@@ -120,7 +120,7 @@ function checkFunction(ast, context) {
   return ast;
 }
 
-// TODO use carthesian for the whole expression including callee, then repeat this algorithm to all of them
+// TODO use cartesian for the whole expression including callee, then repeat this algorithm to all of them
 function checkCall(ast, context) {
   const callee = check(ast.callee, context);
   const calleeType = callee.$type;

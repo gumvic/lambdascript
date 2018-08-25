@@ -19,7 +19,6 @@ tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 - `_` should be typed, too
 - make `generate` also `eval`, and call `define` directly
 - for programs, `parse` the whole thing, but then `check`/`generate` step by step
-- make types implement `castFrom` and `castTo`; this will make possible negative types like `tExcept(tUndefined)` and also backward compatibility when e. g. introducing `tNumberBetween(0, 42)` that will be possible to cast to `tNumber` without `tNumber` having to acknowledge the existence of `tNumberBetween`
 - make `parse`/`check`/`generate` etc not throw, but return eithers
 - namespaces and fully qualified names like `core.get`, `type.number` etc
 - allow operator characters in names

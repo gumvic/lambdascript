@@ -8,7 +8,7 @@ const check = require("./src/check");
 const generate = require("./src/generate");
 
 function castType(to, from) {
-  return to.castFrom(from);
+  return to.castFrom(from) || from.castTo(to);
 }
 
 function readableType({ readable }) {
@@ -17,8 +17,11 @@ function readableType({ readable }) {
 
 const tAny = {
   type: "any",
-  castFrom(other) {
+  castFrom(_) {
     return true;
+  },
+  castTo({ type: toType }) {
+    return toType === "any";
   },
   readable: "*"
 };
@@ -27,10 +30,15 @@ function tPrimitive(type, value) {
   return {
     type,
     value,
-    castFrom({ type: otherType, value: otherValue }) {
+    castFrom({ type: fromType, value: fromValue }) {
       return (
-        (type === otherType) &&
-        (value === undefined || value === otherValue));
+        (type === fromType) &&
+        (value === undefined || value === fromValue));
+    },
+    castTo({ type: toType, value: toValue }) {
+      return (
+        (type === toType) &&
+        (value === undefined || value === toValue));
     },
     readable: value === undefined ? type : `${type}(${value})`
   };
@@ -58,14 +66,19 @@ function staticFunction(args, res) {
     fn(..._args) {
       return checkFunctionArgs(args, _args) && res;
     },
-    castFrom({ type: otherType, fn: otherFn }) {
-      if (otherType === "function") {
-        const otherRes = otherFn(...args);
-        return otherRes && castType(res, otherRes);
+    castFrom({ type: fromType, fn: fromFn }) {
+      if (fromType === "function") {
+        const toRes = res;
+        const fromRes = fromFn(...args);
+        return fromRes && castType(toRes, fromRes);
       }
       else {
         return false;
       }
+    },
+    castTo(to) {
+      // TODO
+      return false;
     },
     readable: `fn(${readableArgs.join(", ")}) -> ${readableRes}`
   };
@@ -79,15 +92,19 @@ function dynamicFunction(args, resFn) {
     fn(..._args) {
       return checkFunctionArgs(args, _args) && resFn(..._args);
     },
-    castFrom({ type: otherType, fn: otherFn }) {
-      if (otherType === "function") {
-        const res = resFn(...args);
-        const otherRes = otherFn(...args);
-        return res && otherRes && castType(res, otherRes);
+    castFrom({ type: fromType, fn: fromFn }) {
+      if (fromType === "function") {
+        const toRes = resFn(...args);
+        const fromRes = fromFn(...args);
+        return toRes && fromRes && castType(res, fromRes);
       }
       else {
         return false;
       }
+    },
+    castTo(to) {
+      // TODO
+      return false;
     },
     readable: `fn(${readableArgs.join(", ")}) -> ${readableRes}`
   };
@@ -103,10 +120,35 @@ function tFunction(...args) {
   }
 };
 
-function tVariant(...types) {
+function tOr(...types) {
   const readableTypes = types.map(readableType);
-  function castFrom({ type: otherType, types: otherTypes }) {
-    if (otherType === "variant") {
+  return {
+    type: "or",
+    types,
+    castFrom(from) {
+      for(let to of types) {
+        if (castType(to, from)) {
+          return true;
+        }
+      }
+      return false;
+    },
+    castTo(to) {
+      for(let from of types) {
+        if (!castType(to, from)) {
+          return false;
+        }
+      }
+      return true;
+    },
+    readable: `(${readableTypes.join(" | ")})`
+  };
+}
+
+function tAnd(...types) {
+  const readableTypes = types.map(readableType);
+  /*function castFrom({ type: otherType, types: otherTypes }) {
+    if (otherType === "or") {
       for (let _other of otherTypes) {
         if (!castFrom(_other)) {
           return false;
@@ -122,12 +164,27 @@ function tVariant(...types) {
       }
       return false;
     }
-  }
+  }*/
   return {
-    type: "variant",
+    type: "and",
     types,
-    castFrom,
-    readable: `(${readableTypes.join(" | ")})`
+    castFrom(from) {
+      for(let to of types) {
+        if (!castType(to, from)) {
+          return false;
+        }
+      }
+      return true;
+    },
+    castTo(to) {
+      for(let from of types) {
+        if (castType(to, from)) {
+          return true;
+        }
+      }
+      return false;
+    },
+    readable: `(${readableTypes.join(" & ")})`
   };
 }
 
@@ -165,10 +222,13 @@ function initEnvironment() {
   define("tNull", tPrimitive("null"));
   define("tFalse", tPrimitive("false"));
   define("tTrue", tPrimitive("true"));
-  define("tBoolean", tVariant(tPrimitive("false"), tPrimitive("true")));
+  define("tBoolean", tOr(tPrimitive("false"), tPrimitive("true")));
   define("tNumber", tPrimitive("number"));
   define("tString", tPrimitive("string"));
   define("tPrimitive", tPrimitive);
+  define("tFunction", tFunction);
+  define("tOr", tOr);
+  define("tAnd", tAnd);
 
   define("id", (x) => x, {
     type: tFunction(tAny, (x) => x)
@@ -204,7 +264,7 @@ function repl(src) {
 function run() {
   initEnvironment();
   //repl(`print(42)`);
-  repl(`print(42 + 43)`);
+  repl(`print((42) + 43)`);
   //repl(`x = 42`);
   //repl(`print(x)`);
   /*repl(`
