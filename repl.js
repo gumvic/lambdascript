@@ -199,6 +199,19 @@ function tAnd(...types) {
   };
 }
 
+function tNot(type) {
+  return {
+    type: "not",
+    castFrom(from) {
+      return !cast(type, from);
+    },
+    castTo(to) {
+      return !cast(to, type);
+    },
+    readable: `!${readableType(type)}`
+  };
+}
+
 function define(name, value, meta) {
   global.monada$meta[name] = meta || {};
   global[namify(name)] = value;
@@ -241,6 +254,7 @@ function initEnvironment() {
   define("tMultiFunction", tMultiFunction);
   define("tOr", tOr);
   define("tAnd", tAnd);
+  define("tNot", tNot);
 
   define("id", (x) => x, {
     type: tFunction(tAny, (x) => x)
