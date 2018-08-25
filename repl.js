@@ -120,6 +120,35 @@ function tFunction(...args) {
   }
 };
 
+function tMultiFunction(...functions) {
+  const readableFunctions = functions.map(readableType);
+  return {
+    type: "function",
+    fn(...args) {
+      for(let { fn } of functions) {
+        const res = fn(...args);
+        if (res) {
+          return res;
+        }
+      }
+      return false;
+    },
+    castFrom(from) {
+      for(let to of functions) {
+        if(!cast(to, from)) {
+          return false;
+        }
+      }
+      return false;
+    },
+    castTo(to) {
+      // TODO
+      return false;
+    },
+    readable: `fns(${readableFunctions.join(", ")})`
+  };
+}
+
 function tOr(...types) {
   const readableTypes = types.map(readableType);
   return {
@@ -147,24 +176,6 @@ function tOr(...types) {
 
 function tAnd(...types) {
   const readableTypes = types.map(readableType);
-  /*function castFrom({ type: otherType, types: otherTypes }) {
-    if (otherType === "or") {
-      for (let _other of otherTypes) {
-        if (!castFrom(_other)) {
-          return false;
-        }
-      }
-      return true;
-    }
-    else {
-      for (let type of types) {
-        if (castType(type, other)) {
-          return true;
-        }
-      }
-      return false;
-    }
-  }*/
   return {
     type: "and",
     types,
@@ -227,6 +238,7 @@ function initEnvironment() {
   define("tString", tPrimitive("string"));
   define("tPrimitive", tPrimitive);
   define("tFunction", tFunction);
+  define("tMultiFunction", tMultiFunction);
   define("tOr", tOr);
   define("tAnd", tAnd);
 
@@ -234,8 +246,12 @@ function initEnvironment() {
     type: tFunction(tAny, (x) => x)
   });
   define("+", (a, b) => a + b, {
-    type: tFunction(tNumber, tNumber, tNumber)
-  })
+    type: tMultiFunction(
+      tFunction(tNumber, tNumber, ({ value: a }, { value: b }) =>
+        a !== undefined && b != undefined ? tPrimitive("number", a + b) : tNumber),
+      tFunction(tString, tString, ({ value: a }, { value: b }) =>
+        a !== undefined && b != undefined ? tPrimitive("string", a + b) : tString))
+  });
   define("print", (x) => console.log(x), {
     type: tFunction(tAny, tUndefined)
   });
@@ -264,7 +280,7 @@ function repl(src) {
 function run() {
   initEnvironment();
   //repl(`print(42)`);
-  repl(`print((42) + 43)`);
+  repl(`(42 + 42)()`);
   //repl(`x = 42`);
   //repl(`print(x)`);
   /*repl(`
