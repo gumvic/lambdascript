@@ -13,6 +13,23 @@ function readableType({ readable }) {
   return readable;
 }
 
+function matchType({ type: aType, value: aValue }, { type: bType, value: bValue }) {
+  if (
+    aType === bType &&
+    aValue !== undefined && bValue !== undefined &&
+    aValue === bValue) {
+    return 1;
+  }
+  else if (
+    aType !== bType ||
+    aValue !== bValue) {
+    return -1;
+  }
+  else {
+    return 0;
+  }
+}
+
 const tAny = {
   type: "any",
   castFrom(_) {
@@ -254,8 +271,19 @@ function init() {
   define("tAnd", tAnd);
   define("tNot", tNot);
 
-  define("id", (x) => x, {
-    type: tFunction(tAny, (x) => x)
+  define("==", immutable.is, {
+    type: tFunction(tAny, tAny, (a, b) => {
+      const match = matchType(a, b);
+      if (match === 1) {
+        return tTrue;
+      }
+      else if (match === -1) {
+        return tFalse;
+      }
+      else {
+        return tBoolean;
+      }
+    })
   });
   define("+", (a, b) => a + b, {
     type: tMultiFunction(
