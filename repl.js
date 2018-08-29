@@ -26,7 +26,7 @@ function repl(src) {
 function run() {
   init();
   //repl(`print(42)`);
-  repl(`print(42 + 42)`);
+  repl(`print(42 + 0)`);
   //repl(`x = 42`);
   //repl(`print(x)`);
   /*repl(`

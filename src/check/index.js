@@ -57,42 +57,42 @@ class LocalContext {
 function checkUndefined(ast, context) {
   return {
     ...ast,
-    $type: global.tUndefined
+    $type: global.tFromValue(undefined)
   };
 }
 
 function checkNull(ast, context) {
   return {
     ...ast,
-    $type: global.tNull
+    $type: global.tFromValue(null)
   };
 }
 
 function checkFalse(ast, context) {
   return {
     ...ast,
-    $type: global.tFalse
+    $type: global.tFromValue(false)
   };
 }
 
 function checkTrue(ast, context) {
   return {
     ...ast,
-    $type: global.tTrue
+    $type: global.tFromValue(true)
   };
 }
 
 function checkNumber(ast, context) {
   return {
     ...ast,
-    $type: global.tPrimitive("number", parseFloat(ast.value))
+    $type: global.tFromValue(parseFloat(ast.value))
   };
 }
 
 function checkString(ast, context) {
   return {
     ...ast,
-    $type: global.tPrimitive("string", ast.value)
+    $type: global.tFromValue(ast.value)
   };
 }
 
@@ -112,6 +112,7 @@ function checkName(ast, context) {
 }
 
 function checkFunction(ast, context) {
+  context = context.spawn();
   /*context = context.spawn();
   for(let arg of ast.args) {
     context.define(arg);
@@ -120,7 +121,6 @@ function checkFunction(ast, context) {
   return ast;
 }
 
-// TODO use cartesian for the whole expression including callee, then repeat this algorithm to all of them
 function checkCall(ast, context) {
   const callee = check(ast.callee, context);
   const calleeType = callee.$type;

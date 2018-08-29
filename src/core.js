@@ -59,6 +59,18 @@ function tPrimitive(type, value) {
   };
 }
 
+function tFromValue(value) {
+  if (value === undefined) {
+    return tPrimitive("undefined");
+  }
+  else if (value === null) {
+    return tPrimitive("null");
+  }
+  else {
+    return tPrimitive(typeof value, value);
+  }
+}
+
 function checkFunctionArgs(args, _args) {
   if (_args.length !== args.length) {
     return false;
@@ -164,7 +176,7 @@ function tMultiFunction(...functions) {
   };
 }
 
-function tOr(...types) {
+/*function tOr(...types) {
   const readableTypes = types.map(readableType);
   return {
     type: "or",
@@ -212,7 +224,7 @@ function tAnd(...types) {
     },
     readable: `(${readableTypes.join(" & ")})`
   };
-}
+}*/
 
 function tNot(type) {
   return {
@@ -259,26 +271,23 @@ function init() {
   define("tAny", tAny);
   define("tUndefined", tPrimitive("undefined"));
   define("tNull", tPrimitive("null"));
-  define("tFalse", tPrimitive("false"));
-  define("tTrue", tPrimitive("true"));
-  define("tBoolean", tOr(tPrimitive("false"), tPrimitive("true")));
+  define("tBoolean", tPrimitive("boolean"));
   define("tNumber", tPrimitive("number"));
   define("tString", tPrimitive("string"));
   define("tPrimitive", tPrimitive);
+  define("tFromValue", tFromValue);
   define("tFunction", tFunction);
   define("tMultiFunction", tMultiFunction);
-  define("tOr", tOr);
-  define("tAnd", tAnd);
   define("tNot", tNot);
 
   define("==", immutable.is, {
     type: tFunction(tAny, tAny, (a, b) => {
       const match = matchType(a, b);
       if (match === 1) {
-        return tTrue;
+        return tFromValue(true);
       }
       else if (match === -1) {
-        return tFalse;
+        return tFromValue(false);
       }
       else {
         return tBoolean;
@@ -288,9 +297,9 @@ function init() {
   define("+", (a, b) => a + b, {
     type: tMultiFunction(
       tFunction(tNumber, tNumber, ({ value: a }, { value: b }) =>
-        a !== undefined && b != undefined ? tPrimitive("number", a + b) : tNumber),
+        a !== undefined && b != undefined ? tFromValue(a + b) : tNumber),
       tFunction(tString, tString, ({ value: a }, { value: b }) =>
-        a !== undefined && b != undefined ? tPrimitive("string", a + b) : tString))
+        a !== undefined && b != undefined ? tFromValue(a + b) : tString))
   });
   define("print", (x) => console.log(x), {
     type: tFunction(tAny, tUndefined)
