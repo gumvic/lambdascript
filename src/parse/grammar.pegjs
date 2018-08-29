@@ -16,6 +16,7 @@ comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
   wordCase
+  / wordWhen
   / wordElse
   / wordDo
   / wordLet
@@ -24,6 +25,7 @@ reservedWord "special word" =
   / wordEnd
 
 wordCase "case" = "case" !beginNameChar
+wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
 wordDo "do" = "do" !beginNameChar
 wordLet "let" = "let" !beginNameChar
@@ -224,7 +226,7 @@ function = wordFn _ args:funArgs _ "->" _ body:expression {
   };
 }
 
-caseBranch = condition:expression _ ":" _ value:expression {
+caseBranch = wordWhen _ condition:expression _ ":" _ value:expression {
   return {
     condition: condition,
     value: value
