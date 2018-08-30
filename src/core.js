@@ -176,7 +176,7 @@ function tMultiFunction(...functions) {
   };
 }
 
-/*function tOr(...types) {
+function tOr(...types) {
   const readableTypes = types.map(readableType);
   return {
     type: "or",
@@ -224,7 +224,7 @@ function tAnd(...types) {
     },
     readable: `(${readableTypes.join(" & ")})`
   };
-}*/
+}
 
 function tNot(type) {
   return {
@@ -278,6 +278,8 @@ function init() {
   define("tFromValue", tFromValue);
   define("tFunction", tFunction);
   define("tMultiFunction", tMultiFunction);
+  define("tOr", tOr);
+  define("tAnd", tAnd);
   define("tNot", tNot);
 
   define("==", immutable.is, {

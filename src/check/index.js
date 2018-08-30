@@ -142,8 +142,53 @@ function checkCall(ast, context) {
   };
 }
 
+// TODO refactor this horror
 function checkCase(ast, context) {
-  return ast;
+  function isBoolean({ type }) {
+    return type === "boolean";
+  }
+  function isTrue({ type, value }) {
+    return type === "boolean" && value === true;
+  }
+  function isFalse({ type, value }) {
+    return type === "boolean" && value === false;
+  }
+  let branches, otherwise, type;
+  branches = ast.branches
+    .map(({ condition, value }) => ({ condition: check(condition, context), value }))
+    .filter(({ condition, value }) => !isFalse(condition.$type));
+  for (let { condition } of branches) {
+    if (!isBoolean(condition.$type)) {
+      throw new CheckError(`Can't cast ${condition.$type.readable} to boolean`, condition.location);
+    }
+  }
+  if (!branches.length) {
+    otherwise = check(otherwise, context);
+    type = otherwise.$type;
+  }
+  else if (isTrue(branches[0].condition.$type)) {
+    const branch = {
+      condition: branches[0].condition,
+      value: check(branches[0].value, context)
+    };
+    type = branch.value.$type;
+    branches = [branch];
+  }
+  else {
+    branches = branches
+      .map(({ condition, value }) => ({ condition, value: check(value, context) }));
+    otherwise = check(otherwise, context);
+    const types = branches
+      .map(({ value }) => value.$type)
+      .concat(otherwise.$type);
+    type = global.tOr(...types);
+  }
+  return {
+    ...ast,
+    ...branches,
+    ...otherwise,
+    $type: type
+  };
 }
 
 function checkScope(ast, context) {
