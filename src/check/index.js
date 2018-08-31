@@ -54,6 +54,16 @@ class LocalContext {
   }
 }
 
+function isBoolean({ type }) {
+  return type === "boolean";
+}
+function isTrue({ type, value }) {
+  return type === "boolean" && value === true;
+}
+function isFalse({ type, value }) {
+  return type === "boolean" && value === false;
+}
+
 function checkUndefined(ast, context) {
   return {
     ...ast,
@@ -142,53 +152,43 @@ function checkCall(ast, context) {
   };
 }
 
-// TODO refactor this horror
-function checkCase(ast, context) {
-  function isBoolean({ type }) {
-    return type === "boolean";
-  }
-  function isTrue({ type, value }) {
-    return type === "boolean" && value === true;
-  }
-  function isFalse({ type, value }) {
-    return type === "boolean" && value === false;
-  }
-  let branches, otherwise, type;
-  branches = ast.branches
+function checkCaseBranches({ branches }, context) {
+  branches = branches
     .map(({ condition, value }) => ({ condition: check(condition, context), value }))
-    .filter(({ condition, value }) => !isFalse(condition.$type));
+    .filter(({ condition }) => !isFalse(condition.$type));
   for (let { condition } of branches) {
     if (!isBoolean(condition.$type)) {
       throw new CheckError(`Can't cast ${condition.$type.readable} to boolean`, condition.location);
     }
   }
+  return branches;
+}
+
+function checkCase(ast, context) {
+  const branches = checkCaseBranches(ast, context);
   if (!branches.length) {
-    otherwise = check(otherwise, context);
-    type = otherwise.$type;
+    const result = check(ast.otherwise, context);
+    return {
+      ...ast,
+      $type: result.$type
+    };
   }
   else if (isTrue(branches[0].condition.$type)) {
-    const branch = {
-      condition: branches[0].condition,
-      value: check(branches[0].value, context)
+    const result = check(branches[0].value, context);
+    return {
+      ...ast,
+      $type: result.$type
     };
-    type = branch.value.$type;
-    branches = [branch];
   }
   else {
-    branches = branches
-      .map(({ condition, value }) => ({ condition, value: check(value, context) }));
-    otherwise = check(otherwise, context);
-    const types = branches
-      .map(({ value }) => value.$type)
-      .concat(otherwise.$type);
-    type = global.tOr(...types);
+    const results = branches
+      .map(({ value }) => check(value, context))
+      .concat(check(ast.otherwise, context));
+    return {
+      ...ast,
+      $type: global.tOr(...results.map(({ $type }) => $type))
+    };
   }
-  return {
-    ...ast,
-    ...branches,
-    ...otherwise,
-    $type: type
-  };
 }
 
 function checkScope(ast, context) {

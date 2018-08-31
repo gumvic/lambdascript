@@ -16,7 +16,7 @@ function formatError(e, src) {
 
 function repl(src) {
   try {
-    compile(src);
+    console.log(compile(src));
   }
   catch(e) {
     console.log(formatError(e, src));
@@ -26,9 +26,18 @@ function repl(src) {
 function run() {
   init();
   //repl(`print(42)`);
-  repl(`print(42 + null)`);
+  //repl(`print(42 + null)`);
   //repl(`x = 42`);
   //repl(`print(x)`);
+  repl(`
+    let
+      x = case
+        when true + 1: (==)
+        else (+)
+      end
+    in
+      x(x, x)
+    end`);
   /*repl(`
     let
       x = print(42)
