@@ -27,6 +27,7 @@ tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 to-string # name
 function? # name
 ```
+- make defining operators possible
 - clean up `package.json`
 - optimize native things like `throw`, `instanceof` etc
 - optimize to `===` when at least one is a primitive

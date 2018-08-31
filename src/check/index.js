@@ -126,6 +126,7 @@ function checkFunction(ast, context) {
     ...ast,
     $type: {
       type: "function",
+      isLocal: true,
       fn(...args) {
         if (args.length !== ast.args.length) {
           return false;
@@ -211,22 +212,33 @@ function checkCase(ast, context) {
   }
 }
 
+function checkLocalDefinition(ast, context) {
+  const value = check(ast.value, context);
+  context.define(ast.name, {
+    type: value.$type
+  });
+  return ast;
+}
+
 function checkScope(ast, context) {
   context = context.spawn();
-  const definitions = ast.definitions.map((definition) => check(definition, context));
+  const definitions = ast.definitions.map((definition) => checkLocalDefinition(definition, context));
   const body = check(ast.body, context);
   return {
     ...ast,
-    definitions,
     $type: body.$type
   };
 }
 
-function checkDefinition(ast, context) {
+function checkGlobalDefinition(ast, context) {
   const value = check(ast.value, context);
-  const meta = {
-    type: value.$type
+  const type = value.$type;
+  if (type.type === "function" && type.isLocal) {
+    throw new CheckError("Global functions must be typed explicitely", ast.location);
   }
+  const meta = {
+    type
+  };
   context.define(ast.name, meta);
   return {
     ...ast,
@@ -234,9 +246,16 @@ function checkDefinition(ast, context) {
   };
 }
 
+function checkStatement(statement, context) {
+  switch(statement.type) {
+    case "definition": return checkGlobalDefinition(statement, context);
+    default: return check(statement, context);
+  }
+}
+
 function checkProgram(ast, context) {
   context = context.spawn();
-  const statements = ast.statements.map((statement) => check(statement, context));
+  const statements = ast.statements.map((statement) => checkStatement(statement, context));
   return {
     ...ast,
     statements
