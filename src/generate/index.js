@@ -27,14 +27,31 @@ const IMMUTABLE_MAP = {
   computed: false
 };
 
-// TODO make Context signify if it's global or not, get rid of genGlobalDefinition/genDefinition
-class Context {
+class GlobalContext {
+  constructor() {
+
+  }
+
+  spawn() {
+    return new LocalContext(this);
+  }
+
+  isGlobal() {
+    return true;
+  }
+}
+
+class LocalContext {
   constructor(parent) {
     this.parent = parent;
   }
 
   spawn() {
-    return new Context(this);
+    return new LocalContext(this);
+  }
+
+  isGlobal() {
+    return false;
   }
 }
 
@@ -120,21 +137,8 @@ function genMap({ items }, context) {
   };
 }
 
-function genLocalDefinition({ name, value }, context) {
-  return {
-    type: "VariableDeclaration",
-    declarations: [
-      {
-        type: "VariableDeclarator",
-        id: generate(name, context),
-        init: generate(value, context)
-      }
-    ],
-    kind: "const"
-  };
-}
-
 function genFunction({ args, body }, context) {
+  context = context.spawn();
   return {
     type: "ArrowFunctionExpression",
     params: args.map((arg) => genName(arg, context)),
@@ -163,6 +167,7 @@ function genCase({ branches, otherwise }, context) {
 }
 
 function genScope({ definitions, body }, context) {
+  context = context.spawn();
   return {
     type: "CallExpression",
     callee: {
@@ -171,7 +176,7 @@ function genScope({ definitions, body }, context) {
       body: {
         type: "BlockStatement",
         body: definitions
-          .map(definition => genLocalDefinition(definition, context))
+          .map(definition => genDefinition(definition, context))
           .concat({
             type: "ReturnStatement",
             argument: generate(body, context)
@@ -190,23 +195,32 @@ function genCall({ callee, args }, context) {
   };
 }
 
+function genLocalDefinition({ name, value }, context) {
+  return {
+    type: "VariableDeclaration",
+    declarations: [
+      {
+        type: "VariableDeclarator",
+        id: generate(name, context),
+        init: generate(value, context)
+      }
+    ],
+    kind: "const"
+  };
+}
+
 function genGlobalDefinition({ name, value, $meta }, context) {
   global.define(name.name, eval(emit(generate(value, context))), $meta);
   return generate(name, context);
 }
 
-function genStatement(statement, context) {
-  switch(statement.type) {
-    case "definition": return genGlobalDefinition(statement, context);
-    default: return generate(statement, context);
+function genDefinition(ast, context) {
+  if (context.isGlobal()) {
+    return genGlobalDefinition(ast, context);
   }
-}
-
-function genProgram({ statements }, context) {
-  return {
-    type: "Program",
-    body: statements.map((step) => genStatement(step, context))
-  };
+  else {
+    return genLocalDefinition(ast, context);
+  }
 }
 
 function generate(ast, context) {
@@ -225,7 +239,7 @@ function generate(ast, context) {
     case "case": return genCase(ast, context);
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
-    case "program": return genProgram(ast, context);
+    case "definition": return genDefinition(ast, context);
     case "Program":
     case "BlockStatement":
     case "ClassBody":
@@ -291,6 +305,6 @@ function generate(ast, context) {
 }
 
 module.exports = function(ast) {
-  const estree = generate(ast, new Context());
+  const estree = generate(ast, new GlobalContext());
   return emit(estree);
 };

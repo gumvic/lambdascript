@@ -1,8 +1,5 @@
-program = _ statements:(statement:(definition / expression) _ { return statement; })+ {
-  return {
-    type: "program",
-    statements: statements
-  };
+program = _ statement:(definition / expression) _ { 
+  return statement;
 }
 
 nl = [\n\r] / [\n]

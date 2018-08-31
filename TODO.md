@@ -17,7 +17,6 @@ tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
 - `_` should be typed, too
-- for programs, `parse` the whole thing, but then `check`/`generate` step by step; overall, programs don't work now
 - make `parse`/`check`/`generate` etc not throw, but return eithers
 - namespaces and fully qualified names like `core.get`, `type.number` etc
 - allow operator characters in names: if name only contains operator chars, that's an operator, otherwise a name, so:

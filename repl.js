@@ -25,10 +25,15 @@ function repl(src) {
 
 function run() {
   init();
-  repl(`f(x, y) -> x + y`);
   repl(`x = 42`);
   repl(`y = 42`);
-  repl(`f(42, "")`);
+  repl(`
+    let
+      f(x, y) -> x + y
+    in
+      f(x, y)
+    end`);
+  //repl(`f(42, "")`);
   //repl(`print(42)`);
   //repl(`print(42 + null)`);
   //repl(`x = 42`);

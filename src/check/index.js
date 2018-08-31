@@ -28,6 +28,10 @@ class GlobalContext {
   spawn() {
     return new LocalContext(this);
   }
+
+  isGlobal() {
+    return true;
+  }
 }
 
 class LocalContext {
@@ -51,6 +55,10 @@ class LocalContext {
 
   spawn() {
     return new LocalContext(this);
+  }
+
+  isGlobal() {
+    return false;
   }
 }
 
@@ -212,17 +220,9 @@ function checkCase(ast, context) {
   }
 }
 
-function checkLocalDefinition(ast, context) {
-  const value = check(ast.value, context);
-  context.define(ast.name, {
-    type: value.$type
-  });
-  return ast;
-}
-
 function checkScope(ast, context) {
   context = context.spawn();
-  const definitions = ast.definitions.map((definition) => checkLocalDefinition(definition, context));
+  const definitions = ast.definitions.map((definition) => checkDefinition(definition, context));
   const body = check(ast.body, context);
   return {
     ...ast,
@@ -246,20 +246,21 @@ function checkGlobalDefinition(ast, context) {
   };
 }
 
-function checkStatement(statement, context) {
-  switch(statement.type) {
-    case "definition": return checkGlobalDefinition(statement, context);
-    default: return check(statement, context);
-  }
+function checkLocalDefinition(ast, context) {
+  const value = check(ast.value, context);
+  context.define(ast.name, {
+    type: value.$type
+  });
+  return ast;
 }
 
-function checkProgram(ast, context) {
-  context = context.spawn();
-  const statements = ast.statements.map((statement) => checkStatement(statement, context));
-  return {
-    ...ast,
-    statements
-  };
+function checkDefinition(ast, context) {
+  if (context.isGlobal()) {
+    return checkGlobalDefinition(ast, context);
+  }
+  else {
+    return checkLocalDefinition(ast, context);
+  }
 }
 
 function check(ast, context) {
@@ -279,7 +280,6 @@ function check(ast, context) {
     case "case": return checkCase(ast, context);
     case "scope": return checkScope(ast, context);
     case "definition": return checkDefinition(ast, context);
-    case "program": return checkProgram(ast, context);
     default: throw new TypeError(`Internal error: unknown AST type ${ast.type}.`);
   }
 }
