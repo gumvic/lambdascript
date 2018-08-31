@@ -29,15 +29,7 @@ function run() {
   //repl(`print(42 + null)`);
   //repl(`x = 42`);
   //repl(`print(x)`);
-  repl(`
-    let
-      x = case
-        when true + 1: (==)
-        else (+)
-      end
-    in
-      x(x, x)
-    end`);
+  repl(`(fn(x) -> x + "x")("42")`);
   /*repl(`
     let
       x = print(42)

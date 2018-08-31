@@ -122,13 +122,35 @@ function checkName(ast, context) {
 }
 
 function checkFunction(ast, context) {
-  context = context.spawn();
-  /*context = context.spawn();
-  for(let arg of ast.args) {
-    context.define(arg);
-  }
-  const body = check(ast.body, context);*/
-  return ast;
+  return {
+    ...ast,
+    $type: {
+      type: "function",
+      fn(...args) {
+        if (args.length !== ast.args.length) {
+          return false;
+        }
+        else {
+          const _context = context.spawn();
+          for(let i = 0; i < args.length; i++) {
+            const arg = ast.args[i];
+            const argType = args[i];
+            _context.define(arg, {
+              type: argType
+            });
+          }
+          return check(ast.body, _context).$type;
+        }
+      },
+      castFrom(_) {
+        return false;
+      },
+      castTo(_) {
+        return false;
+      },
+      readable: `fn(${ast.args.map(({ name }) => name).join(", ")}) -> ?`
+    }
+  };
 }
 
 function checkCall(ast, context) {
@@ -146,8 +168,6 @@ function checkCall(ast, context) {
   }
   return {
     ...ast,
-    callee,
-    args,
     $type: resType
   };
 }
@@ -198,7 +218,6 @@ function checkScope(ast, context) {
   return {
     ...ast,
     definitions,
-    body,
     $type: body.$type
   };
 }
@@ -211,7 +230,6 @@ function checkDefinition(ast, context) {
   context.define(ast.name, meta);
   return {
     ...ast,
-    value,
     meta
   };
 }
