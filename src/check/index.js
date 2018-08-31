@@ -129,12 +129,13 @@ function checkName(ast, context) {
   };
 }
 
+// TODO copy all of the context's contents that is used, including globals
+// than use that context as the base for the .spawn in fn()
 function checkFunction(ast, context) {
   return {
     ...ast,
     $type: {
       type: "function",
-      isLocal: true,
       fn(...args) {
         if (args.length !== ast.args.length) {
           return false;
@@ -148,7 +149,17 @@ function checkFunction(ast, context) {
               type: argType
             });
           }
-          return check(ast.body, _context).$type;
+          try {
+            return check(ast.body, _context).$type;
+          }
+          catch(e) {
+            if (e instanceof CheckError) {
+              return false;
+            }
+            else {
+              throw e;
+            }
+          }
         }
       },
       castFrom(_) {
@@ -157,7 +168,7 @@ function checkFunction(ast, context) {
       castTo(_) {
         return false;
       },
-      readable: `fn(${ast.args.map(({ name }) => name).join(", ")}) -> ?`
+      readable: ast.text
     }
   };
 }
@@ -233,9 +244,6 @@ function checkScope(ast, context) {
 function checkGlobalDefinition(ast, context) {
   const value = check(ast.value, context);
   const type = value.$type;
-  if (type.type === "function" && type.isLocal) {
-    throw new CheckError("Global functions must be typed explicitely", ast.location);
-  }
   const meta = {
     type
   };

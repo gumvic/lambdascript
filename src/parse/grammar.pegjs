@@ -1,4 +1,4 @@
-program = _ statement:(definition / expression) _ { 
+program = _ statement:(definition / expression) _ {
   return statement;
 }
 
@@ -208,17 +208,22 @@ funArgs =
   "(" _
   args:(first:name rest:(_ "," _ arg:name { return arg; })* { return [first].concat(rest); })? _
   _ ")" {
+  return args || [];
+}
+
+function = args:funArgs _ "->" _ body:expression {
   return {
-    args: args || [],
+    type: "function",
+    args: args,
+    body: body,
+    text: "fn" + text(),
     location: location()
   };
 }
 
-function = wordFn _ args:funArgs _ "->" _ body:expression {
+lambdaFunction = wordFn _ fun:function {
   return {
-    type: "function",
-    args: args.args,
-    body: body,
+    ...fun,
     location: location()
   };
 }
@@ -256,14 +261,12 @@ constantDefinition = name:name _ "=" _ value:expression {
   };
 }
 
-functionDefinition = name:name _ args:funArgs _ "->" _ body:expression {
+functionDefinition = name:name _ fun:function {
   return {
     type: "definition",
     name: name,
     value: {
-      type: "function",
-      args: args.args,
-      body: body,
+      ...fun,
       location: location()
     },
     location: location()
@@ -301,7 +304,7 @@ atom =
   / name
   / list
   / map
-  / function
+  / lambdaFunction
   / subExpression
 
 unary = operator:operator __ operand:atom {

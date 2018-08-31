@@ -25,13 +25,14 @@ function repl(src) {
 
 function run() {
   init();
+  repl(`add(x, y) -> x + y`);
   repl(`x = 42`);
   repl(`y = 42`);
   repl(`
     let
       f(x, y) -> x + y
     in
-      f(x, y)
+      add(24, 42)
     end`);
   //repl(`f(42, "")`);
   //repl(`print(42)`);
