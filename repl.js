@@ -25,11 +25,14 @@ function repl(src) {
 
 function run() {
   init();
+  repl(`x = 42`);
+  repl(`y = 42`);
+  repl(`x == y`);
   //repl(`print(42)`);
   //repl(`print(42 + null)`);
   //repl(`x = 42`);
   //repl(`print(x)`);
-  repl(`(fn(x) -> x + "x")("42")`);
+  //repl(`(fn(x) -> x + "x")("42")`);
   /*repl(`
     let
       x = print(42)

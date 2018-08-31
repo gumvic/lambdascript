@@ -2,11 +2,6 @@ const { namify } = require("../utils");
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
 
-const DEFINE = {
-  type: "Identifier",
-  name: "define"
-};
-
 const IMMUTABLE = {
   type: "Identifier",
   name: "immutable"
@@ -195,43 +190,9 @@ function genCall({ callee, args }, context) {
   };
 }
 
-function genGlobalDefinition({ name, value, meta }, context) {
-  name = {
-    type: "Literal",
-    value: name.name
-  };
-  value = generate(value, context);
-  meta = {
-    type: "Literal",
-    value: null
-  };
-  return {
-    type: "CallExpression",
-    callee: DEFINE,
-    arguments: [name, value, meta]
-  };
-  /*return {
-    type: "BlockStatement",
-    body: [
-      {
-        type: "AssignmentExpression",
-        operator: "=",
-        left: {
-          type: "MemberExpression",
-          object: MONADA_META,
-          property: name,
-          computed: false
-        },
-        right: meta
-      },
-      {
-        type: "AssignmentExpression",
-        operator: "=",
-        left: name,
-        right: value
-      }
-    ]
-  };*/
+function genGlobalDefinition({ name, value, $meta }, context) {
+  global.define(name.name, eval(emit(generate(value, context))), $meta);
+  return generate(name, context);
 }
 
 function genStatement(statement, context) {

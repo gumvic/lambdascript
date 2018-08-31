@@ -230,7 +230,7 @@ function checkDefinition(ast, context) {
   context.define(ast.name, meta);
   return {
     ...ast,
-    meta
+    $meta: meta
   };
 }
 
