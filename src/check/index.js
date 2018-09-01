@@ -131,45 +131,80 @@ function checkName(ast, context) {
 
 // TODO copy all of the context's contents that is used, including globals
 // than use that context as the base for the .spawn in fn()
+function lambdaFunctionType(ast, context) {
+  return {
+    type: "function",
+    fn(...args) {
+      if (args.length !== ast.args.length) {
+        return false;
+      }
+      else {
+        const _context = context.spawn();
+        for(let i = 0; i < args.length; i++) {
+          _context.define(ast.args[i], {
+            type: args[i]
+          });
+        }
+        try {
+          return check(ast.body, _context).$type;
+        }
+        catch(e) {
+          if (e instanceof CheckError) {
+            return false;
+          }
+          else {
+            throw e;
+          }
+        }
+      }
+    },
+    castFrom(_) {
+      return false;
+    },
+    castTo(_) {
+      return false;
+    },
+    readable: ast.text
+  };
+}
+
+function namedFunctionType(ast, context) {
+  return {
+    type: "function",
+    fn(...args) {
+      if (args.length !== ast.args.length) {
+        throw new CheckError(`Function doesn't support the arity of ${args.length}`, ast.location);
+      }
+      else {
+        const _context = context.spawn();
+        for(let i = 0; i < args.length; i++) {
+          _context.define(ast.args[i], {
+            type: args[i]
+          });
+        }
+        return check(ast.body, _context).$type;
+      }
+    },
+    castFrom(_) {
+      return false;
+    },
+    castTo(_) {
+      return false;
+    },
+    readable: "TODO"
+  };
+}
+
+function defaultFunctionType(ast, context) {
+  const args = ast.args.map((_) => global.tAny);
+  const res = global.tAny;
+  return global.tFunction(...args.concat(res));
+}
+
 function checkFunction(ast, context) {
   return {
     ...ast,
-    $type: {
-      type: "function",
-      fn(...args) {
-        if (args.length !== ast.args.length) {
-          return false;
-        }
-        else {
-          const _context = context.spawn();
-          for(let i = 0; i < args.length; i++) {
-            const arg = ast.args[i];
-            const argType = args[i];
-            _context.define(arg, {
-              type: argType
-            });
-          }
-          try {
-            return check(ast.body, _context).$type;
-          }
-          catch(e) {
-            if (e instanceof CheckError) {
-              return false;
-            }
-            else {
-              throw e;
-            }
-          }
-        }
-      },
-      castFrom(_) {
-        return false;
-      },
-      castTo(_) {
-        return false;
-      },
-      readable: ast.text
-    }
+    $type: lambdaFunctionType(ast, context)
   };
 }
 
@@ -241,7 +276,35 @@ function checkScope(ast, context) {
   };
 }
 
-function checkGlobalDefinition(ast, context) {
+function checkLocalConstantDefinition(ast, context) {
+  const value = check(ast.value, context);
+  context.define(ast.name, {
+    type: value.$type
+  });
+  return ast;
+}
+
+function checkLocalFunctionDefinition(ast, context) {
+  const type = defaultFunctionType(ast, context);
+  const _type = namedFunctionType(ast, context);
+  if (!global.castType(type, _type)) {
+    throw new CheckError(`Can't cast ${_type.readable} to ${type.readable}`, ast.location);
+  }
+  context.define(ast.name, {
+    type
+  });
+  return ast;
+}
+
+function checkLocalDefinition(ast, context) {
+  switch(ast.kind) {
+    case "constant": return checkLocalConstantDefinition(ast, context);
+    case "function": return checkLocalFunctionDefinition(ast, context);
+    default: throw new CheckError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
+  }
+}
+
+function checkGlobalConstantDefinition(ast, context) {
   const value = check(ast.value, context);
   const type = value.$type;
   const meta = {
@@ -254,12 +317,28 @@ function checkGlobalDefinition(ast, context) {
   };
 }
 
-function checkLocalDefinition(ast, context) {
-  const value = check(ast.value, context);
-  context.define(ast.name, {
-    type: value.$type
-  });
-  return ast;
+function checkGlobalFunctionDefinition(ast, context) {
+  const type = defaultFunctionType(ast, context);
+  const _type = namedFunctionType(ast, context);
+  if (!global.castType(type, _type)) {
+    throw new CheckError(`Can't cast ${_type.readable} to ${type.readable}`, ast.location);
+  }
+  const meta = {
+    type
+  };
+  context.define(ast.name, meta);
+  return {
+    ...ast,
+    $meta: meta
+  };
+}
+
+function checkGlobalDefinition(ast, context) {
+  switch(ast.kind) {
+    case "constant": return checkGlobalConstantDefinition(ast, context);
+    case "function": return checkGlobalFunctionDefinition(ast, context);
+    default: throw new CheckError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
+  }
 }
 
 function checkDefinition(ast, context) {

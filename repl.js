@@ -25,28 +25,11 @@ function repl(src) {
 
 function run() {
   init();
-  repl(`add(x, y) -> x + y`);
+  repl(`id(x) -> x`)
+  repl(`add = fn(x, y) -> x + y`);
   repl(`x = 42`);
   repl(`y = 42`);
-  repl(`
-    let
-      f(x, y) -> x + y
-    in
-      add(24, 42)
-    end`);
-  //repl(`f(42, "")`);
-  //repl(`print(42)`);
-  //repl(`print(42 + null)`);
-  //repl(`x = 42`);
-  //repl(`print(x)`);
-  //repl(`(fn(x) -> x + "x")("42")`);
-  /*repl(`
-    let
-      x = print(42)
-    in
-      print(x(x))
-    end`);*/
-  //repl(`print(id)(print)`);
+  repl(`add(x, id(y))`);
 }
 
 run();

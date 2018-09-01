@@ -195,7 +195,7 @@ function genCall({ callee, args }, context) {
   };
 }
 
-function genLocalDefinition({ name, value }, context) {
+function genLocalConstantDefinition({ name, value }, context) {
   return {
     type: "VariableDeclaration",
     declarations: [
@@ -209,9 +209,44 @@ function genLocalDefinition({ name, value }, context) {
   };
 }
 
-function genGlobalDefinition({ name, value, $meta }, context) {
+function genLocalFunctionDefinition({ name, args, body }, context) {
+  return {
+    type: "VariableDeclaration",
+    declarations: [
+      {
+        type: "VariableDeclarator",
+        id: generate(name, context),
+        init: genFunction({ args, body }, context)
+      }
+    ],
+    kind: "const"
+  };
+}
+
+function genLocalDefinition(ast, context) {
+  switch(ast.kind) {
+    case "constant": return genLocalConstantDefinition(ast, context);
+    case "function": return genLocalFunctionDefinition(ast, context);
+    default: throw new GenerationError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
+  }
+}
+
+function genGlobalConstantDefinition({ name, value, $meta }, context) {
   global.define(name.name, eval(emit(generate(value, context))), $meta);
   return generate(name, context);
+}
+
+function genGlobalFunctionDefinition({ name, args, body, $meta }, context) {
+  global.define(name.name, eval(emit(generate(genFunction({ args, body }, context), context))), $meta);
+  return generate(name, context);
+}
+
+function genGlobalDefinition(ast, context) {
+  switch(ast.kind) {
+    case "constant": return genGlobalConstantDefinition(ast, context);
+    case "function": return genGlobalFunctionDefinition(ast, context);
+    default: throw new GenerationError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
+  }
 }
 
 function genDefinition(ast, context) {

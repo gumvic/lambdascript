@@ -17,6 +17,20 @@ tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
 - `_` should be typed, too
+- recursive functions, also check local contexts like js, so that the functions get to be defined first; maybe do it this way:
+```
+x: tString
+print(x) # runtime exception
+x = "foo"
+print(x) # ok
+
+let
+  x: tString # compile time error - "x was declared but never defined"
+  y = x
+in
+  y
+end
+```
 - make `parse`/`check`/`generate` etc not throw, but return eithers
 - namespaces and fully qualified names like `core.get`, `type.number` etc
 - allow operator characters in names: if name only contains operator chars, that's an operator, otherwise a name, so:

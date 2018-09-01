@@ -208,22 +208,25 @@ funArgs =
   "(" _
   args:(first:name rest:(_ "," _ arg:name { return arg; })* { return [first].concat(rest); })? _
   _ ")" {
-  return args || [];
+  return {
+    args: args || [],
+    location: location()
+  };
 }
 
 function = args:funArgs _ "->" _ body:expression {
   return {
-    type: "function",
-    args: args,
+    args: args.args,
     body: body,
-    text: "fn" + text(),
-    location: location()
+    text: text()
   };
 }
 
 lambdaFunction = wordFn _ fun:function {
   return {
     ...fun,
+    type: "function",
+    text: "fn" + fun.text,
     location: location()
   };
 }
@@ -255,6 +258,7 @@ case "case" =
 constantDefinition = name:name _ "=" _ value:expression {
   return {
     type: "definition",
+    kind: "constant",
     name: name,
     value: value,
     location: location()
@@ -263,12 +267,10 @@ constantDefinition = name:name _ "=" _ value:expression {
 
 functionDefinition = name:name _ fun:function {
   return {
+    ...fun,
     type: "definition",
+    kind: "function",
     name: name,
-    value: {
-      ...fun,
-      location: location()
-    },
     location: location()
   };
 }
