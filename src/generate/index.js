@@ -27,32 +27,8 @@ const IMMUTABLE_MAP = {
   computed: false
 };
 
-class GlobalContext {
-  constructor() {
+class Context {
 
-  }
-
-  spawn() {
-    return new LocalContext(this);
-  }
-
-  isGlobal() {
-    return true;
-  }
-}
-
-class LocalContext {
-  constructor(parent) {
-    this.parent = parent;
-  }
-
-  spawn() {
-    return new LocalContext(this);
-  }
-
-  isGlobal() {
-    return false;
-  }
 }
 
 function genSkip(ast, context) {
@@ -195,7 +171,7 @@ function genCall({ callee, args }, context) {
   };
 }
 
-function genLocalConstantDefinition({ name, value }, context) {
+function genConstantDefinition({ name, value }, context) {
   return {
     type: "VariableDeclaration",
     declarations: [
@@ -209,52 +185,28 @@ function genLocalConstantDefinition({ name, value }, context) {
   };
 }
 
-function genLocalFunctionDefinition({ name, args, body }, context) {
+function genFunctionDefinition({ name, args, body }, context) {
   return {
-    type: "VariableDeclaration",
-    declarations: [
-      {
-        type: "VariableDeclarator",
-        id: generate(name, context),
-        init: genFunction({ args, body }, context)
-      }
-    ],
-    kind: "const"
+    type: "FunctionDeclaration",
+    id: generate(name, context),
+    params: args.map((arg) => genName(arg, context)),
+    body: {
+      type: "BlockStatement",
+      body: [
+        {
+          type: "ReturnStatement",
+          argument: generate(body, context)
+        }
+      ]
+    }
   };
 }
 
-function genLocalDefinition(ast, context) {
-  switch(ast.kind) {
-    case "constant": return genLocalConstantDefinition(ast, context);
-    case "function": return genLocalFunctionDefinition(ast, context);
-    default: throw new GenerationError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
-  }
-}
-
-function genGlobalConstantDefinition({ name, value, $meta }, context) {
-  global.define(name.name, eval(emit(generate(value, context))), $meta);
-  return generate(name, context);
-}
-
-function genGlobalFunctionDefinition({ name, args, body, $meta }, context) {
-  global.define(name.name, eval(emit(generate(genFunction({ args, body }, context), context))), $meta);
-  return generate(name, context);
-}
-
-function genGlobalDefinition(ast, context) {
-  switch(ast.kind) {
-    case "constant": return genGlobalConstantDefinition(ast, context);
-    case "function": return genGlobalFunctionDefinition(ast, context);
-    default: throw new GenerationError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
-  }
-}
-
 function genDefinition(ast, context) {
-  if (context.isGlobal()) {
-    return genGlobalDefinition(ast, context);
-  }
-  else {
-    return genLocalDefinition(ast, context);
+  switch(ast.kind) {
+    case "constant": return genConstantDefinition(ast, context);
+    case "function": return genFunctionDefinition(ast, context);
+    default: throw new GenerationError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
   }
 }
 
@@ -340,6 +292,6 @@ function generate(ast, context) {
 }
 
 module.exports = function(ast) {
-  const estree = generate(ast, new GlobalContext());
+  const estree = generate(ast, new Context());
   return emit(estree);
 };
