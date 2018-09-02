@@ -1,64 +1,35 @@
-const { get } = require("immutable");
 const CheckError = require("./error");
+const core = require("../core");
 
-class GlobalContext {
-  constructor() {
-    this.meta = {};
-  }
-
-  define({ name, location }, meta) {
-    if (global.getMeta(name) || this.meta[name]) {
-      throw new CheckError(`Already defined: ${name}`, location);
-    }
-    else {
-      this.meta[name] = meta;
-    }
-  }
-
-  getMeta({ name, location }) {
-    const meta = global.getMeta(name) || this.meta[name];
-    if (!meta) {
-      throw new CheckError(`Not defined: ${name}`, location);
-    }
-    else {
-      return meta;
-    }
-  }
-
-  spawn() {
-    return new LocalContext(this);
-  }
-
-  isGlobal() {
-    return true;
-  }
-}
-
-class LocalContext {
+class Context {
   constructor(parent) {
     this.parent = parent;
-    this.meta = {};
+    this.defined = {};
   }
 
-  define({ name, location }, meta) {
-    if (this.meta[name]) {
+  define({ name, location }, type) {
+    if (this.defined[name]) {
       throw new CheckError(`Already defined: ${name}`, location);
     }
     else {
-      this.meta[name] = meta;
+      this.defined[name] = type;
     }
   }
 
-  getMeta({ name, location }) {
-    return this.meta[name] || this.parent.getMeta({ name, location });
+  getDefined({ name, location }) {
+    if (this.defined[name]) {
+      this.defined[name];
+    }
+    else if (this.parent) {
+      return this.parent.getDefined({ name, location });
+    }
+    else {
+      throw new CheckError(`Not defined: ${name}`, location);
+    }
   }
 
   spawn() {
-    return new LocalContext(this);
-  }
-
-  isGlobal() {
-    return false;
+    return new Context(this);
   }
 }
 
@@ -75,42 +46,42 @@ function isFalse({ type, value }) {
 function checkUndefined(ast, context) {
   return {
     ...ast,
-    $type: global.tFromValue(undefined)
+    $type: core.tFromValue(undefined)
   };
 }
 
 function checkNull(ast, context) {
   return {
     ...ast,
-    $type: global.tFromValue(null)
+    $type: core.tFromValue(null)
   };
 }
 
 function checkFalse(ast, context) {
   return {
     ...ast,
-    $type: global.tFromValue(false)
+    $type: core.tFromValue(false)
   };
 }
 
 function checkTrue(ast, context) {
   return {
     ...ast,
-    $type: global.tFromValue(true)
+    $type: core.tFromValue(true)
   };
 }
 
 function checkNumber(ast, context) {
   return {
     ...ast,
-    $type: global.tFromValue(parseFloat(ast.value))
+    $type: core.tFromValue(parseFloat(ast.value))
   };
 }
 
 function checkString(ast, context) {
   return {
     ...ast,
-    $type: global.tFromValue(ast.value)
+    $type: core.tFromValue(ast.value)
   };
 }
 
@@ -125,7 +96,7 @@ function checkMap(ast, context) {
 function checkName(ast, context) {
   return {
     ...ast,
-    $type: get(context.getMeta(ast), "type")
+    $type: context.getDefined(ast)
   };
 }
 
@@ -141,9 +112,7 @@ function lambdaFunctionType(ast, context) {
       else {
         const _context = context.spawn();
         for(let i = 0; i < args.length; i++) {
-          _context.define(ast.args[i], {
-            type: args[i]
-          });
+          _context.define(ast.args[i], args[i]);
         }
         try {
           return check(ast.body, _context).$type;
@@ -178,9 +147,7 @@ function namedFunctionType(ast, context) {
       else {
         const _context = context.spawn();
         for(let i = 0; i < args.length; i++) {
-          _context.define(ast.args[i], {
-            type: args[i]
-          });
+          _context.define(ast.args[i], args[i]);
         }
         return check(ast.body, _context).$type;
       }
@@ -196,9 +163,9 @@ function namedFunctionType(ast, context) {
 }
 
 function defaultFunctionType(ast, context) {
-  const args = ast.args.map((_) => global.tAny);
-  const res = global.tAny;
-  return global.tFunction(...args.concat(res));
+  const args = ast.args.map((_) => core.tAny);
+  const res = core.tAny;
+  return core.tFunction(...args.concat(res));
 }
 
 function checkFunction(ast, context) {
@@ -217,8 +184,8 @@ function checkCall(ast, context) {
   let resType;
   if (calleeTypeType != "function" ||
       !(resType = calleeTypeFn(...argTypes))) {
-    const readableCalleeType = global.readableType(calleeType);
-    const readableArgTypes = argTypes.map(global.readableType);
+    const readableCalleeType = core.readableType(calleeType);
+    const readableArgTypes = argTypes.map(core.readableType);
     throw new CheckError(`Can't apply ${readableCalleeType} to (${readableArgTypes.join(", ")})`, ast.location);
   }
   return {
@@ -261,7 +228,7 @@ function checkCase(ast, context) {
       .concat(check(ast.otherwise, context));
     return {
       ...ast,
-      $type: global.tOr(...results.map(({ $type }) => $type))
+      $type: core.tOr(...results.map(({ $type }) => $type))
     };
   }
 }
@@ -276,27 +243,23 @@ function checkScope(ast, context) {
   };
 }
 
-function checkLocalConstantDefinition(ast, context) {
+function checkConstantDefinition(ast, context) {
   const value = check(ast.value, context);
-  context.define(ast.name, {
-    type: value.$type
-  });
+  context.define(ast.name, value.$type);
   return ast;
 }
 
-function checkLocalFunctionDefinition(ast, context) {
+function checkFunctionDefinition(ast, context) {
   const type = defaultFunctionType(ast, context);
   const _type = namedFunctionType(ast, context);
-  if (!global.castType(type, _type)) {
+  if (!core.castType(type, _type)) {
     throw new CheckError(`Can't cast ${_type.readable} to ${type.readable}`, ast.location);
   }
-  context.define(ast.name, {
-    type
-  });
+  context.define(ast.name, type);
   return ast;
 }
 
-function checkLocalDefinition(ast, context) {
+function checkDefinition(ast, context) {
   switch(ast.kind) {
     case "constant": return checkLocalConstantDefinition(ast, context);
     case "function": return checkLocalFunctionDefinition(ast, context);
@@ -304,50 +267,73 @@ function checkLocalDefinition(ast, context) {
   }
 }
 
-function checkGlobalConstantDefinition(ast, context) {
-  const value = check(ast.value, context);
-  const type = value.$type;
-  const meta = {
-    type
-  };
-  context.define(ast.name, meta);
-  return {
-    ...ast,
-    $meta: meta
-  };
+function checkDefinitions(definitions, context) {
+  // sort: declarations, functions, constants
+  // throw on duplicate declarations
+  // throw on hanging declarations
+  return definitions;
 }
 
-function checkGlobalFunctionDefinition(ast, context) {
-  const type = defaultFunctionType(ast, context);
-  const _type = namedFunctionType(ast, context);
-  if (!global.castType(type, _type)) {
-    throw new CheckError(`Can't cast ${_type.readable} to ${type.readable}`, ast.location);
+function defineImportName(module, name, context) {
+  const type = module.$monada ?
+    module.$monada.exports[name.name].type :
+    core.tFromValue(module[namify(name.name)]);
+  context.define(name, type);
+}
+
+function checkImportSome(ast, context) {
+  for(let name of ast.names) {
+    defineImportName(ast.$module, name);
   }
-  const meta = {
-    type
-  };
-  context.define(ast.name, meta);
-  return {
-    ...ast,
-    $meta: meta
-  };
+  return ast;
 }
 
-function checkGlobalDefinition(ast, context) {
+function checkImportAll(ast, context) {
+  const names = Object.keys(ast.$module);
+  for(let name of names) {
+    defineImportName(ast.$module, name);
+  }
+  return ast;
+}
+
+function checkImport(ast, context) {
   switch(ast.kind) {
-    case "constant": return checkGlobalConstantDefinition(ast, context);
-    case "function": return checkGlobalFunctionDefinition(ast, context);
-    default: throw new CheckError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
+    case "some": return checkImportSome(ast, context);
+    case "all": return checkImportAll(ast, context);
+    default: throw new CheckError(`Internal error: unknown AST import kind ${ast.kind}.`, ast.location);
   }
 }
 
-function checkDefinition(ast, context) {
-  if (context.isGlobal()) {
-    return checkGlobalDefinition(ast, context);
+function checkExportSome(ast, context) {
+  for (let name of ast.names) {
+    context.getDefined(name);
   }
-  else {
-    return checkLocalDefinition(ast, context);
+  return ast;
+}
+
+function checkExportAll(ast, context) {
+  return ast;
+}
+
+function checkModuleExport(ast, context) {
+  switch(ast.kind) {
+    case "some": return checkExportSome(ast, context);
+    case "all": return checkExportAll(ast, context);
+    default: throw new CheckError(`Internal error: unknown AST import kind ${ast.kind}.`, ast.location);
   }
+}
+
+function checkModule(ast, context) {
+  const imports = ast.imports.map((_import) => checkImport(_import, context));
+  const definitions = checkDefinitions(definitions, context);
+  const exports = ast.exports.map((_export) => checkExport(_export, context));
+  return ast;
+  /*return {
+    ...ast,
+    imports,
+    definitions,
+    exports
+  };*/
 }
 
 function check(ast, context) {
@@ -366,11 +352,12 @@ function check(ast, context) {
     case "call": return checkCall(ast, context);
     case "case": return checkCase(ast, context);
     case "scope": return checkScope(ast, context);
-    case "definition": return checkDefinition(ast, context);
+    case "module": return checkModule(ast, context);
     default: throw new TypeError(`Internal error: unknown AST type ${ast.type}.`);
   }
 }
 
 module.exports = function(ast) {
-  return check(ast, new GlobalContext());
+  return ast;
+  //return check(ast, new Context());
 };

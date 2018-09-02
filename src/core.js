@@ -1,9 +1,4 @@
 const immutable = require("immutable");
-const { namify } = require("./utils");
-
-const parse = require("./parse");
-const check = require("./check");
-const generate = require("./generate");
 
 function castType(to, from) {
   return to.castFrom(from) || from.castTo(to);
@@ -60,14 +55,14 @@ function tPrimitive(type, value) {
 }
 
 function tFromValue(value) {
-  if (value === undefined) {
-    return tPrimitive("undefined");
+  if (value === null) {
+    return tNull;
   }
-  else if (value === null) {
-    return tPrimitive("null");
+  else if (typeof value !== "object") {
+    return tPrimitive(typeof value, value);
   }
   else {
-    return tPrimitive(typeof value, value);
+    return tAny;
   }
 }
 
@@ -239,73 +234,68 @@ function tNot(type) {
   };
 }
 
-function define(name, value, meta) {
-  global.monada$meta[name] = meta || {};
-  global[namify(name)] = value;
-  return value;
+const tUndefined = tPrimitive("undefined");
+const tNull = tPrimitive("null");
+const tBoolean = tPrimitive("boolean");
+const tNumber = tPrimitive("number");
+const tString = tPrimitive("string");
+
+const $equals$equals = immutable.is;
+function $plus(x, y) {
+  return x + y;
+}
+function print(x) {
+  console.log(x);
 }
 
-function getMeta(name) {
-  return global.monada$meta[name];
-}
+const $monada = {
+  exports: {
+    "==": {
+      type: tFunction(tAny, tAny, (a, b) => {
+        const match = matchType(a, b);
+        if (match === 1) {
+          return tFromValue(true);
+        }
+        else if (match === -1) {
+          return tFromValue(false);
+        }
+        else {
+          return tBoolean;
+        }
+      })
+    },
+    "+": {
+      type: tMultiFunction(
+        tFunction(tNumber, tNumber, ({ value: a }, { value: b }) =>
+          a !== undefined && b != undefined ? tFromValue(a + b) : tNumber),
+        tFunction(tString, tString, ({ value: a }, { value: b }) =>
+          a !== undefined && b != undefined ? tFromValue(a + b) : tString))
+    },
+    "print": {
+      type: tFunction(tAny, tUndefined)
+    }
+  }
+};
 
-function compile(src) {
-  const parsed = parse(src);
-  const checked = check(parsed);
-  const generated = generate(checked);
-  return eval(generated);
-}
+module.exports = {
+  castType,
+  readableType,
+  tPrimitive,
+  tFromValue,
+  tFunction,
+  tMultiFunction,
+  tOr,
+  tAnd,
+  tNot,
+  tUndefined,
+  tNull,
+  tBoolean,
+  tNumber,
+  tString,
 
-function init() {
-  global.monada$meta = {};
+  $equals$equals,
+  $plus,
+  print,
 
-  define("define", define);
-  define("getMeta", getMeta);
-  define("compile", compile);
-
-  define("immutable", immutable);
-
-  define("castType", castType);
-  define("readableType", readableType);
-
-  define("tAny", tAny);
-  define("tUndefined", tPrimitive("undefined"));
-  define("tNull", tPrimitive("null"));
-  define("tBoolean", tPrimitive("boolean"));
-  define("tNumber", tPrimitive("number"));
-  define("tString", tPrimitive("string"));
-  define("tPrimitive", tPrimitive);
-  define("tFromValue", tFromValue);
-  define("tFunction", tFunction);
-  define("tMultiFunction", tMultiFunction);
-  define("tOr", tOr);
-  define("tAnd", tAnd);
-  define("tNot", tNot);
-
-  define("==", immutable.is, {
-    type: tFunction(tAny, tAny, (a, b) => {
-      const match = matchType(a, b);
-      if (match === 1) {
-        return tFromValue(true);
-      }
-      else if (match === -1) {
-        return tFromValue(false);
-      }
-      else {
-        return tBoolean;
-      }
-    })
-  });
-  define("+", (a, b) => a + b, {
-    type: tMultiFunction(
-      tFunction(tNumber, tNumber, ({ value: a }, { value: b }) =>
-        a !== undefined && b != undefined ? tFromValue(a + b) : tNumber),
-      tFunction(tString, tString, ({ value: a }, { value: b }) =>
-        a !== undefined && b != undefined ? tFromValue(a + b) : tString))
-  });
-  define("print", (x) => console.log(x), {
-    type: tFunction(tAny, tUndefined)
-  });
-}
-
-module.exports = init;
+  $monada
+};

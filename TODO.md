@@ -17,13 +17,7 @@ tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
 - `_` should be typed, too
-- allow operator characters in names: if name only contains operator chars, that's an operator, otherwise a name, so:
-```
-+ # operator
-+==-- # operator
-to-string # name
-function? # name
-```
+- refactor error classes, that many isn't needed
 - make defining operators possible
 - clean up `package.json`
 - optimize native things like `throw`, `instanceof` etc

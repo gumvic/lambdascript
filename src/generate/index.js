@@ -1,4 +1,3 @@
-const { namify } = require("../utils");
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
 
@@ -26,6 +25,37 @@ const IMMUTABLE_MAP = {
   },
   computed: false
 };
+
+function namify(name) {
+  return name
+    .replace(
+      /^(do|if|in|for|let|new|try|var|case|else|enum|eval|null|undefined|this|true|void|with|await|break|catch|class|const|false|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/g,
+      function(match) {
+        return `$${match}`;
+      })
+    .replace(
+      /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?\.\']/g,
+      function(match) {
+        switch(match) {
+          case "+": return "$plus";
+          case "-": return "$dash";
+          case "*": return "$star";
+          case "/": return "$slash";
+          case ">": return "$right";
+          case "<": return "$left";
+          case "=": return "$equals";
+          case "%": return "$percent";
+          case "!": return "$bang";
+          case "|": return "$pipe";
+          case "&": return "$and";
+          case "^": return "$caret";
+          case "~": return "$tilda";
+          case "?": return "$question";
+          case ".": return "$dot";
+          case "'": return "$quote";
+        }
+      });
+}
 
 class Context {
 
@@ -210,6 +240,80 @@ function genDefinition(ast, context) {
   }
 }
 
+function genImportNames(module, names, context) {
+  return {
+    type: "VariableDeclaration",
+    declarations: [
+      {
+        type: "VariableDeclarator",
+        id: {
+          type: "ObjectPattern",
+          properties: names.map((name) => ({
+            type: "Property",
+            value: generate(name, context),
+            kind: "init",
+            method: false
+          }))
+        },
+        init: {
+          type: "CallExpression",
+          callee: REQUIRE,
+          arguments: [
+            {
+              type: "Literal",
+              value: module.name
+            }
+          ]
+        }
+      }
+    ],
+    kind: "const"
+  };
+}
+
+function genImportSome({ module, names }, context) {
+  return genImportNames(module, names, context);
+}
+
+function genImportAll({ module, $module }, context) {
+  const names = Object.keys(ast.$module);
+  return genImportNames(module, names, context);
+}
+
+function genImport(ast, context) {
+  switch(ast.kind) {
+    case "some": return genImportSome(ast, context);
+    case "all": return genImportAll(ast, context);
+    default: throw new GenerationError(`Internal error: unknown AST import kind ${ast.kind}.`, ast.location);
+  }
+}
+
+function genExportSome(ast, context) {
+  // TODO
+}
+
+function genExportAll(ast, context) {
+  // TODO
+}
+
+function genExport(ast, context) {
+  switch(ast.kind) {
+    case "some": return genExportSome(ast, context);
+    case "all": return genExportAll(ast, context);
+    default: throw new GenerationError(`Internal error: unknown AST import kind ${ast.kind}.`, ast.location);
+  }
+}
+
+function genModule({ imports, definitions, exports }, context) {
+  imports = imports.map((_import) => genImport(_import, context));
+  definitions = definitions.map((definition) => genDefinition(definition, context));
+  exports = imports.map((_export) => genExport(_export, context));
+  return {
+    type: "Program",
+    body: [].concat(imports, definitions, exports)
+  };
+}
+
 function generate(ast, context) {
   switch (ast.type) {
     case "skip": return genSkip(ast, context);
@@ -226,7 +330,7 @@ function generate(ast, context) {
     case "case": return genCase(ast, context);
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
-    case "definition": return genDefinition(ast, context);
+    case "module": return genModule(ast, context);
     case "Program":
     case "BlockStatement":
     case "ClassBody":

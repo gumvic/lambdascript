@@ -17,13 +17,15 @@ class Context {
 
 function compile(src, context) {
   const ast = parse(src);
-  //mapPromise(ast.imports.map(({ name }) => build(name.name, context)));
-  return generate(check(ast));
+  const deps = ast.imports.map(({ module }) => build(module.name, context));
+  return mapPromise(deps, (module, i) => ({ ...ast.imports[i], $module: module }))
+    .then((imports) => generate(check({ ...ast, imports })));
 }
 
 // TODO JS modules (self contained module only, no local dependencies, global are fine)
 // TODO dependency loops
 // TODO differentiate between local and global modules
+// TODO let context cache already built modules
 function build(moduleName, context) {
   const srcFile = resolvePath(moduleName);
   const distFile = resolvePath(replaceExt(joinPath(context.distDir, moduleName), ".js"));

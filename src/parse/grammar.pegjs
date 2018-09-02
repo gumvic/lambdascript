@@ -20,9 +20,9 @@ reservedWord "special word" =
   / wordFn
   / wordIn
   / wordEnd
-  / wordImports
-  / wordTypes
-  / wordExports
+  / wordImport
+  / wordFrom
+  / wordExport
 
 wordCase "case" = "case" !beginNameChar
 wordWhen "when" = "when" !beginNameChar
@@ -32,9 +32,9 @@ wordLet "let" = "let" !beginNameChar
 wordFn "fn" = "fn" !beginNameChar
 wordIn "in" = "in" !beginNameChar
 wordEnd "end" = "end" !beginNameChar
-wordImports "imports" = "imports" !beginNameChar
-wordTypes "types" = "types" !beginNameChar
-wordExports "exports" = "exports" !beginNameChar
+wordImport "import" = "import" !beginNameChar
+wordFrom "from" = "from" !beginNameChar
+wordExport "export" = "export" !beginNameChar
 
 beginNameChar = [a-zA-Z_]
 nameChar = [0-9a-zA-Z_']
@@ -61,18 +61,6 @@ operator "operator" =
     location: location()
   };
 }
-
-moduleNameChar = [0-9a-zA-Z_\.\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
-moduleName "module name" =
-  !reservedWord
-  chars:moduleNameChar+
-  {
-    return {
-      type: "name",
-      name: chars.join(""),
-      location: location()
-    };
-  }
 
 skip "_" = "_" !beginNameChar {
   return {
@@ -269,11 +257,9 @@ functionDefinition = name:name _ fun:function {
 
 definition = constantDefinition / functionDefinition
 
-definitions = (definition:definition _ { return definition; })+
-
 scope "let" =
   wordLet _
-  definitions:definitions _
+  definitions:(definition:definition _ { return definition; })+ _
   wordIn _
   body:expression _
   wordEnd {
@@ -349,40 +335,66 @@ binary =
 
 expression = case / scope / binary / binaryOperand / operator
 
-moduleImport = name:moduleName {
-  return name;
+allNames = "_"
+
+someNames = first:(name / operator) rest:(_ "," _ name:(name / operator) { return name; })* {
+  return [first].concat(rest);
 }
 
-moduleImports = wordImports _ imports:moduleImport+ {
-  return imports;
+importSome = wordImport _ names:someNames _ wordFrom _ module:string {
+  return {
+    type: "import",
+    kind: "some",
+    module: {
+      name: module.value,
+      location: module.location
+    },
+    names: names,
+    location: location()
+  };
 }
 
-moduleType = "TODO"
-
-moduleTypes = wordTypes _ types:moduleType+ {
-  return types;
+importAll = wordImport _ allNames _ wordFrom _ module:string {
+  return {
+    type: "import",
+    kind: "all",
+    module: {
+      name: module.value,
+      location: module.location
+    },
+    location: location()
+  };
 }
 
-moduleDefinitions = wordLet _ definitions:definitions {
-  return definitions;
+import = importSome / importAll
+
+exportSome = wordExport _ names:someNames {
+  return {
+    type: "export",
+    kind: "some",
+    names: names,
+    location: location()
+  };
 }
 
-moduleExport = name / operator
-
-moduleExports = wordExports _ exports:moduleExport+ {
-  return exports;
+exportAll = wordExport _ allNames {
+  return {
+    type: "export",
+    kind: "all",
+    location: location()
+  };
 }
+
+export = exportSome / exportAll
 
 module "module" =
-  imports:moduleImports? _
-  types:moduleTypes? _
-  definitions:moduleDefinitions? _
-  exports:moduleExports? {
+  imports:(_import:import _ { return _import; })* _
+  definitions:(definition:definition _ { return definition; })+ _
+  _export:export? {
     return {
       type: "module",
-      imports: imports || [],
-      types: types || [],
-      definitions: definitions || [],
-      exports: exports || []
+      imports: imports,
+      definitions: definitions,
+      export: _export
     };
   }
