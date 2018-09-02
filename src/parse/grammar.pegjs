@@ -1,5 +1,5 @@
-program = _ statement:(definition / expression) _ {
-  return statement;
+ast = _ module:module _ {
+  return module;
 }
 
 nl = [\n\r] / [\n]
@@ -20,6 +20,9 @@ reservedWord "special word" =
   / wordFn
   / wordIn
   / wordEnd
+  / wordImports
+  / wordTypes
+  / wordExports
 
 wordCase "case" = "case" !beginNameChar
 wordWhen "when" = "when" !beginNameChar
@@ -29,6 +32,9 @@ wordLet "let" = "let" !beginNameChar
 wordFn "fn" = "fn" !beginNameChar
 wordIn "in" = "in" !beginNameChar
 wordEnd "end" = "end" !beginNameChar
+wordImports "imports" = "imports" !beginNameChar
+wordTypes "types" = "types" !beginNameChar
+wordExports "exports" = "exports" !beginNameChar
 
 beginNameChar = [a-zA-Z_]
 nameChar = [0-9a-zA-Z_']
@@ -44,19 +50,17 @@ name "name" =
     };
   }
 
-beginRecordNameChar = [A-Z]
-recordNameChar = [0-9a-zA-Z_']
-recordName "record name" =
-  !reservedWord
-  first:beginRecordNameChar
-  rest:(recordNameChar+)?
-  {
-    return {
-      type: "name",
-      name: [first].concat(rest || []).join(""),
-      location: location()
-    };
-  }
+reservedOperator = ("=" / "->") !operatorChar
+operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\$]
+operator "operator" =
+  !reservedOperator
+  chars:operatorChar+ {
+  return {
+    type: "name",
+    name: chars.join(""),
+    location: location()
+  };
+}
 
 moduleNameChar = [0-9a-zA-Z_\.\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
 moduleName "module name" =
@@ -69,18 +73,6 @@ moduleName "module name" =
       location: location()
     };
   }
-
-reservedOperator = ("=" / "->") !operatorChar
-operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\$]
-operator "operator" =
-  !reservedOperator
-  chars:operatorChar+ {
-  return {
-    type: "name",
-    name: chars.join(""),
-    location: location()
-  };
-}
 
 skip "_" = "_" !beginNameChar {
   return {
@@ -277,9 +269,11 @@ functionDefinition = name:name _ fun:function {
 
 definition = constantDefinition / functionDefinition
 
+definitions = (definition:definition _ { return definition; })+
+
 scope "let" =
   wordLet _
-  definitions:(definition:definition _ { return definition; })+ _
+  definitions:definitions _
   wordIn _
   body:expression _
   wordEnd {
@@ -354,3 +348,41 @@ binary =
   }
 
 expression = case / scope / binary / binaryOperand / operator
+
+moduleImport = name:moduleName {
+  return name;
+}
+
+moduleImports = wordImports _ imports:moduleImport+ {
+  return imports;
+}
+
+moduleType = "TODO"
+
+moduleTypes = wordTypes _ types:moduleType+ {
+  return types;
+}
+
+moduleDefinitions = wordLet _ definitions:definitions {
+  return definitions;
+}
+
+moduleExport = name / operator
+
+moduleExports = wordExports _ exports:moduleExport+ {
+  return exports;
+}
+
+module "module" =
+  imports:moduleImports? _
+  types:moduleTypes? _
+  definitions:moduleDefinitions? _
+  exports:moduleExports? {
+    return {
+      type: "module",
+      imports: imports || [],
+      types: types || [],
+      definitions: definitions || [],
+      exports: exports || []
+    };
+  }
