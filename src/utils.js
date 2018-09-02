@@ -4,10 +4,8 @@ const readlineSpecific = promisify(require("readline-specific").oneline);
 
 const { resolve: resolvePromise } = require("bluebird");
 
-const Error = require("./error");
-
 function formatError(error) {
-  if (!(error instanceof Error)) {
+  if (!(error.location)) {
     return resolvePromise(error.stack);
   }
   const { message, location: { file, start: { line, column } } } = error;

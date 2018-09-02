@@ -31,7 +31,13 @@ function build(moduleName, context) {
     .then(() => readFile(srcFile, "utf8"))
     .then((src) => compile(src, context))
     .then((js) => writeFile(distFile, js))
-    //.then(() => require(distFile));
+    //.then(() => require(distFile))
+    .catch((e) => {
+      if (e.location && !e.location.file) {
+        e.location.file = srcFile;
+      }
+      throw e;
+    });
 }
 
 module.exports = function(srcFile, distDir) {
