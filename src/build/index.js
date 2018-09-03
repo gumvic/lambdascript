@@ -15,6 +15,7 @@ class Context {
   }
 }
 
+// TODO monada-core should be injected here, after parsing
 function compile(src, context) {
   const ast = parse(src);
   const deps = ast.imports.map(({ module }) => build(module.name, context));

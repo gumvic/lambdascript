@@ -1,5 +1,12 @@
 const CheckError = require("./error");
 const core = require("monada-core");
+const {
+  castType: { value: castType },
+  readableType: { value: readableType },
+  tAny: { value: tAny },
+  tFromValue: { value: tFromValue },
+  tFunction: { value: tFunction },
+  tOr: { value: tOr } } = require("monada-core");
 
 const CORE_IMPORT = {
   type: "import",
@@ -55,42 +62,42 @@ function isFalse({ type, value }) {
 function checkUndefined(ast, context) {
   return {
     ...ast,
-    $type: core.tFromValue(undefined)
+    $type: tFromValue(undefined)
   };
 }
 
 function checkNull(ast, context) {
   return {
     ...ast,
-    $type: core.tFromValue(null)
+    $type: tFromValue(null)
   };
 }
 
 function checkFalse(ast, context) {
   return {
     ...ast,
-    $type: core.tFromValue(false)
+    $type: tFromValue(false)
   };
 }
 
 function checkTrue(ast, context) {
   return {
     ...ast,
-    $type: core.tFromValue(true)
+    $type: tFromValue(true)
   };
 }
 
 function checkNumber(ast, context) {
   return {
     ...ast,
-    $type: core.tFromValue(parseFloat(ast.value))
+    $type: tFromValue(parseFloat(ast.value))
   };
 }
 
 function checkString(ast, context) {
   return {
     ...ast,
-    $type: core.tFromValue(ast.value)
+    $type: tFromValue(ast.value)
   };
 }
 
@@ -172,9 +179,9 @@ function namedFunctionType(ast, context) {
 }
 
 function defaultFunctionType(ast, context) {
-  const args = ast.args.map((_) => core.tAny);
-  const res = core.tAny;
-  return core.tFunction(...args.concat(res));
+  const args = ast.args.map((_) => tAny);
+  const res = tAny;
+  return tFunction(...args.concat(res));
 }
 
 function checkFunction(ast, context) {
@@ -193,8 +200,8 @@ function checkCall(ast, context) {
   let resType;
   if (calleeTypeType != "function" ||
       !(resType = calleeTypeFn(...argTypes))) {
-    const readableCalleeType = core.readableType(calleeType);
-    const readableArgTypes = argTypes.map(core.readableType);
+    const readableCalleeType = readableType(calleeType);
+    const readableArgTypes = argTypes.map(readableType);
     throw new CheckError(`Can't apply ${readableCalleeType} to (${readableArgTypes.join(", ")})`, ast.location);
   }
   return {
@@ -237,7 +244,7 @@ function checkCase(ast, context) {
       .concat(check(ast.otherwise, context));
     return {
       ...ast,
-      $type: core.tOr(...results.map(({ $type }) => $type))
+      $type: tOr(...results.map(({ $type }) => $type))
     };
   }
 }
@@ -261,7 +268,7 @@ function checkConstantDefinition(ast, context) {
 function checkFunctionDefinition(ast, context) {
   const type = defaultFunctionType(ast, context);
   const _type = namedFunctionType(ast, context);
-  if (!core.castType(type, _type)) {
+  if (!castType(type, _type)) {
     throw new CheckError(`Can't cast ${_type.readable} to ${type.readable}`, ast.location);
   }
   context.define(ast.name, type);
@@ -283,16 +290,12 @@ function checkDefinitions(definitions, context) {
   return definitions;
 }
 
-function defineImportName(module, name, context) {
-  const type = module.$monada ?
-    module.$monada.exports[name.name].type :
-    core.tFromValue(module[namify(name.name)]);
-  context.define(name, type);
-}
-
 function checkImportSome(ast, context) {
   for(let name of ast.names) {
-    defineImportName(ast.$module, name);
+    const type = ast.$module.$monada ?
+      ast.$module[name.name].type :
+      tFromValue(ast.$module[name.name]);
+    context.define(name, type);
   }
   return ast;
 }
@@ -304,10 +307,7 @@ function checkImportAll(ast, context) {
       type: "name",
       name
     }));
-  for(let name of names) {
-    defineImportName(ast.$module, name);
-  }
-  return ast;
+  return checkImportSome({ ...ast, names }, context);
 }
 
 function checkImport(ast, context) {
@@ -329,7 +329,7 @@ function checkExportAll(ast, context) {
   return ast;
 }
 
-function checkModuleExport(ast, context) {
+function checkExport(ast, context) {
   switch(ast.kind) {
     case "some": return checkExportSome(ast, context);
     case "all": return checkExportAll(ast, context);
@@ -338,16 +338,15 @@ function checkModuleExport(ast, context) {
 }
 
 function checkModule(ast, context) {
-  const imports = [CORE_IMPORT].concat(ast.imports).map((_import) => checkImport(_import, context));
-  const definitions = checkDefinitions(definitions, context);
-  const _export = checkExport(ast.export, context);
+  const imports = [CORE_IMPORT].concat(ast.imports);
+  for (let _import of imports) {
+    checkImport(_import, context);
+  }
+  checkDefinitions(ast.definitions, context);
+  if (ast.export) {
+    checkExport(ast.export, context);
+  }
   return ast;
-  /*return {
-    ...ast,
-    imports,
-    definitions,
-    exports
-  };*/
 }
 
 function check(ast, context) {
@@ -372,6 +371,6 @@ function check(ast, context) {
 }
 
 module.exports = function(ast) {
-  return ast;
-  //return check(ast, new Context());
+  return check(ast, new Context());
+  //return ast;
 };

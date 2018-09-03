@@ -6,6 +6,11 @@ const REQUIRE = {
   name: "require"
 };
 
+const VALUE = {
+  type: "Identifier",
+  name: "value"
+};
+
 const LIST = {
   type: "Identifier",
   name: "list"
@@ -239,7 +244,24 @@ function genDefinition(ast, context) {
   }
 }
 
-function genImportNames(module, names, context) {
+/*function genImportNames(module, names, context) {
+  names = names.filter((name) => name !== "$monada");
+  const properties = module.$monada ?
+    names.map((name) => ({
+      type: "Property",
+      kind: "init",
+      shorthand: true,
+      value: generate(name, context)
+    })) :
+    names.map((name) => ({
+      type: "Property",
+      kind: "init",
+      shorthand: true,
+      value: {
+        type: "Identifier",
+        name: namify(name)
+      }
+    }));
   return {
     type: "VariableDeclaration",
     declarations: [
@@ -247,12 +269,7 @@ function genImportNames(module, names, context) {
         type: "VariableDeclarator",
         id: {
           type: "ObjectPattern",
-          properties: names.map((name) => ({
-            type: "Property",
-            kind: "init",
-            shorthand: true,
-            value: generate(name, context)
-          }))
+          properties
         },
         init: {
           type: "CallExpression",
@@ -271,7 +288,135 @@ function genImportNames(module, names, context) {
 }
 
 function genImportSome({ module, names }, context) {
+  names = names.map(({ name }) => name);
   return genImportNames(module, names, context);
+}
+
+function genImportAll({ module, $module }, context) {
+  const names = Object.keys($module);
+  return genImportNames(module, names, context);
+}*/
+
+/*function genImportProperties({ $module }, names, context) {
+  names = names.filter((name) => name !== "$monada");
+  if ($module.$monada) {
+    return names.map((name) => ({
+      type: "Property",
+      kind: "init",
+      key: VALUE,
+      value: {
+        type: "ObjectPattern",
+        properties: [
+          {
+            type: "Property",
+            kind: "init",
+            shorthand: true,
+            value: generate(name, context)
+          }
+        ]
+      }
+    }));
+  }
+  else {
+    return names.map((name) => ({
+      type: "Property",
+      kind: "init",
+      shorthand: true,
+      value: generate(name, context)
+    }));
+  }
+}*/
+
+function genImportMonadaName(name, context) {
+  /*return {
+    type: "Property",
+    kind: "init",
+    key: VALUE,
+    value: {
+      type: "ObjectPattern",
+      properties: [
+        {
+          type: "Property",
+          kind: "init",
+          shorthand: true,
+          value: generate(name, context)
+        }
+      ]
+    }
+  };*/
+  return {
+    type: "Property",
+    kind: "init",
+    key: {
+      type: "Literal",
+      value: name.name
+    },
+    value: {
+      type: "ObjectPattern",
+      properties: [
+        {
+          type: "Property",
+          kind: "init",
+          key: VALUE,
+          value: generate(name, context)
+        }
+      ]
+    }
+  };
+}
+
+function genImportNativeName(name, context) {
+  return {
+    type: "Property",
+    kind: "init",
+    key: {
+      type: "Literal",
+      value: name.name
+    },
+    value: {
+      type: "ObjectPattern",
+      properties: [
+        {
+          type: "Property",
+          kind: "init",
+          shorthand: true,
+          value: generate(name, context)
+        }
+      ]
+    }
+  };
+}
+
+function genImportRequire(module, context) {
+  return {
+    type: "CallExpression",
+    callee: REQUIRE,
+    arguments: [
+      {
+        type: "Literal",
+        value: module.name
+      }
+    ]
+  };
+}
+
+function genImportSome({ module, names, $module }, context) {
+  return {
+    type: "VariableDeclaration",
+    declarations: [
+      {
+        type: "VariableDeclarator",
+        id: {
+          type: "ObjectPattern",
+          properties: $module.$monada ?
+            names.map((name) => genImportMonadaName(name, context)) :
+            names.map((name) => genImportNativeName(name, context))
+        },
+        init: genImportRequire(module, context)
+      }
+    ],
+    kind: "const"
+  };
 }
 
 function genImportAll({ module, $module }, context) {
@@ -281,7 +426,7 @@ function genImportAll({ module, $module }, context) {
       type: "name",
       name
     }));
-  return genImportNames(module, names, context);
+  return genImportSome({ module, names, $module });
 }
 
 function genImport(ast, context) {
