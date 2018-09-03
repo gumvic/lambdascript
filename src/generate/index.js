@@ -1,29 +1,28 @@
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
 
-const IMMUTABLE = {
+const REQUIRE = {
   type: "Identifier",
-  name: "immutable"
+  name: "require"
 };
 
-const IMMUTABLE_LIST = {
-  type: "MemberExpression",
-  object: IMMUTABLE,
-  property: {
-    type: "Identifier",
-    name: "List"
-  },
-  computed: false
+const LIST = {
+  type: "Identifier",
+  name: "list"
 };
 
-const IMMUTABLE_MAP = {
-  type: "MemberExpression",
-  object: IMMUTABLE,
-  property: {
-    type: "Identifier",
-    name: "Map"
+const MAP = {
+  type: "Identifier",
+  name: "map"
+};
+
+const CORE_IMPORT = {
+  type: "import",
+  module: {
+    name: "monada-core"
   },
-  computed: false
+  kind: "all",
+  $module: require("monada-core")
 };
 
 function namify(name) {
@@ -117,7 +116,7 @@ function genName({ name }, context) {
 function genList({ items }, context) {
   return {
     type: "CallExpression",
-    callee: IMMUTABLE_LIST,
+    callee: LIST,
     arguments: [
       {
         type: "ArrayExpression",
@@ -130,7 +129,7 @@ function genList({ items }, context) {
 function genMap({ items }, context) {
   return {
     type: "CallExpression",
-    callee: IMMUTABLE_MAP,
+    callee: MAP,
     arguments: [
       {
         type: "ArrayExpression",
@@ -250,9 +249,9 @@ function genImportNames(module, names, context) {
           type: "ObjectPattern",
           properties: names.map((name) => ({
             type: "Property",
-            value: generate(name, context),
             kind: "init",
-            method: false
+            shorthand: true,
+            value: generate(name, context)
           }))
         },
         init: {
@@ -276,7 +275,12 @@ function genImportSome({ module, names }, context) {
 }
 
 function genImportAll({ module, $module }, context) {
-  const names = Object.keys(ast.$module);
+  const names = Object.keys($module)
+    .filter((name) => name !== "$monada")
+    .map((name) => ({
+      type: "name",
+      name
+    }));
   return genImportNames(module, names, context);
 }
 
@@ -304,13 +308,13 @@ function genExport(ast, context) {
   }
 }
 
-function genModule({ imports, definitions, exports }, context) {
-  imports = imports.map((_import) => genImport(_import, context));
+function genModule({ imports, definitions, export: _export }, context) {
+  imports = [CORE_IMPORT].concat(imports).map((_import) => genImport(_import, context));
   definitions = definitions.map((definition) => genDefinition(definition, context));
-  exports = imports.map((_export) => genExport(_export, context));
+  _export = [];//genExport(_export, context);
   return {
     type: "Program",
-    body: [].concat(imports, definitions, exports)
+    body: [].concat(imports, definitions, _export)
   };
 }
 

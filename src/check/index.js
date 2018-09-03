@@ -1,5 +1,14 @@
 const CheckError = require("./error");
-const core = require("../core");
+const core = require("monada-core");
+
+const CORE_IMPORT = {
+  type: "import",
+  module: {
+    name: "monada-core"
+  },
+  kind: "all",
+  $module: require("monada-core")
+};
 
 class Context {
   constructor(parent) {
@@ -289,7 +298,12 @@ function checkImportSome(ast, context) {
 }
 
 function checkImportAll(ast, context) {
-  const names = Object.keys(ast.$module);
+  const names = Object.keys(ast.$module)
+    .filter((name) => name !== "$monada")
+    .map((name) => ({
+      type: "name",
+      name
+    }));
   for(let name of names) {
     defineImportName(ast.$module, name);
   }
@@ -324,9 +338,9 @@ function checkModuleExport(ast, context) {
 }
 
 function checkModule(ast, context) {
-  const imports = ast.imports.map((_import) => checkImport(_import, context));
+  const imports = [CORE_IMPORT].concat(ast.imports).map((_import) => checkImport(_import, context));
   const definitions = checkDefinitions(definitions, context);
-  const exports = ast.exports.map((_export) => checkExport(_export, context));
+  const _export = checkExport(ast.export, context);
   return ast;
   /*return {
     ...ast,
