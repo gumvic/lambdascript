@@ -9,18 +9,29 @@ const generate = require("../generate");
 
 const BuildError = require("../error");
 
+const CORE_IMPORT = {
+  type: "import",
+  module: {
+    name: "monada-core"
+  },
+  kind: "all",
+  $module: require("monada-core")
+};
+
 class Context {
   constructor(distDir) {
     this.distDir = distDir;
   }
 }
 
-// TODO monada-core should be injected here, after parsing
 function compile(src, context) {
   const ast = parse(src);
   const deps = ast.imports.map(({ module }) => build(module.name, context));
-  return mapPromise(deps, (module, i) => ({ ...ast.imports[i], $module: module }))
-    .then((imports) => generate(check({ ...ast, imports })));
+  return mapPromise(deps, (dep, i) => ({ ...ast.imports[i], $module: dep }))
+    .then((imports) => generate(check({
+      ...ast,
+      imports: [CORE_IMPORT].concat(imports)
+    })));
 }
 
 // TODO JS modules (self contained module only, no local dependencies, global are fine)
@@ -34,7 +45,7 @@ function build(moduleName, context) {
     .then(() => readFile(srcFile, "utf8"))
     .then((src) => compile(src, context))
     .then((js) => writeFile(distFile, js))
-    //.then(() => require(distFile))
+    .then(() => require(distFile))
     .catch((e) => {
       if (e.location && !e.location.file) {
         e.location.file = srcFile;

@@ -21,15 +21,6 @@ const MAP = {
   name: "map"
 };
 
-const CORE_IMPORT = {
-  type: "import",
-  module: {
-    name: "monada-core"
-  },
-  kind: "all",
-  $module: require("monada-core")
-};
-
 function namify(name) {
   return name
     .replace(
@@ -454,9 +445,9 @@ function genExport(ast, context) {
 }
 
 function genModule({ imports, definitions, export: _export }, context) {
-  imports = [CORE_IMPORT].concat(imports).map((_import) => genImport(_import, context));
+  imports = imports.map((_import) => genImport(_import, context));
   definitions = definitions.map((definition) => genDefinition(definition, context));
-  _export = [];//genExport(_export, context);
+  _export = _export ? genExport(_export, context) : [];
   return {
     type: "Program",
     body: [].concat(imports, definitions, _export)

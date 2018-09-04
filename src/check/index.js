@@ -1,5 +1,4 @@
 const CheckError = require("./error");
-const core = require("monada-core");
 const {
   castType: { value: castType },
   readableType: { value: readableType },
@@ -7,15 +6,6 @@ const {
   tFromValue: { value: tFromValue },
   tFunction: { value: tFunction },
   tOr: { value: tOr } } = require("monada-core");
-
-const CORE_IMPORT = {
-  type: "import",
-  module: {
-    name: "monada-core"
-  },
-  kind: "all",
-  $module: require("monada-core")
-};
 
 class Context {
   constructor(parent) {
@@ -338,8 +328,7 @@ function checkExport(ast, context) {
 }
 
 function checkModule(ast, context) {
-  const imports = [CORE_IMPORT].concat(ast.imports);
-  for (let _import of imports) {
+  for (let _import of ast.imports) {
     checkImport(_import, context);
   }
   checkDefinitions(ast.definitions, context);
@@ -372,5 +361,4 @@ function check(ast, context) {
 
 module.exports = function(ast) {
   return check(ast, new Context());
-  //return ast;
 };
