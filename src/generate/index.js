@@ -235,106 +235,7 @@ function genDefinition(ast, context) {
   }
 }
 
-/*function genImportNames(module, names, context) {
-  names = names.filter((name) => name !== "$monada");
-  const properties = module.$monada ?
-    names.map((name) => ({
-      type: "Property",
-      kind: "init",
-      shorthand: true,
-      value: generate(name, context)
-    })) :
-    names.map((name) => ({
-      type: "Property",
-      kind: "init",
-      shorthand: true,
-      value: {
-        type: "Identifier",
-        name: namify(name)
-      }
-    }));
-  return {
-    type: "VariableDeclaration",
-    declarations: [
-      {
-        type: "VariableDeclarator",
-        id: {
-          type: "ObjectPattern",
-          properties
-        },
-        init: {
-          type: "CallExpression",
-          callee: REQUIRE,
-          arguments: [
-            {
-              type: "Literal",
-              value: module.name
-            }
-          ]
-        }
-      }
-    ],
-    kind: "const"
-  };
-}
-
-function genImportSome({ module, names }, context) {
-  names = names.map(({ name }) => name);
-  return genImportNames(module, names, context);
-}
-
-function genImportAll({ module, $module }, context) {
-  const names = Object.keys($module);
-  return genImportNames(module, names, context);
-}*/
-
-/*function genImportProperties({ $module }, names, context) {
-  names = names.filter((name) => name !== "$monada");
-  if ($module.$monada) {
-    return names.map((name) => ({
-      type: "Property",
-      kind: "init",
-      key: VALUE,
-      value: {
-        type: "ObjectPattern",
-        properties: [
-          {
-            type: "Property",
-            kind: "init",
-            shorthand: true,
-            value: generate(name, context)
-          }
-        ]
-      }
-    }));
-  }
-  else {
-    return names.map((name) => ({
-      type: "Property",
-      kind: "init",
-      shorthand: true,
-      value: generate(name, context)
-    }));
-  }
-}*/
-
-function genImportMonadaName(name, context) {
-  /*return {
-    type: "Property",
-    kind: "init",
-    key: VALUE,
-    value: {
-      type: "ObjectPattern",
-      properties: [
-        {
-          type: "Property",
-          kind: "init",
-          shorthand: true,
-          value: generate(name, context)
-        }
-      ]
-    }
-  };*/
+/*function genImportMonadaName(name, context) {
   return {
     type: "Property",
     kind: "init",
@@ -376,7 +277,7 @@ function genImportNativeName(name, context) {
       ]
     }
   };
-}
+}*/
 
 function genImportRequire(module, context) {
   return {
@@ -399,9 +300,25 @@ function genImportSome({ module, names, $module }, context) {
         type: "VariableDeclarator",
         id: {
           type: "ObjectPattern",
-          properties: $module.$monada ?
-            names.map((name) => genImportMonadaName(name, context)) :
-            names.map((name) => genImportNativeName(name, context))
+          properties: names.map((name) => ({
+            type: "Property",
+            kind: "init",
+            key: {
+              type: "Literal",
+              value: name.name
+            },
+            value: {
+              type: "ObjectPattern",
+              properties: [
+                {
+                  type: "Property",
+                  kind: "init",
+                  key: VALUE,
+                  value: generate(name, context)
+                }
+              ]
+            }
+          }))
         },
         init: genImportRequire(module, context)
       }
@@ -412,12 +329,11 @@ function genImportSome({ module, names, $module }, context) {
 
 function genImportAll({ module, $module }, context) {
   const names = Object.keys($module)
-    .filter((name) => name !== "$monada")
     .map((name) => ({
       type: "name",
       name
     }));
-  return genImportSome({ module, names, $module });
+  return genImportSome({ module, names, $module }, context);
 }
 
 function genImport(ast, context) {
@@ -447,10 +363,10 @@ function genExport(ast, context) {
 function genModule({ imports, definitions, export: _export }, context) {
   imports = imports.map((_import) => genImport(_import, context));
   definitions = definitions.map((definition) => genDefinition(definition, context));
-  _export = _export ? genExport(_export, context) : [];
+  _export = _export ? genExport(_export, context) : { type: "EmptyStatement" };
   return {
     type: "Program",
-    body: [].concat(imports, definitions, _export)
+    body: [...imports, ...definitions, _export]
   };
 }
 

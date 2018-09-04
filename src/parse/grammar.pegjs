@@ -12,7 +12,8 @@ multilineComment = "#{" (multilineComment / (!"}#" .))* "}#"
 comment = multilineComment / oneLineComment
 
 reservedWord "special word" =
-  wordCase
+  wordWildcard
+  / wordCase
   / wordWhen
   / wordElse
   / wordDo
@@ -20,10 +21,12 @@ reservedWord "special word" =
   / wordFn
   / wordIn
   / wordEnd
+  / wordModule
   / wordImport
   / wordFrom
   / wordExport
 
+wordWildcard "_" = "_" !beginNameChar
 wordCase "case" = "case" !beginNameChar
 wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
@@ -32,6 +35,7 @@ wordLet "let" = "let" !beginNameChar
 wordFn "fn" = "fn" !beginNameChar
 wordIn "in" = "in" !beginNameChar
 wordEnd "end" = "end" !beginNameChar
+wordModule "module" = "module" !beginNameChar
 wordImport "import" = "import" !beginNameChar
 wordFrom "from" = "from" !beginNameChar
 wordExport "export" = "export" !beginNameChar
@@ -62,7 +66,7 @@ operator "operator" =
   };
 }
 
-skip "_" = "_" !beginNameChar {
+skip "_" = wordWildcard {
   return {
     type: "skip",
     location: location()
@@ -335,26 +339,29 @@ binary =
 
 expression = case / scope / binary / binaryOperand / operator
 
-allNames = "_"
+moduleName = name:string {
+  return {
+    type: "name",
+    name: name.value,
+    location: name.location
+  };
+}
 
-someNames = first:(name / operator) rest:(_ "," _ name:(name / operator) { return name; })* {
+names = first:(name / operator) rest:(_ "," _ name:(name / operator) { return name; })* {
   return [first].concat(rest);
 }
 
-importSome = wordImport _ names:someNames _ wordFrom _ module:string {
+importSome = wordImport _ names:names _ wordFrom _ module:moduleName {
   return {
     type: "import",
     kind: "some",
-    module: {
-      name: module.value,
-      location: module.location
-    },
+    module: moduleName,
     names: names,
     location: location()
   };
 }
 
-importAll = wordImport _ allNames _ wordFrom _ module:string {
+importAll = wordImport _ wordWildcard _ wordFrom _ module:string {
   return {
     type: "import",
     kind: "all",
@@ -368,7 +375,7 @@ importAll = wordImport _ allNames _ wordFrom _ module:string {
 
 import = importSome / importAll
 
-exportSome = wordExport _ names:someNames {
+exportSome = wordExport _ names:names {
   return {
     type: "export",
     kind: "some",
@@ -377,7 +384,7 @@ exportSome = wordExport _ names:someNames {
   };
 }
 
-exportAll = wordExport _ allNames {
+exportAll = wordExport _ wordWildcard {
   return {
     type: "export",
     kind: "all",
@@ -388,11 +395,13 @@ exportAll = wordExport _ allNames {
 export = exportSome / exportAll
 
 module "module" =
+  wordModule _ name:moduleName _
   imports:(_import:import _ { return _import; })* _
   definitions:(definition:definition _ { return definition; })+ _
   _export:export? {
     return {
       type: "module",
+      name: name,
       imports: imports,
       definitions: definitions,
       export: _export

@@ -282,17 +282,19 @@ function checkDefinitions(definitions, context) {
 
 function checkImportSome(ast, context) {
   for(let name of ast.names) {
-    const type = ast.$module.$monada ?
-      ast.$module[name.name].type :
-      tFromValue(ast.$module[name.name]);
-    context.define(name, type);
+    const entry = ast.$module[name.name];
+    if (!entry) {
+      throw new CheckError(`${ast.module.name} doesn't export ${name.name}`, name.location);
+    }
+    else {
+      context.define(name, entry.type);
+    }
   }
   return ast;
 }
 
 function checkImportAll(ast, context) {
   const names = Object.keys(ast.$module)
-    .filter((name) => name !== "$monada")
     .map((name) => ({
       type: "name",
       name

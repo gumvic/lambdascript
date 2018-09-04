@@ -16,17 +16,17 @@ function outputSuccess() {
 
 function run() {
   const args = cli
-    .usage("monada <srcFile> <distDir>")
+    .usage("monada <srcDir> <distDir>")
     .parse(process.argv);
-  const [$0, $1, srcFile, distDir] = args._;
-  if (!srcFile) {
-    throw "srcFile is required";
+  const [$0, $1, srcDir, distDir] = args._;
+  if (!srcDir) {
+    throw "srcDir is required";
   }
   else if (!distDir) {
     throw "distDir is required";
   }
   else {
-    return build(srcFile, distDir).then(outputSuccess, outputError);
+    return build(srcDir, distDir).then(outputSuccess, outputError);
   }
 }
 
