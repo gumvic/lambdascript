@@ -14,16 +14,16 @@ class Context {
     this.defined = {};
   }
 
-  declare(name, value) {
-    return this.declared[name] = value;
+  declare(name, type) {
+    return this.declared[name] = type;
   }
 
   getDeclared(name) {
     return this.declared[name];
   }
 
-  define(name, value) {
-    return this.defined[name] = value;
+  define(name, type) {
+    return this.defined[name] = type;
   }
 
   getDefined(name) {
@@ -41,9 +41,19 @@ class Context {
   }
 }
 
-function declare({ name, location }, TODO, context) {
-  // TODO if defined, try to cast types
-  throw new CheckError(`Already declared: ${name}`, location);
+function declare({ name, location }, type, context) {
+  if (context.getDeclared(name)) {
+    throw new CheckError(`Already declared: ${name}`, location);
+  }
+  else {
+    const defined = context.getDefined(name);
+    if (defined && !castType(type, defined)) {
+      throw new CheckError(`Can't cast ${readableType(defined)} to ${readableType(type)}`, location);
+    }
+    else {
+      return context.declare(name);
+    }
+  }
 }
 
 function getDeclared({ name }, context) {
@@ -51,12 +61,17 @@ function getDeclared({ name }, context) {
 }
 
 function define({ name, location }, type, context) {
-  // TODO if declared, try to cast types
   if (context.getDefinedLocally(name)) {
     throw new CheckError(`Already defined: ${name}`, location);
   }
   else {
-    return context.define(name, type);
+    const declared = context.getDeclared(name);
+    if (declared && !castType(declared, type)) {
+      throw new CheckError(`Can't cast ${readableType(type)} to ${readableType(declared)}`, location);
+    }
+    else {
+      return context.define(name, type);
+    }
   }
 }
 
@@ -68,18 +83,6 @@ function getDefined({ name, location }, context) {
   else {
     throw new CheckError(`Not defined: ${name}`, location)
   }
-}
-
-function isBoolean({ type }) {
-  return type === "boolean";
-}
-
-function isTrue({ type, value }) {
-  return type === "boolean" && value === true;
-}
-
-function isFalse({ type, value }) {
-  return type === "boolean" && value === false;
 }
 
 function checkUndefined(ast, context) {
@@ -235,6 +238,18 @@ function checkCall(ast, context) {
   };
 }
 
+function isBoolean({ type }) {
+  return type === "boolean";
+}
+
+function isTrue({ type, value }) {
+  return type === "boolean" && value === true;
+}
+
+function isFalse({ type, value }) {
+  return type === "boolean" && value === false;
+}
+
 function checkCaseBranches({ branches }, context) {
   branches = branches
     .map(({ condition, value }) => ({ condition: check(condition, context), value }))
@@ -323,7 +338,9 @@ function checkDefinition(ast, context) {
 function checkDefinitions(definitions, context) {
   const declarations = definitions.filter(({ kind }) => kind === "declaration");
   for(let { name, typed } of declarations) {
-    declare(name, typed, context);
+    // TODO check typed--it should pass the type check, too
+    // TODO eval typed
+    // TODO declare(name, typed, context);
   }
 
   const functions = definitions.filter(({ kind }) => kind === "function");

@@ -239,6 +239,16 @@ case "case" =
   };
 }
 
+declarationDefinition = name:name _ ":" _ typed:expression {
+  return {
+    type: "definition",
+    kind: "declaration",
+    name: name,
+    typed: typed,
+    location: location()
+  };
+}
+
 constantDefinition = name:name _ "=" _ value:expression {
   return {
     type: "definition",
@@ -259,7 +269,7 @@ functionDefinition = name:name _ fun:function {
   };
 }
 
-definition = constantDefinition / functionDefinition
+definition = declarationDefinition / constantDefinition / functionDefinition
 
 scope "let" =
   wordLet _
