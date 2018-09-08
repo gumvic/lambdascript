@@ -18,6 +18,7 @@ tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
 - `_` should be typed, too
 - `tFromValue` -> `typeOf`
+- disallow exporting of lambdas?
 - lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`
 - js modules that require other local js modules, i. e., multi-file local js modules
 - make defining operators possible

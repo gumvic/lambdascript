@@ -10,28 +10,30 @@ const {
 class Context {
   constructor(parent) {
     this.parent = parent;
+    this.declared = {};
     this.defined = {};
   }
 
-  define({ name, location }, type) {
-    if (this.defined[name]) {
-      throw new CheckError(`Already defined: ${name}`, location);
-    }
-    else {
-      this.defined[name] = type;
-    }
+  declare(name, value) {
+    return this.declared[name] = value;
   }
 
-  getDefined({ name, location }) {
-    if (this.defined[name]) {
-      this.defined[name];
-    }
-    else if (this.parent) {
-      return this.parent.getDefined({ name, location });
-    }
-    else {
-      throw new CheckError(`Not defined: ${name}`, location);
-    }
+  getDeclared(name) {
+    return this.declared[name];
+  }
+
+  define(name, value) {
+    return this.defined[name] = value;
+  }
+
+  getDefined(name) {
+    return (
+      this.getDefinedLocally(name) ||
+      (this.parent && this.parent.getDefined(name)));
+  }
+
+  getDefinedLocally(name) {
+    return this.defined[name];
   }
 
   spawn() {
@@ -39,12 +41,43 @@ class Context {
   }
 }
 
+function declare({ name, location }, TODO, context) {
+  // TODO if defined, try to cast types
+  throw new CheckError(`Already declared: ${name}`, location);
+}
+
+function getDeclared({ name }, context) {
+  return context.getDeclared(name);
+}
+
+function define({ name, location }, type, context) {
+  // TODO if declared, try to cast types
+  if (context.getDefinedLocally(name)) {
+    throw new CheckError(`Already defined: ${name}`, location);
+  }
+  else {
+    return context.define(name, type);
+  }
+}
+
+function getDefined({ name, location }, context) {
+  const defined = context.getDefined(name);
+  if (defined) {
+    return defined;
+  }
+  else {
+    throw new CheckError(`Not defined: ${name}`, location)
+  }
+}
+
 function isBoolean({ type }) {
   return type === "boolean";
 }
+
 function isTrue({ type, value }) {
   return type === "boolean" && value === true;
 }
+
 function isFalse({ type, value }) {
   return type === "boolean" && value === false;
 }
@@ -92,17 +125,19 @@ function checkString(ast, context) {
 }
 
 function checkList(ast, context) {
+  // TODO
   return ast;
 }
 
 function checkMap(ast, context) {
+  // TODO
   return ast;
 }
 
 function checkName(ast, context) {
   return {
     ...ast,
-    $type: context.getDefined(ast)
+    $type: getDefined(ast, context)
   };
 }
 
@@ -118,7 +153,7 @@ function lambdaFunctionType(ast, context) {
       else {
         const _context = context.spawn();
         for(let i = 0; i < args.length; i++) {
-          _context.define(ast.args[i], args[i]);
+          define(ast.args[i], args[i], context);
         }
         try {
           return check(ast.body, _context).$type;
@@ -153,7 +188,7 @@ function namedFunctionType(ast, context) {
       else {
         const _context = context.spawn();
         for(let i = 0; i < args.length; i++) {
-          _context.define(ast.args[i], args[i]);
+          define(ast.args[i], args[i], context);
         }
         return check(ast.body, _context).$type;
       }
@@ -241,7 +276,7 @@ function checkCase(ast, context) {
 
 function checkScope(ast, context) {
   context = context.spawn();
-  const definitions = ast.definitions.map((definition) => checkDefinition(definition, context));
+  checkDefinitions(ast.definitions, context);
   const body = check(ast.body, context);
   return {
     ...ast,
@@ -249,34 +284,63 @@ function checkScope(ast, context) {
   };
 }
 
-function checkConstantDefinition(ast, context) {
-  const value = check(ast.value, context);
-  context.define(ast.name, value.$type);
+function checkDeclarationDefinition(ast, context) {
   return ast;
 }
 
+function checkConstantDefinition(ast, context) {
+  const value = check(ast.value, context);
+  const type = value.$type;
+  define(ast.name, type, context);
+  return {
+    ...ast,
+    $type: type
+  };
+}
+
 function checkFunctionDefinition(ast, context) {
-  const type = defaultFunctionType(ast, context);
+  const type = getDefined(ast.name, context);
   const _type = namedFunctionType(ast, context);
   if (!castType(type, _type)) {
     throw new CheckError(`Can't cast ${_type.readable} to ${type.readable}`, ast.location);
   }
-  context.define(ast.name, type);
-  return ast;
+  return {
+    ...ast,
+    $type: type
+  };
 }
 
 function checkDefinition(ast, context) {
   switch(ast.kind) {
-    case "constant": return checkLocalConstantDefinition(ast, context);
-    case "function": return checkLocalFunctionDefinition(ast, context);
+    case "declaration": return checkDeclarationDefinition(ast, context);
+    case "constant": return checkConstantDefinition(ast, context);
+    case "function": return checkFunctionDefinition(ast, context);
     default: throw new CheckError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
   }
 }
 
+// TODO dangling declarations
 function checkDefinitions(definitions, context) {
-  // sort: declarations, functions, constants
-  // throw on duplicate declarations
-  // throw on hanging declarations
+  const declarations = definitions.filter(({ kind }) => kind === "declaration");
+  for(let { name, typed } of declarations) {
+    declare(name, typed, context);
+  }
+
+  const functions = definitions.filter(({ kind }) => kind === "function");
+  for(let { name, location } of functions) {
+    const type = getDeclared(name, context);
+    if (!type) {
+      throw new CheckError(`Missing type declaration`, location);
+    }
+    else {
+      define(name, type, context);
+    }
+  }
+
+  for(let definition of definitions) {
+    checkDefinition(definition, context);
+  }
+
   return definitions;
 }
 
@@ -287,7 +351,7 @@ function checkImportSome(ast, context) {
       throw new CheckError(`${ast.module.name} doesn't export ${name.name}`, name.location);
     }
     else {
-      context.define(name, entry.type);
+      define(name, entry.type, context);
     }
   }
   return ast;
@@ -312,7 +376,7 @@ function checkImport(ast, context) {
 
 function checkExportSome(ast, context) {
   for (let name of ast.names) {
-    context.getDefined(name);
+    getDefined(name, context);
   }
   return ast;
 }

@@ -139,7 +139,6 @@ function genMap({ items }, context) {
 }
 
 function genFunction({ args, body }, context) {
-  context = context.spawn();
   return {
     type: "ArrowFunctionExpression",
     params: args.map((arg) => genName(arg, context)),
@@ -168,7 +167,6 @@ function genCase({ branches, otherwise }, context) {
 }
 
 function genScope({ definitions, body }, context) {
-  context = context.spawn();
   return {
     type: "CallExpression",
     callee: {
