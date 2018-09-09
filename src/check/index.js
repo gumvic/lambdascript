@@ -10,20 +10,15 @@ const {
 class Context {
   constructor(parent) {
     this.parent = parent;
-    this.declared = {};
     this.defined = {};
   }
 
-  declare(name, type) {
-    return this.declared[name] = type;
+  define(name, data) {
+    return this.defined[name] = data;
   }
 
-  getDeclared(name) {
-    return this.declared[name];
-  }
-
-  define(name, type) {
-    return this.defined[name] = type;
+  getDefinedLocally(name) {
+    return this.defined[name];
   }
 
   getDefined(name) {
@@ -32,56 +27,62 @@ class Context {
       (this.parent && this.parent.getDefined(name)));
   }
 
-  getDefinedLocally(name) {
-    return this.defined[name];
-  }
-
   spawn() {
     return new Context(this);
   }
 }
 
-function declare({ name, location }, type, context) {
-  if (context.getDeclared(name)) {
+function declare({ name, location }, newData, context) {
+  const oldData = context.getDefinedLocally(name) || {};
+  if (oldData.declared) {
     throw new CheckError(`Already declared: ${name}`, location);
   }
+  else if (oldData.type && newData.type && !castType(oldData.type, newData.type)) {
+    throw new CheckError(`Can't cast ${readableType(newData.type)} to ${readableType(oldData.type)}`, location);
+  }
   else {
-    const defined = context.getDefined(name);
-    if (defined && !castType(type, defined)) {
-      throw new CheckError(`Can't cast ${readableType(defined)} to ${readableType(type)}`, location);
-    }
-    else {
-      return context.declare(name);
-    }
+    return context.define(name, {
+      ...oldData,
+      ...newData,
+      declared: true
+    });
+  }
+}
+
+function define({ name, location }, newData, context) {
+  const oldData = context.getDefinedLocally(name) || {};
+  if (oldData.defined) {
+    throw new CheckError(`Already defined: ${name}`, location);
+  }
+  else if (oldData.type && newData.type && !castType(oldData.type, newData.type)) {
+    throw new CheckError(`Can't cast ${readableType(newData.type)} to ${readableType(oldData.type)}`, location);
+  }
+  else {
+    return context.define(name, {
+      ...oldData,
+      ...newData,
+      defined: true
+    });
   }
 }
 
 function getDeclared({ name }, context) {
-  return context.getDeclared(name);
-}
-
-function define({ name, location }, type, context) {
-  if (context.getDefinedLocally(name)) {
-    throw new CheckError(`Already defined: ${name}`, location);
+  const data = context.getDefined(name) || {};
+  if (!data.declared) {
+    throw new CheckError(`Not declared: ${name}`, location);
   }
   else {
-    const declared = context.getDeclared(name);
-    if (declared && !castType(declared, type)) {
-      throw new CheckError(`Can't cast ${readableType(type)} to ${readableType(declared)}`, location);
-    }
-    else {
-      return context.define(name, type);
-    }
+    return data;
   }
 }
 
 function getDefined({ name, location }, context) {
-  const defined = context.getDefined(name);
-  if (defined) {
-    return defined;
+  const data = context.getDefined(name) || {};
+  if (!data.defined) {
+    throw new CheckError(`Not defined: ${name}`, location);
   }
   else {
-    throw new CheckError(`Not defined: ${name}`, location)
+    return data;
   }
 }
 
@@ -140,7 +141,7 @@ function checkMap(ast, context) {
 function checkName(ast, context) {
   return {
     ...ast,
-    $type: getDefined(ast, context)
+    $type: getDefined(ast, context).type
   };
 }
 
@@ -156,7 +157,7 @@ function lambdaFunctionType(ast, context) {
       else {
         const _context = context.spawn();
         for(let i = 0; i < args.length; i++) {
-          define(ast.args[i], args[i], context);
+          define(ast.args[i], { type: args[i] }, context);
         }
         try {
           return check(ast.body, _context).$type;
@@ -191,7 +192,7 @@ function namedFunctionType(ast, context) {
       else {
         const _context = context.spawn();
         for(let i = 0; i < args.length; i++) {
-          define(ast.args[i], args[i], context);
+          define(ast.args[i], { type: args[i] }, context);
         }
         return check(ast.body, _context).$type;
       }
@@ -307,7 +308,7 @@ function checkDeclarationDefinition(ast, context) {
 function checkConstantDefinition(ast, context) {
   const value = check(ast.value, context);
   const type = value.$type;
-  define(ast.name, type, context);
+  define(ast.name, { type }, context);
   return {
     ...ast,
     $type: type
@@ -315,7 +316,7 @@ function checkConstantDefinition(ast, context) {
 }
 
 function checkFunctionDefinition(ast, context) {
-  const type = getDefined(ast.name, context);
+  const type = getDefined(ast.name, context).type;
   const _type = namedFunctionType(ast, context);
   if (!castType(type, _type)) {
     throw new CheckError(`Can't cast ${_type.readable} to ${type.readable}`, ast.location);
@@ -338,21 +339,17 @@ function checkDefinition(ast, context) {
 // TODO dangling declarations
 function checkDefinitions(definitions, context) {
   const declarations = definitions.filter(({ kind }) => kind === "declaration");
-  for(let { name, typeExpression } of declarations) {
-    // TODO check typeExpression--it should pass the type check, too
-    // TODO eval typeExpression as type
-    // TODO declare(name, type, context);
+  for(let { name, typeExpression, location } of declarations) {
+    // TODO check that typeExpression is castable to type, i. e., has castTo/castFrom etc
+    typeExpression = check(typeExpression, context.global());
+    const type = eval(typeExpression);
+    declare({ name, location }, { typeExpression, type }, context);
   }
 
   const functions = definitions.filter(({ kind }) => kind === "function");
   for(let { name, location } of functions) {
-    const type = getDeclared(name, context);
-    if (!type) {
-      throw new CheckError(`Missing type declaration`, location);
-    }
-    else {
-      define(name, type, context);
-    }
+    const type = getDeclared({ name, location }, context).type;
+    define({ name, location }, { type }, context);
   }
 
   for(let definition of definitions) {
@@ -369,7 +366,7 @@ function checkImportSome(ast, context) {
       throw new CheckError(`${ast.module.name} doesn't export ${name.name}`, name.location);
     }
     else {
-      define(name, entry.type, context);
+      define(name, { type: entry.type }, context);
     }
   }
   return ast;
