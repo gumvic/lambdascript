@@ -209,7 +209,7 @@ function namedFunctionType(ast, context) {
 function defaultFunctionType(ast, context) {
   const args = ast.args.map((_) => tAny);
   const res = tAny;
-  return tFunction(...args.concat(res));
+  return tFunction(...args, res);
 }
 
 function checkFunction(ast, context) {
@@ -279,9 +279,10 @@ function checkCase(ast, context) {
     };
   }
   else {
-    const results = branches
-      .map(({ value }) => check(value, context))
-      .concat(check(ast.otherwise, context));
+    const results = [
+      ...branches.map(({ value }) => check(value, context)),
+      check(ast.otherwise, context)
+    ];
     return {
       ...ast,
       $type: tOr(...results.map(({ $type }) => $type))
@@ -337,10 +338,10 @@ function checkDefinition(ast, context) {
 // TODO dangling declarations
 function checkDefinitions(definitions, context) {
   const declarations = definitions.filter(({ kind }) => kind === "declaration");
-  for(let { name, typed } of declarations) {
-    // TODO check typed--it should pass the type check, too
-    // TODO eval typed
-    // TODO declare(name, typed, context);
+  for(let { name, typeExpression } of declarations) {
+    // TODO check typeExpression--it should pass the type check, too
+    // TODO eval typeExpression as type
+    // TODO declare(name, type, context);
   }
 
   const functions = definitions.filter(({ kind }) => kind === "function");
@@ -391,6 +392,11 @@ function checkImport(ast, context) {
   }
 }
 
+function checkImports(imports, context) {
+  return imports.map((_import) => checkImport(_import, context));
+}
+
+// TODO check that the type was explicitely declared
 function checkExportSome(ast, context) {
   for (let name of ast.names) {
     getDefined(name, context);
@@ -398,27 +404,31 @@ function checkExportSome(ast, context) {
   return ast;
 }
 
+// TODO
 function checkExportAll(ast, context) {
   return ast;
 }
 
 function checkExport(ast, context) {
-  switch(ast.kind) {
-    case "some": return checkExportSome(ast, context);
-    case "all": return checkExportAll(ast, context);
-    default: throw new CheckError(`Internal error: unknown AST import kind ${ast.kind}.`, ast.location);
+  if (!ast) {
+    return ast;
+  }
+  else {
+    switch(ast.kind) {
+      case "some": return checkExportSome(ast, context);
+      case "all": return checkExportAll(ast, context);
+      default: throw new CheckError(`Internal error: unknown AST import kind ${ast.kind}.`, ast.location);
+    }
   }
 }
 
 function checkModule(ast, context) {
-  for (let _import of ast.imports) {
-    checkImport(_import, context);
-  }
-  checkDefinitions(ast.definitions, context);
-  if (ast.export) {
-    checkExport(ast.export, context);
-  }
-  return ast;
+  return {
+    ...ast,
+    imports: checkImports(ast.imports, context),
+    definitions: checkDefinitions(ast.definitions, context),
+    export: checkExport(ast.export, context)
+  };
 }
 
 function check(ast, context) {

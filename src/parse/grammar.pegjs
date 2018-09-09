@@ -239,12 +239,12 @@ case "case" =
   };
 }
 
-declarationDefinition = name:name _ ":" _ typed:expression {
+declarationDefinition = name:name _ ":" _ typeExpression:expression {
   return {
     type: "definition",
     kind: "declaration",
     name: name,
-    typed: typed,
+    typeExpression: typeExpression,
     location: location()
   };
 }

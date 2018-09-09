@@ -1,6 +1,10 @@
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
 
+const NOOP = {
+  type: "EmptyStatement"
+};
+
 const REQUIRE = {
   type: "Identifier",
   name: "require"
@@ -174,12 +178,13 @@ function genScope({ definitions, body }, context) {
       params: [],
       body: {
         type: "BlockStatement",
-        body: definitions
-          .map(definition => genDefinition(definition, context))
-          .concat({
+        body: [
+          ...genDefinitions(definitions, context),
+          {
             type: "ReturnStatement",
             argument: generate(body, context)
-          })
+          }
+        ]
       }
     },
     arguments: []
@@ -192,6 +197,10 @@ function genCall({ callee, args }, context) {
     callee: generate(callee, context),
     arguments: args.map((arg) => generate(arg, context))
   };
+}
+
+function genDeclarationDefinition(ast, context) {
+  return NOOP;
 }
 
 function genConstantDefinition({ name, value }, context) {
@@ -227,55 +236,16 @@ function genFunctionDefinition({ name, args, body }, context) {
 
 function genDefinition(ast, context) {
   switch(ast.kind) {
+    case "declaration": return genDeclarationDefinition(ast, context);
     case "constant": return genConstantDefinition(ast, context);
     case "function": return genFunctionDefinition(ast, context);
     default: throw new GenerationError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
   }
 }
 
-/*function genImportMonadaName(name, context) {
-  return {
-    type: "Property",
-    kind: "init",
-    key: {
-      type: "Literal",
-      value: name.name
-    },
-    value: {
-      type: "ObjectPattern",
-      properties: [
-        {
-          type: "Property",
-          kind: "init",
-          key: VALUE,
-          value: generate(name, context)
-        }
-      ]
-    }
-  };
+function genDefinitions(definitions, context) {
+  return definitions.map((definition) => genDefinition(definition, context));
 }
-
-function genImportNativeName(name, context) {
-  return {
-    type: "Property",
-    kind: "init",
-    key: {
-      type: "Literal",
-      value: name.name
-    },
-    value: {
-      type: "ObjectPattern",
-      properties: [
-        {
-          type: "Property",
-          kind: "init",
-          shorthand: true,
-          value: generate(name, context)
-        }
-      ]
-    }
-  };
-}*/
 
 function genImportRequire(module, context) {
   return {
@@ -342,6 +312,10 @@ function genImport(ast, context) {
   }
 }
 
+function genImports(imports, context) {
+  return imports.map((_import) => genImport(_import, context));
+}
+
 function genExportSome(ast, context) {
   // TODO
 }
@@ -351,20 +325,25 @@ function genExportAll(ast, context) {
 }
 
 function genExport(ast, context) {
-  switch(ast.kind) {
-    case "some": return genExportSome(ast, context);
-    case "all": return genExportAll(ast, context);
-    default: throw new GenerationError(`Internal error: unknown AST import kind ${ast.kind}.`, ast.location);
+  if (!ast) {
+    return NOOP;
+  }
+  else {
+    switch(ast.kind) {
+      case "some": return genExportSome(ast, context);
+      case "all": return genExportAll(ast, context);
+      default: throw new GenerationError(`Internal error: unknown AST import kind ${ast.kind}.`, ast.location);
+    }
   }
 }
 
 function genModule({ imports, definitions, export: _export }, context) {
-  imports = imports.map((_import) => genImport(_import, context));
-  definitions = definitions.map((definition) => genDefinition(definition, context));
-  _export = _export ? genExport(_export, context) : { type: "EmptyStatement" };
   return {
     type: "Program",
-    body: [...imports, ...definitions, _export]
+    body: [
+      ...genImports(imports, context),
+      ...genDefinitions(definitions, context),
+      genExport(_export, context)]
   };
 }
 
