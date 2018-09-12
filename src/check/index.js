@@ -1,3 +1,4 @@
+const generate = require("../generate");
 const CheckError = require("./error");
 const {
   castType: { value: castType },
@@ -27,8 +28,19 @@ class Context {
       (this.parent && this.parent.getDefined(name)));
   }
 
+  getAllDefined() {
+    return {
+      ...((this.parent && this.parent.getAllDefined()) || {}),
+      ...this.defined
+    };
+  }
+
   spawn() {
     return new Context(this);
+  }
+
+  global() {
+    return (!this.parent && this) || this.parent.global();
   }
 }
 
@@ -66,7 +78,7 @@ function define({ name, location }, newData, context) {
   }
 }
 
-function getDeclared({ name }, context) {
+function getDeclared({ name, location }, context) {
   const data = context.getDefined(name) || {};
   if (!data.declared) {
     throw new CheckError(`Not declared: ${name}`, location);
@@ -83,6 +95,27 @@ function getDefined({ name, location }, context) {
   }
   else {
     return data;
+  }
+}
+
+// TODO
+function eval(ast, context) {
+  let argNames = [];
+  let argValues = [];
+  const defined = context.getAllDefined();
+  for(let argName in defined) {
+    argNames.push(generate({
+      type: "name",
+      name: argName
+    }));
+    argValues.push(defined[argName].value);
+  }
+  const body = `return ${generate(ast)}`;
+  try {
+    return Function(...argNames, body)(...argValues);
+  }
+  catch(e) {
+    throw new CheckError(e.message, ast.location);
   }
 }
 
@@ -339,17 +372,19 @@ function checkDefinition(ast, context) {
 // TODO dangling declarations
 function checkDefinitions(definitions, context) {
   const declarations = definitions.filter(({ kind }) => kind === "declaration");
+  const globalContext = context.global();
   for(let { name, typeExpression, location } of declarations) {
-    // TODO check that typeExpression is castable to type, i. e., has castTo/castFrom etc
-    typeExpression = check(typeExpression, context.global());
-    const type = eval(typeExpression);
-    declare({ name, location }, { typeExpression, type }, context);
+    // TODO check typeExpression
+    // TODO check that typeExpression's type is castable to type, i. e., has castTo/castFrom etc
+    // typeExpression = check(typeExpression, globalContext);
+    const type = eval(typeExpression, globalContext);
+    declare(name, { typeExpression, type }, context);
   }
 
   const functions = definitions.filter(({ kind }) => kind === "function");
-  for(let { name, location } of functions) {
-    const type = getDeclared({ name, location }, context).type;
-    define({ name, location }, { type }, context);
+  for(let { name } of functions) {
+    const type = getDeclared(name, context).type;
+    define(name, { type }, context);
   }
 
   for(let definition of definitions) {
@@ -366,7 +401,7 @@ function checkImportSome(ast, context) {
       throw new CheckError(`${ast.module.name} doesn't export ${name.name}`, name.location);
     }
     else {
-      define(name, { type: entry.type }, context);
+      define(name, { type: entry.type, value: entry.value }, context);
     }
   }
   return ast;
