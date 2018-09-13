@@ -1,8 +1,7 @@
 const generate = require("../generate");
 const CheckError = require("./error");
 const {
-  castType: { value: castType },
-  readableType: { value: readableType },
+  cast: { value: cast },
   tAny: { value: tAny },
   tFromValue: { value: tFromValue },
   tFunction: { value: tFunction },
@@ -49,8 +48,8 @@ function declare({ name, location }, newData, context) {
   if (oldData.declared) {
     throw new CheckError(`Already declared: ${name}`, location);
   }
-  else if (oldData.type && newData.type && !castType(oldData.type, newData.type)) {
-    throw new CheckError(`Can't cast ${readableType(newData.type)} to ${readableType(oldData.type)}`, location);
+  else if (oldData.type && newData.type && !cast(oldData.type, newData.type)) {
+    throw new CheckError(`Can't cast ${newData.type} to ${oldData.type}`, location);
   }
   else {
     return context.define(name, {
@@ -66,8 +65,8 @@ function define({ name, location }, newData, context) {
   if (oldData.defined) {
     throw new CheckError(`Already defined: ${name}`, location);
   }
-  else if (oldData.type && newData.type && !castType(oldData.type, newData.type)) {
-    throw new CheckError(`Can't cast ${readableType(newData.type)} to ${readableType(oldData.type)}`, location);
+  else if (oldData.type && newData.type && !cast(oldData.type, newData.type)) {
+    throw new CheckError(`Can't cast ${newData.type} to ${oldData.type}`, location);
   }
   else {
     return context.define(name, {
@@ -227,7 +226,7 @@ function namedFunctionType(ast, context) {
         for(let i = 0; i < args.length; i++) {
           define(ast.args[i], { type: args[i] }, context);
         }
-        return check(ast.body, _context).$type;
+        return check(ast.body, _context).$type;No
       }
     },
     castFrom(_) {
@@ -262,9 +261,7 @@ function checkCall(ast, context) {
   let resType;
   if (calleeTypeType != "function" ||
       !(resType = calleeTypeFn(...argTypes))) {
-    const readableCalleeType = readableType(calleeType);
-    const readableArgTypes = argTypes.map(readableType);
-    throw new CheckError(`Can't apply ${readableCalleeType} to (${readableArgTypes.join(", ")})`, ast.location);
+    throw new CheckError(`Can't apply ${calleeType} to (${argTypes.map((t) => t.toString()).join(", ")})`, ast.location);
   }
   return {
     ...ast,
@@ -351,7 +348,7 @@ function checkConstantDefinition(ast, context) {
 function checkFunctionDefinition(ast, context) {
   const type = getDefined(ast.name, context).type;
   const _type = namedFunctionType(ast, context);
-  if (!castType(type, _type)) {
+  if (!cast(type, _type)) {
     throw new CheckError(`Can't cast ${_type.readable} to ${type.readable}`, ast.location);
   }
   return {
