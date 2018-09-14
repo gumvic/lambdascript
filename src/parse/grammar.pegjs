@@ -301,6 +301,8 @@ atom =
   / list
   / map
   / lambdaFunction
+  / case
+  / scope
   / subExpression
 
 unary = operator:operator __ operand:atom {
@@ -347,7 +349,7 @@ binary =
     first);
   }
 
-expression = case / scope / binary / binaryOperand / operator
+expression = binary / binaryOperand / operator
 
 moduleName = name:string {
   return {

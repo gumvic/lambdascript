@@ -16,11 +16,12 @@ end
 tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
-- `case`, `scope` etc to atoms
-- checking lists and maps should account for `tOr`
-- checking call should account for `tAnd` and `tNone`
+- checking lists and maps should account for `tOr`; it actually should be checked as calls to `list` and `map`
 - better name for `tNone`
-- `tOr.toString` should try to flatten, or even better flatten on creation by inspecting `types`; same for `tAnd`
+- checking call should account for `tNone`
+- ditch `tAnd`, it's difficult to support in `check`
+- better name for `tNone`
+- `tOr` should flatten its `types`
 - `_` should be typed, too
 - `tFromValue` -> `typeof`, but this will replace the native `typeof`
 - lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`
