@@ -1,8 +1,8 @@
+const cartesian = require("cartesian");
 const generate = require("../generate");
 const CheckError = require("./error");
 const {
   cast: { value: cast },
-  apply: { value: apply },
   tAny: { value: tAny },
   tFromValue: { value: tFromValue },
   tFunction: { value: tFunction },
@@ -253,18 +253,39 @@ function checkFunction(ast, context) {
   };
 }
 
+function typeVariants(type) {
+  if (type.type === "or") {
+    return type.types;
+  }
+  else {
+    return [type];
+  }
+}
+
+function callVariants(callee, args) {
+  const calleeVariants = typeVariants(callee);
+  const argsVariants = args.map(typeVariants);
+  return cartesian([calleeVariants, ...argsVariants])
+    .map(([callee, ...args]) => ({ callee, args }));
+}
+
 function checkCall(ast, context) {
   const callee = check(ast.callee, context).$type;
   const args = ast.args.map((arg) => check(arg, context).$type);
-  const type = apply(callee, args);
-  if (!type) {
-    throw new CheckError(`Can't apply ${callee} to (${args.map((t) => t.toString()).join(", ")})`, ast.location);
-  }
-  else {
-    return {
-      ...ast,
-      $type: type
-    };
+  const variants = callVariants(callee, args);
+  const types = variants.map(({ callee, args }) => {
+    let type;
+    if (callee.type !== "function" ||
+        !(type = callee.fn(...args))) {
+      throw new CheckError(`Can't apply ${callee} to (${args.map((t) => t.toString()).join(", ")})`, ast.location);
+    }
+    else {
+      return type;
+    }
+  });
+  return {
+    ...ast,
+    $type: types.length === 1 ? types[0] : tOr(...types)
   }
 }
 
