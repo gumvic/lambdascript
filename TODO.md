@@ -16,6 +16,7 @@ end
 tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
+- `case`, `scope` etc to atoms
 - `_` should be typed, too
 - `tFromValue` -> `typeof`, but this will replace the native `typeof`
 - lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`

@@ -2,6 +2,7 @@ const generate = require("../generate");
 const CheckError = require("./error");
 const {
   cast: { value: cast },
+  apply: { value: apply },
   tAny: { value: tAny },
   tFromValue: { value: tFromValue },
   tFunction: { value: tFunction },
@@ -97,7 +98,7 @@ function getDefined({ name, location }, context) {
   }
 }
 
-// TODO
+// TODO refactor
 function eval(ast, context) {
   let argNames = [];
   let argValues = [];
@@ -253,20 +254,18 @@ function checkFunction(ast, context) {
 }
 
 function checkCall(ast, context) {
-  const callee = check(ast.callee, context);
-  const calleeType = callee.$type;
-  const args = ast.args.map((arg) => check(arg, context));
-  const argTypes = args.map((arg) => arg.$type);
-  const { type: calleeTypeType, fn: calleeTypeFn } = calleeType;
-  let resType;
-  if (calleeTypeType != "function" ||
-      !(resType = calleeTypeFn(...argTypes))) {
-    throw new CheckError(`Can't apply ${calleeType} to (${argTypes.map((t) => t.toString()).join(", ")})`, ast.location);
+  const callee = check(ast.callee, context).$type;
+  const args = ast.args.map((arg) => check(arg, context).$type);
+  const type = apply(callee, args);
+  if (!type) {
+    throw new CheckError(`Can't apply ${callee} to (${args.map((t) => t.toString()).join(", ")})`, ast.location);
   }
-  return {
-    ...ast,
-    $type: resType
-  };
+  else {
+    return {
+      ...ast,
+      $type: type
+    };
+  }
 }
 
 function isBoolean({ type }) {
