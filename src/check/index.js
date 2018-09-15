@@ -1,10 +1,17 @@
-const cartesian = require("cartesian");
 const generate = require("../generate");
 const CheckError = require("./error");
 const {
   cast: { value: cast },
+  readable: { value: readable },
+  FUNCTION: { value: FUNCTION },
+  AND: { value: AND },
+  OR: { value: OR },
   tAny: { value: tAny },
-  tFromValue: { value: tFromValue },
+  tUndefined: { value: tUndefined },
+  tNull: { value: tNull },
+  tBoolean: { value: tBoolean },
+  tNumber: { value: tNumber },
+  tString: { value: tString },
   tFunction: { value: tFunction },
   tOr: { value: tOr } } = require("monada-core");
 
@@ -50,7 +57,7 @@ function declare({ name, location }, newData, context) {
     throw new CheckError(`Already declared: ${name}`, location);
   }
   else if (oldData.type && newData.type && !cast(oldData.type, newData.type)) {
-    throw new CheckError(`Can not cast ${newData.type} to ${oldData.type}`, location);
+    throw new CheckError(`Can not cast ${readable(newData.type)} to ${readable(oldData.type)}`, location);
   }
   else {
     return context.define(name, {
@@ -67,7 +74,7 @@ function define({ name, location }, newData, context) {
     throw new CheckError(`Already defined: ${name}`, location);
   }
   else if (oldData.type && newData.type && !cast(oldData.type, newData.type)) {
-    throw new CheckError(`Can not cast ${newData.type} to ${oldData.type}`, location);
+    throw new CheckError(`Can not cast ${readable(newData.type)} to ${readable(oldData.type)}`, location);
   }
   else {
     return context.define(name, {
@@ -119,54 +126,45 @@ function eval(ast, context) {
   }
 }
 
-function typeVariants(type) {
-  if (type.type === "or") {
-    return type.types;
-  }
-  else {
-    return [type];
-  }
-}
-
 function checkUndefined(ast, context) {
   return {
     ...ast,
-    $type: tFromValue(undefined)
+    $type: tUndefined
   };
 }
 
 function checkNull(ast, context) {
   return {
     ...ast,
-    $type: tFromValue(null)
+    $type: tNull
   };
 }
 
 function checkFalse(ast, context) {
   return {
     ...ast,
-    $type: tFromValue(false)
+    $type: tBoolean(false)
   };
 }
 
 function checkTrue(ast, context) {
   return {
     ...ast,
-    $type: tFromValue(true)
+    $type: tBoolean(true)
   };
 }
 
 function checkNumber(ast, context) {
   return {
     ...ast,
-    $type: tFromValue(parseFloat(ast.value))
+    $type: tNumber(parseFloat(ast.value))
   };
 }
 
 function checkString(ast, context) {
   return {
     ...ast,
-    $type: tFromValue(ast.value)
+    $type: tString(ast.value)
   };
 }
 
@@ -187,130 +185,107 @@ function checkName(ast, context) {
   };
 }
 
-// TODO copy all of the context's contents that is used, including globals
-// than use that context as the base for the .spawn in fn()
-function lambdaFunctionType(ast, context) {
-  return {
-    type: "function",
-    args: ast.args.map((_) => tAny),
-    fn(...args) {
-      if (args.length !== ast.args.length) {
-        return false;
+// TODO copy all of the context's contents, then spawn off of that
+function checkFunction(ast, context) {
+  const type = tFunction(ast.args.map((_) => tAny), tAny, (...args) => {
+    const _context = context.spawn();
+    for(let i = 0; i < args.length; i++) {
+      define(ast.args[i], { type: args[i] }, _context);
+    }
+    try {
+      return check(ast.body, _context).$type;
+    }
+    catch(e) {
+      if (e instanceof CheckError) {
+        return undefined;
       }
       else {
-        const _context = context.spawn();
-        for(let i = 0; i < args.length; i++) {
-          define(ast.args[i], { type: args[i] }, _context);
-        }
-        try {
-          return check(ast.body, _context).$type;
-        }
-        catch(e) {
-          if (e instanceof CheckError) {
-            return false;
-          }
-          else {
-            throw e;
-          }
-        }
+        throw e;
       }
-    },
-    castFrom(_) {
-      return false;
-    },
-    castTo(_) {
-      return false;
-    },
-    toString() {
-      return ast.text;
     }
-  };
-}
-
-function checkFunction(ast, context) {
+  }, ast.text);
   return {
     ...ast,
-    $type: lambdaFunctionType(ast, context)
+    $type: type
   };
 }
 
-function callVariants(callee, args) {
-  const calleeVariants = typeVariants(callee);
-  const argsVariants = args.map(typeVariants);
-  return cartesian([calleeVariants, ...argsVariants])
-    .map(([callee, ...args]) => ({ callee, args }));
-}
-
+/*
 function checkCall(ast, context) {
   const callee = check(ast.callee, context).$type;
   const args = ast.args.map((arg) => check(arg, context).$type);
-  const variants = callVariants(callee, args);
-  const types = variants.map(({ callee, args }) => {
-    let type;
-    if (callee.type !== "function" ||
-        !(type = callee.fn(...args))) {
-      throw new CheckError(`Can not apply ${callee} to (${args.map((t) => t.toString()).join(", ")})`, ast.location);
+  let type;
+  if (callee.type !== FUNCTION ||
+      !(type = callee.fn(...args))) {
+    throw new CheckError(`Can not apply ${readable(callee)} to (${args.map(readable).join(", ")})`, ast.location);
+  }
+  else {
+    return {
+      ...ast,
+      $type: type
+    };
+  }
+}
+*/
+
+function checkCall(ast, context) {
+  function call(callee, args) {
+    if (callee.type === OR) {
+      let types = [];
+      for (let _callee of callee.types) {
+        const res = call(_callee, args);
+        if (!res) {
+          return undefined;
+        }
+        else {
+          types.push(res);
+        }
+      }
+      return tOr(...types);
+    }
+    else if (callee.type === AND) {
+      for (let _callee of callee.types) {
+        const res = call(_callee, args);
+        if (res) {
+          return res;
+        }
+      }
+      return undefined;
     }
     else {
-      return type;
-    }
-  });
-  return {
-    ...ast,
-    $type: types.length === 1 ? types[0] : tOr(...types)
-  }
-}
-
-function isBoolean({ type }) {
-  return type === "boolean";
-}
-
-function isTrue({ type, value }) {
-  return type === "boolean" && value === true;
-}
-
-function isFalse({ type, value }) {
-  return type === "boolean" && value === false;
-}
-
-function checkCaseBranches({ branches }, context) {
-  branches = branches
-    .map(({ condition, value }) => ({ condition: check(condition, context), value }))
-    .filter(({ condition }) => !isFalse(condition.$type));
-  for (let { condition } of branches) {
-    if (!isBoolean(condition.$type)) {
-      throw new CheckError(`Can not cast ${condition.$type} to boolean`, condition.location);
+      return callee.type === FUNCTION && callee.fn(...args);
     }
   }
-  return branches;
+  const callee = check(ast.callee, context).$type;
+  const args = ast.args.map((arg) => check(arg, context).$type);
+  const type = call(callee, args);
+  if (!type) {
+    throw new CheckError(`Can not apply ${readable(callee)} to (${args.map(readable).join(", ")})`, ast.location);
+  }
+  else {
+    return {
+      ...ast,
+      $type: type
+    };
+  }
 }
 
 function checkCase(ast, context) {
-  const branches = checkCaseBranches(ast, context);
-  if (!branches.length) {
-    const result = check(ast.otherwise, context);
-    return {
-      ...ast,
-      $type: result.$type
-    };
+  const branches = ast.branches.map(({ condition, value }) => ({
+    condition: check(condition, context),
+    value: check(value, context)
+  }));
+  for(let { condition } of branches) {
+    if (!cast(tBoolean, condition.$type)) {
+      throw new CheckError(`Can not cast ${readable(condition.$type)} to ${readable(tBoolean)}`, condition.location);
+    }
   }
-  else if (isTrue(branches[0].condition.$type)) {
-    const result = check(branches[0].value, context);
-    return {
-      ...ast,
-      $type: result.$type
-    };
-  }
-  else {
-    const results = [
-      ...branches.map(({ value }) => check(value, context)),
-      check(ast.otherwise, context)
-    ];
-    return {
-      ...ast,
-      $type: tOr(...results.map(({ $type }) => $type))
-    };
-  }
+  const otherwise = check(ast.otherwise, context);
+  const type = tOr(...branches.map(({ value }) => value.$type), otherwise.$type);
+  return {
+    ...ast,
+    $type: type
+  };
 }
 
 function checkScope(ast, context) {
@@ -337,7 +312,7 @@ function checkConstantDefinition(ast, context) {
   };
 }
 
-function checkFunctionDefinition(ast, context) {
+/*function checkFunctionDefinition(ast, context) {
   const type = getDefined(ast.name, context).type;
   const fnTypes = typeVariants(type);
   for(let declaredType of typeVariants(type)) {
@@ -365,6 +340,10 @@ function checkFunctionDefinition(ast, context) {
     ...ast,
     $type: type
   };
+}*/
+
+function checkFunctionDefinition(ast, context) {
+  // TODO
 }
 
 function checkDefinition(ast, context) {

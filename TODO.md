@@ -10,7 +10,7 @@ tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 - `checkCall` should account for `tNone`
 - `checkCall` should account for `tAnd`
 - `checkScope` should produce the definitions variants
-- `tOr` should flatten its `types`
+- `tOr` should flatten and dedup its `types`
 - `_` should be typed, too
 - lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`
 - js modules that require other local js modules, i. e., multi-file local js modules
