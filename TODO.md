@@ -9,6 +9,7 @@ tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 - checking lists and maps should be checked as calls to `list` and `map`, so that it delegates the check to `checkCall`
 - `checkCall` should account for `tNone`
 - `checkCall` should account for `tAnd`
+- `checkScope` should produce the definitions variants
 - `tOr` should flatten its `types`
 - `_` should be typed, too
 - lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`
@@ -29,6 +30,17 @@ in
   end
 end
 ```
+
+# Questions
+- this compiles, because the actual type overrides the declared one:
+```
+ff: tFunction(tNumber, tNumber)
+ff = fn(x) -> x
+
+x = ff(null)
+```
+which is "correct" but unexpected
+
 
 # Optimizations
 - optimize native things like `throw`, `instanceof` etc

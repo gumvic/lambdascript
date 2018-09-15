@@ -192,6 +192,7 @@ function checkName(ast, context) {
 function lambdaFunctionType(ast, context) {
   return {
     type: "function",
+    args: ast.args.map((_) => tAny),
     fn(...args) {
       if (args.length !== ast.args.length) {
         return false;
@@ -199,7 +200,7 @@ function lambdaFunctionType(ast, context) {
       else {
         const _context = context.spawn();
         for(let i = 0; i < args.length; i++) {
-          define(ast.args[i], { type: args[i] }, context);
+          define(ast.args[i], { type: args[i] }, _context);
         }
         try {
           return check(ast.body, _context).$type;
@@ -220,7 +221,9 @@ function lambdaFunctionType(ast, context) {
     castTo(_) {
       return false;
     },
-    readable: ast.text
+    toString() {
+      return ast.text;
+    }
   };
 }
 
@@ -276,7 +279,7 @@ function checkCaseBranches({ branches }, context) {
     .filter(({ condition }) => !isFalse(condition.$type));
   for (let { condition } of branches) {
     if (!isBoolean(condition.$type)) {
-      throw new CheckError(`Can not cast ${condition.$type.readable} to boolean`, condition.location);
+      throw new CheckError(`Can not cast ${condition.$type} to boolean`, condition.location);
     }
   }
   return branches;
