@@ -344,16 +344,18 @@ function checkFunctionDefinition(ast, context) {
     if (declaredType.args.length !== ast.args.length) {
       throw new CheckError(`Declared arity ${declaredType.args.length} does not match the defined arity ${ast.args.length}`, ast.location);
     }
-    const _context = context.spawn();
-    for(let i = 0; i < ast.args.length; i++) {
-      const arg = ast.args[i];
-      const argType = declaredType.args[i];
-      define(arg, { type: argType }, _context);
-    }
-    const declaredRes = declaredType.fn(...declaredType.args);
-    const res = check(ast.body, _context).$type;
-    if (!cast(declaredRes, res)) {
-      throw new CheckError(`Can not cast ${res} to ${declaredRes}`, ast.body.location);
+    const declaredFn = declaredType.fn;
+    const declaredArgsVariants = cartesian(declaredType.args.map(typeVariants));
+    for(let declaredArgs of declaredArgsVariants) {
+      const _context = context.spawn();
+      for(let i = 0; i < ast.args.length; i++) {
+        define(ast.args[i], { type: declaredArgs[i] }, _context);
+      }
+      const declaredRes = declaredFn(...declaredArgs);
+      const res = check(ast.body, _context).$type;
+      if (!cast(declaredRes, res)) {
+        throw new CheckError(`Can not cast ${res} to ${declaredRes}`, ast.body.location);
+      }
     }
   }
   return {
