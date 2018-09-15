@@ -50,7 +50,7 @@ function declare({ name, location }, newData, context) {
     throw new CheckError(`Already declared: ${name}`, location);
   }
   else if (oldData.type && newData.type && !cast(oldData.type, newData.type)) {
-    throw new CheckError(`Can't cast ${newData.type} to ${oldData.type}`, location);
+    throw new CheckError(`Can not cast ${newData.type} to ${oldData.type}`, location);
   }
   else {
     return context.define(name, {
@@ -67,7 +67,7 @@ function define({ name, location }, newData, context) {
     throw new CheckError(`Already defined: ${name}`, location);
   }
   else if (oldData.type && newData.type && !cast(oldData.type, newData.type)) {
-    throw new CheckError(`Can't cast ${newData.type} to ${oldData.type}`, location);
+    throw new CheckError(`Can not cast ${newData.type} to ${oldData.type}`, location);
   }
   else {
     return context.define(name, {
@@ -116,6 +116,15 @@ function eval(ast, context) {
   }
   catch(e) {
     throw new CheckError(e.message, ast.location);
+  }
+}
+
+function typeVariants(type) {
+  if (type.type === "or") {
+    return type.types;
+  }
+  else {
+    return [type];
   }
 }
 
@@ -215,51 +224,11 @@ function lambdaFunctionType(ast, context) {
   };
 }
 
-function namedFunctionType(ast, context) {
-  return {
-    type: "function",
-    fn(...args) {
-      if (args.length !== ast.args.length) {
-        throw new CheckError(`Function doesn't support the arity of ${args.length}`, ast.location);
-      }
-      else {
-        const _context = context.spawn();
-        for(let i = 0; i < args.length; i++) {
-          define(ast.args[i], { type: args[i] }, context);
-        }
-        return check(ast.body, _context).$type;No
-      }
-    },
-    castFrom(_) {
-      return false;
-    },
-    castTo(_) {
-      return false;
-    },
-    readable: "TODO"
-  };
-}
-
-function defaultFunctionType(ast, context) {
-  const args = ast.args.map((_) => tAny);
-  const res = tAny;
-  return tFunction(...args, res);
-}
-
 function checkFunction(ast, context) {
   return {
     ...ast,
     $type: lambdaFunctionType(ast, context)
   };
-}
-
-function typeVariants(type) {
-  if (type.type === "or") {
-    return type.types;
-  }
-  else {
-    return [type];
-  }
 }
 
 function callVariants(callee, args) {
@@ -277,7 +246,7 @@ function checkCall(ast, context) {
     let type;
     if (callee.type !== "function" ||
         !(type = callee.fn(...args))) {
-      throw new CheckError(`Can't apply ${callee} to (${args.map((t) => t.toString()).join(", ")})`, ast.location);
+      throw new CheckError(`Can not apply ${callee} to (${args.map((t) => t.toString()).join(", ")})`, ast.location);
     }
     else {
       return type;
@@ -307,7 +276,7 @@ function checkCaseBranches({ branches }, context) {
     .filter(({ condition }) => !isFalse(condition.$type));
   for (let { condition } of branches) {
     if (!isBoolean(condition.$type)) {
-      throw new CheckError(`Can't cast ${condition.$type.readable} to boolean`, condition.location);
+      throw new CheckError(`Can not cast ${condition.$type.readable} to boolean`, condition.location);
     }
   }
   return branches;
@@ -367,9 +336,25 @@ function checkConstantDefinition(ast, context) {
 
 function checkFunctionDefinition(ast, context) {
   const type = getDefined(ast.name, context).type;
-  const _type = namedFunctionType(ast, context);
-  if (!cast(type, _type)) {
-    throw new CheckError(`Can't cast ${_type.readable} to ${type.readable}`, ast.location);
+  const fnTypes = typeVariants(type);
+  for(let declaredType of typeVariants(type)) {
+    if (declaredType.type !== "function") {
+      throw new CheckError(`Declared type ${type} is not a function`, ast.location);
+    }
+    if (declaredType.args.length !== ast.args.length) {
+      throw new CheckError(`Declared arity ${declaredType.args.length} does not match the defined arity ${ast.args.length}`, ast.location);
+    }
+    const _context = context.spawn();
+    for(let i = 0; i < ast.args.length; i++) {
+      const arg = ast.args[i];
+      const argType = declaredType.args[i];
+      define(arg, { type: argType }, _context);
+    }
+    const declaredRes = declaredType.fn(...declaredType.args);
+    const res = check(ast.body, _context).$type;
+    if (!cast(declaredRes, res)) {
+      throw new CheckError(`Can not cast ${res} to ${declaredRes}`, ast.body.location);
+    }
   }
   return {
     ...ast,

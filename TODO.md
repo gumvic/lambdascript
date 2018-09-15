@@ -17,7 +17,6 @@ tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
 - checking lists and maps should account for `tOr`; it actually should be checked as calls to `list` and `map`
-- better name for `tNone`
 - checking call should account for `tNone`
 - ditch `tAnd`, it's difficult to support in `check`
 - better name for `tNone`
@@ -29,6 +28,7 @@ tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 - make defining operators possible
 - clean up `package.json`
 - optimize native things like `throw`, `instanceof` etc
+- optimize when the AST's `$type` is a primitive with a value--just generate that value?
 - optimize to `===` when at least one is a primitive
 - optimize operators
 - template strings
