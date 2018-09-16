@@ -187,86 +187,51 @@ function checkName(ast, context) {
 
 // TODO copy all of the context's contents, then spawn off of that
 function checkFunction(ast, context) {
-  const type = tFunction(ast.args.map((_) => tAny), tAny, (...args) => {
-    const _context = context.spawn();
-    for(let i = 0; i < args.length; i++) {
-      define(ast.args[i], { type: args[i] }, _context);
-    }
-    try {
-      return check(ast.body, _context).$type;
-    }
-    catch(e) {
-      if (e instanceof CheckError) {
-        return undefined;
+  const type = tFunction({
+    args: ast.args.map((_) => tAny),
+    res: tAny,
+    fn(...args) {
+      const _context = context.spawn();
+      for(let i = 0; i < args.length; i++) {
+        define(ast.args[i], { type: args[i] }, _context);
       }
-      else {
-        throw e;
+      try {
+        return check(ast.body, _context).$type;
       }
-    }
-  }, ast.text);
+      catch(e) {
+        if (e instanceof CheckError) {
+          return undefined;
+        }
+        else {
+          throw e;
+        }
+      }
+    },
+    readable: ast.text
+  });
   return {
     ...ast,
     $type: type
   };
 }
 
-/*
 function checkCall(ast, context) {
   const callee = check(ast.callee, context).$type;
   const args = ast.args.map((arg) => check(arg, context).$type);
-  let type;
-  if (callee.type !== FUNCTION ||
-      !(type = callee.fn(...args))) {
-    throw new CheckError(`Can not apply ${readable(callee)} to (${args.map(readable).join(", ")})`, ast.location);
+  if (callee.type !== FUNCTION) {
+    throw new CheckError(`Not a function: ${readable(callee)}`, ast.location);
   }
   else {
-    return {
-      ...ast,
-      $type: type
-    };
-  }
-}
-*/
-
-function checkCall(ast, context) {
-  function call(callee, args) {
-    if (callee.type === OR) {
-      let types = [];
-      for (let _callee of callee.types) {
-        const res = call(_callee, args);
-        if (!res) {
-          return undefined;
-        }
-        else {
-          types.push(res);
-        }
+    for (let { fn } of callee.variants) {
+      const type = fn(...args);
+      if (type) {
+        return {
+          ...ast,
+          $type: type
+        };
       }
-      return tOr(...types);
     }
-    else if (callee.type === AND) {
-      for (let _callee of callee.types) {
-        const res = call(_callee, args);
-        if (res) {
-          return res;
-        }
-      }
-      return undefined;
-    }
-    else {
-      return callee.type === FUNCTION && callee.fn(...args);
-    }
-  }
-  const callee = check(ast.callee, context).$type;
-  const args = ast.args.map((arg) => check(arg, context).$type);
-  const type = call(callee, args);
-  if (!type) {
     throw new CheckError(`Can not apply ${readable(callee)} to (${args.map(readable).join(", ")})`, ast.location);
-  }
-  else {
-    return {
-      ...ast,
-      $type: type
-    };
   }
 }
 
