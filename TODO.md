@@ -5,17 +5,41 @@
 tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
+- `match`:
+```
+match a, b, ...
+  when ta, tb, ...: ...
+  when ...
+  else ...
+end
+
+# more interesting
+ast: tOr(astNumber, astString, ...)
+match ast
+  when tMap({ type: "number" }): ... # ast keeps its type
+  when tMap({ type: "string" }): ... # ast keeps its type
+  else ... # ast keeps its type
+end
+
+n: tNumber
+match n
+  when tNumber(42): ... # n assumes tNumber(42)s
+  else ... # n keeps its type
+end
+```
+matching type `what` with type `with`:
+-- when cast(`what`, `with`), `what` assumes `with` type
+-- otherwise, `what` keeps its type
 - type checking declarations
-- checking lists and maps should be checked as calls to `list` and `map`, so that it delegates the check to `checkCall`
 - `checkCall` should account for `tNone`
 - `checkCall` should account for `tAnd`
-- `checkScope` should produce the definitions variants
-- `tOr` should flatten and dedup its `types`; also, `tOr` of one is just that one; same for `tAnd`
-- ditch `tFn`
+- `checkCall` should account for `tOr`
+- `tOr` should flatten and deduplicate its `types`; also, `tOr` of one is just that one; same for `tAnd`
+- ditch `tFn`, it's just a temporary convenience
 - `_` should be typed, too
 - lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`
 - js modules that require other local js modules, i. e., multi-file local js modules
-- make defining operators possible
+- syntax for defining operators
 - template strings
 
 # Bugs
