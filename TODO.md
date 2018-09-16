@@ -32,16 +32,21 @@ in
 end
 ```
 
-# Questions
+# Feature bugs
 - this compiles, because the actual type overrides the declared one:
 ```
-ff: tFunction(tNumber, tNumber)
-ff = fn(x) -> x
+f: tFunction(tNumber, tNumber)
+f = fn(x) -> x
 
-x = ff(null)
+x = f(null)
 ```
-which is "correct" but unexpected
-
+which is "correct" but unexpected;
+a better example
+```
+x: tOr(tNumber, tString)
+x = 42 # x is now officially tNumber
+```
+bug or feature?
 
 # Optimizations
 - optimize native things like `throw`, `instanceof` etc

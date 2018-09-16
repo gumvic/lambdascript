@@ -267,19 +267,37 @@ function checkCase(ast, context) {
 }
 
 function checkMatch(ast, context) {
-  const globalContext = context.global();
+  function narrow(orType, patternType) {
+    for(let type of orType.types) {
+      if (cast(patternType, type)) {
+        return type;
+      }
+    }
+    return undefined;
+  }
+  const names = ast.names;
+  const nameTypes = ast.names.map((name) => {
+    const type = getDefined(name, context).type;
+    if (type.type !== OR) {
+      throw new CheckError(`Not an or: ${readable(type)}`, name.location);
+    }
+    else {
+      return type;
+    }
+  });
   const branchTypes = ast.branches.map(({ patterns, value }) => {
     const _context = context.spawn();
-    for(let i = 0; i < ast.names.length; i++) {
-      const nameType = getDefined(ast.names[i], context).type;
-      const patternType = eval(patterns[i], globalContext);
-      // Only "force" the type when it can't be cast as it is
-      // If it can, no reason doing anything with it
-      // For example, (number | string) should be "forced" to be a number,
-      // while number(42) shouldn't be, so it can remain what it is
-      // It's a matter of "narrowing down" the type to what is assumed to pass the pattern
-      if (!cast(patternType, nameType)) {
-        define(ast.names[i], { type: patternType }, _context);
+    for(let i = 0; i < names.length; i++) {
+      const name = names[i];
+      const pattern = patterns[i];
+      const nameType = nameTypes[i];
+      const patternType = eval(pattern, context.global());
+      const type = narrow(nameType, patternType);
+      if (!type) {
+        throw new CheckError(`Can not narrow ${readable(nameType)} to ${readable(patternType)}`, pattern.location);
+      }
+      else {
+        define(name, { type }, _context);
       }
     }
     return check(value, _context).$type;
@@ -356,12 +374,11 @@ function checkDefinition(ast, context) {
 // TODO dangling declarations
 function checkDefinitions(definitions, context) {
   const declarations = definitions.filter(({ kind }) => kind === "declaration");
-  const globalContext = context.global();
   for(let { name, typeExpression, location } of declarations) {
     // TODO check typeExpression
     // TODO check that typeExpression's type is castable to type, i. e., has castTo/castFrom etc
     // typeExpression = check(typeExpression, globalContext);
-    const type = eval(typeExpression, globalContext);
+    const type = eval(typeExpression, context.global());
     declare(name, { typeExpression, type }, context);
   }
 
