@@ -235,7 +235,7 @@ function checkCall(ast, context) {
   }
 }
 
-function checkCase(ast, context) {
+/*function checkCase(ast, context) {
   const branches = ast.branches.map(({ condition, value }) => ({
     condition: check(condition, context),
     value: check(value, context)
@@ -247,6 +247,45 @@ function checkCase(ast, context) {
   }
   const otherwise = check(ast.otherwise, context);
   const type = tOr(...branches.map(({ value }) => value.$type), otherwise.$type);
+  return {
+    ...ast,
+    $type: type
+  };
+}*/
+
+function checkCase(ast, context) {
+  const branchTypes = ast.branches.map(({ condition, value }) => {
+    check(condition, context);
+    return check(value, context).$type;
+  });
+  const otherwiseType = check(ast.otherwise, context).$type;
+  const type = tOr(...branchTypes, otherwiseType);
+  return {
+    ...ast,
+    $type: type
+  };
+}
+
+function checkMatch(ast, context) {
+  const globalContext = context.global();
+  const branchTypes = ast.branches.map(({ patterns, value }) => {
+    const _context = context.spawn();
+    for(let i = 0; i < ast.names.length; i++) {
+      const nameType = getDefined(ast.names[i], context).type;
+      const patternType = eval(patterns[i], globalContext);
+      // Only "force" the type when it can't be cast as it is
+      // If it can, no reason doing anything with it
+      // For example, (number | string) should be "forced" to be a number,
+      // while number(42) shouldn't be, so it can remain what it is
+      // It's a matter of "narrowing down" the type to what is assumed to pass the pattern
+      if (!cast(patternType, nameType)) {
+        define(ast.names[i], { type: patternType }, _context);
+      }
+    }
+    return check(value, _context).$type;
+  });
+  const otherwiseType = check(ast.otherwise, context).$type;
+  const type = tOr(...branchTypes, otherwiseType);
   return {
     ...ast,
     $type: type
@@ -276,36 +315,6 @@ function checkConstantDefinition(ast, context) {
     $type: type
   };
 }
-
-/*function checkFunctionDefinition(ast, context) {
-  const type = getDefined(ast.name, context).type;
-  const fnTypes = typeVariants(type);
-  for(let declaredType of typeVariants(type)) {
-    if (declaredType.type !== "function") {
-      throw new CheckError(`Declared type ${type} is not a function`, ast.location);
-    }
-    if (declaredType.args.length !== ast.args.length) {
-      throw new CheckError(`Declared arity ${declaredType.args.length} does not match the defined arity ${ast.args.length}`, ast.location);
-    }
-    const declaredFn = declaredType.fn;
-    const declaredArgsVariants = cartesian(declaredType.args.map(typeVariants));
-    for(let declaredArgs of declaredArgsVariants) {
-      const _context = context.spawn();
-      for(let i = 0; i < ast.args.length; i++) {
-        define(ast.args[i], { type: declaredArgs[i] }, _context);
-      }
-      const declaredRes = declaredFn(...declaredArgs);
-      const res = check(ast.body, _context).$type;
-      if (!cast(declaredRes, res)) {
-        throw new CheckError(`Can not cast ${res} to ${declaredRes}`, ast.body.location);
-      }
-    }
-  }
-  return {
-    ...ast,
-    $type: type
-  };
-}*/
 
 function checkFunctionDefinition(ast, context) {
   const declaredType = getDefined(ast.name, context).type;
@@ -453,6 +462,7 @@ function check(ast, context) {
     case "function": return checkFunction(ast, context);
     case "call": return checkCall(ast, context);
     case "case": return checkCase(ast, context);
+    case "match": return checkMatch(ast, context);
     case "scope": return checkScope(ast, context);
     case "module": return checkModule(ast, context);
     default: throw new TypeError(`Internal error: unknown AST type ${ast.type}.`);

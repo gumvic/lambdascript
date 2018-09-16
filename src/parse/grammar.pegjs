@@ -16,6 +16,7 @@ reservedWord "special word" =
   / wordCase
   / wordWhen
   / wordElse
+  / wordMatch
   / wordDo
   / wordLet
   / wordFn
@@ -30,6 +31,7 @@ wordWildcard "_" = "_" !beginNameChar
 wordCase "case" = "case" !beginNameChar
 wordWhen "when" = "when" !beginNameChar
 wordElse "else" = "else" !beginNameChar
+wordMatch "match" = "match" !beginNameChar
 wordDo "do" = "do" !beginNameChar
 wordLet "let" = "let" !beginNameChar
 wordFn "fn" = "fn" !beginNameChar
@@ -239,6 +241,41 @@ case "case" =
   };
 }
 
+matchBranch =
+  wordWhen _
+  patterns:(first:expression rest:(_ "," _ pattern:expression { return pattern; })* { return [first].concat(rest); })
+  _ ":" _
+  value:expression {
+  return {
+    patterns: patterns,
+    value: value
+  };
+}
+
+matchOtherwise = wordElse _ otherwise:expression {
+  return otherwise;
+}
+
+match "match" =
+  wordMatch _
+  names:(first:name rest:(_ "," _ name:name { return name; })* { return [first].concat(rest); }) _
+  branches:(branch:matchBranch _ { return branch; })+
+  otherwise:matchOtherwise _
+  wordEnd {
+  for(let { patterns, location } of branches) {
+    if (patterns.length !== names.length) {
+      error("Wrong amount of patterns", patterns[0].location);
+    }
+  }
+  return {
+    type: "match",
+    names: names,
+    branches: branches,
+    otherwise: otherwise,
+    location: location()
+  };
+}
+
 declarationDefinition = name:name _ ":" _ typeExpression:expression {
   return {
     type: "definition",
@@ -302,6 +339,7 @@ atom =
   / map
   / lambdaFunction
   / case
+  / match
   / scope
   / subExpression
 

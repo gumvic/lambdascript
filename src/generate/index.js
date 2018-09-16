@@ -25,6 +25,11 @@ const MAP = {
   name: "map"
 };
 
+const MATCH = {
+  type: "Identifier",
+  name: "match"
+};
+
 function namify(name) {
   return name
     .replace(
@@ -163,6 +168,37 @@ function genCase({ branches, otherwise }, context) {
     return {
       type: "ConditionalExpression",
       test: _condition,
+      consequent: ifTrue,
+      alternate: ifFalse
+    };
+  }
+  return _generate(branches, context);
+}
+
+function genMatch({ names, branches, otherwise }, context) {
+  function _generate(branches, context) {
+    if (!branches.length) {
+      return generate(otherwise, context);
+    }
+    const { patterns, value } = branches[0];
+    const rest = branches.slice(1);
+    const condition = patterns
+      .map((pattern, i) => ({
+        type: "CallExpression",
+        callee: MATCH,
+        arguments: [generate(pattern, context), generate(names[i], context)]
+      }))
+      .reduce((left, right) => ({
+        type: "LogicalExpression",
+        operator: "&&",
+        left,
+        right
+      }));
+    const ifTrue = generate(value, context);
+    const ifFalse = _generate(rest, context);
+    return {
+      type: "ConditionalExpression",
+      test: condition,
       consequent: ifTrue,
       alternate: ifFalse
     };
@@ -361,6 +397,7 @@ function generate(ast, context) {
     case "map":  return genMap(ast, context);
     case "function": return genFunction(ast, context);
     case "case": return genCase(ast, context);
+    case "match": return genMatch(ast, context);
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
     case "module": return genModule(ast, context);
