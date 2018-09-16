@@ -308,7 +308,31 @@ function checkConstantDefinition(ast, context) {
 }*/
 
 function checkFunctionDefinition(ast, context) {
-  // TODO
+  const declaredType = getDefined(ast.name, context).type;
+  if (declaredType.type !== FUNCTION) {
+    throw new CheckError(`Declared type is not a function: ${readable(declaredType)}`, ast.location);
+  }
+  else {
+    for(let { args: declaredArgs, res: declaredRes } of declaredType.variants) {
+      if (declaredArgs.length !== ast.args.length) {
+        throw new CheckError(`Declared arity ${declaredArgs.length} does not match actual arity ${ast.args.length}`, ast.location);
+      }
+      else {
+        const _context = context.spawn();
+        for(let i = 0; i < ast.args.length; i++) {
+          define(ast.args[i], { type: declaredArgs[i] }, _context);
+        }
+        const res = check(ast.body, _context).$type;
+        if (!cast(declaredRes, res)) {
+          throw new CheckError(`Can not cast ${readable(res)} to ${readable(declaredRes)}`, ast.body.location);
+        }
+      }
+    }
+    return {
+      ...ast,
+      $type: declaredType
+    };
+  }
 }
 
 function checkDefinition(ast, context) {
