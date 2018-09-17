@@ -6,12 +6,13 @@ tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
 - type checking declarations
+- ditch `res`, let functions only have `args` and `fn`, and just do `fn(...args)` when needsed
+- disallow `match`ing on functions?
 - `checkCall` should account for `tNone`
-- `checkCall` should account for `tAnd`
-- `checkCall` should account for `tOr`
+- `checkMatch` should understand `tAnd`, e. g., `((a | b) & (c, d, e))` -- should go over all those types
+- `checkMatch` `else` should narrow, too, -- track the combinations in `when`, and assume the combinations that were left out
 - `tOr` should flatten and deduplicate its `types`; also, `tOr` of one is just that one; same for `tAnd`
 - `not` type, like `!undefined`
-- ditch `tFn`, it's just a temporary convenience
 - `_` should be typed, too
 - lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`
 - js modules that require other local js modules, i. e., multi-file local js modules

@@ -1,11 +1,12 @@
 const generate = require("../generate");
 const CheckError = require("./error");
 const {
-  cast: { value: cast },
-  readable: { value: readable },
   FUNCTION: { value: FUNCTION },
   AND: { value: AND },
   OR: { value: OR },
+  cast: { value: cast },
+  readable: { value: readable },
+  tNone: { value: tNone },
   tAny: { value: tAny },
   tUndefined: { value: tUndefined },
   tNull: { value: tNull },
@@ -187,28 +188,26 @@ function checkName(ast, context) {
 
 // TODO copy all of the context's contents, then spawn off of that
 function checkFunction(ast, context) {
-  const type = tFunction({
-    args: ast.args.map((_) => tAny),
-    res: tAny,
-    fn(...args) {
-      const _context = context.spawn();
-      for(let i = 0; i < args.length; i++) {
-        define(ast.args[i], { type: args[i] }, _context);
+  const args = ast.args.map((_) => tNone);
+  function fn(...args) {
+    const _context = context.spawn();
+    for(let i = 0; i < args.length; i++) {
+      define(ast.args[i], { type: args[i] }, _context);
+    }
+    try {
+      return check(ast.body, _context).$type;
+    }
+    catch(e) {
+      if (e instanceof CheckError) {
+        return undefined;
       }
-      try {
-        return check(ast.body, _context).$type;
+      else {
+        throw e;
       }
-      catch(e) {
-        if (e instanceof CheckError) {
-          return undefined;
-        }
-        else {
-          throw e;
-        }
-      }
-    },
-    readable: ast.text
-  });
+    }
+  }
+  fn.readable = ast.text;
+  const type = tFunction(...args, fn);
   return {
     ...ast,
     $type: type
@@ -216,42 +215,46 @@ function checkFunction(ast, context) {
 }
 
 function checkCall(ast, context) {
+  function _check(callee, args) {
+    switch(callee.type) {
+      case OR:
+        let types = [];
+        for (let type of callee.types) {
+          const res = _check(type, args);
+          if (!res) {
+            return false;
+          }
+          else {
+            types.push(res);
+          }
+        }
+        return tOr(...types);
+      case AND:
+        for (let type of callee.types) {
+          const res = _check(type, args);
+          if (res) {
+            return res;
+          }
+        }
+        return false;
+      case FUNCTION:
+        return callee.fn(...args);
+      default: return undefined;
+    }
+  }
   const callee = check(ast.callee, context).$type;
   const args = ast.args.map((arg) => check(arg, context).$type);
-  if (callee.type !== FUNCTION) {
-    throw new CheckError(`Not a function: ${readable(callee)}`, ast.location);
-  }
-  else {
-    for (let { fn } of callee.variants) {
-      const type = fn(...args);
-      if (type) {
-        return {
-          ...ast,
-          $type: type
-        };
-      }
-    }
+  const type = _check(callee, args);
+  if (!type) {
     throw new CheckError(`Can not apply ${readable(callee)} to (${args.map(readable).join(", ")})`, ast.location);
   }
-}
-
-/*function checkCase(ast, context) {
-  const branches = ast.branches.map(({ condition, value }) => ({
-    condition: check(condition, context),
-    value: check(value, context)
-  }));
-  for(let { condition } of branches) {
-    if (!cast(tBoolean, condition.$type)) {
-      throw new CheckError(`Can not cast ${readable(condition.$type)} to ${readable(tBoolean)}`, condition.location);
-    }
+  else {
+    return {
+      ...ast,
+      $type: type
+    };
   }
-  const otherwise = check(ast.otherwise, context);
-  const type = tOr(...branches.map(({ value }) => value.$type), otherwise.$type);
-  return {
-    ...ast,
-    $type: type
-  };
-}*/
+}
 
 function checkCase(ast, context) {
   const branchTypes = ast.branches.map(({ condition, value }) => {
@@ -266,6 +269,7 @@ function checkCase(ast, context) {
   };
 }
 
+// TODO refactor
 function checkMatch(ast, context) {
   function narrow(orType, patternType) {
     for(let type of orType.types) {
@@ -335,31 +339,55 @@ function checkConstantDefinition(ast, context) {
 }
 
 function checkFunctionDefinition(ast, context) {
-  const declaredType = getDefined(ast.name, context).type;
-  if (declaredType.type !== FUNCTION) {
-    throw new CheckError(`Declared type is not a function: ${readable(declaredType)}`, ast.location);
-  }
-  else {
-    for(let { args: declaredArgs, res: declaredRes } of declaredType.variants) {
-      if (declaredArgs.length !== ast.args.length) {
-        throw new CheckError(`Declared arity ${declaredArgs.length} does not match actual arity ${ast.args.length}`, ast.location);
-      }
-      else {
-        const _context = context.spawn();
-        for(let i = 0; i < ast.args.length; i++) {
-          define(ast.args[i], { type: declaredArgs[i] }, _context);
+  function _check(declaredType) {
+    switch(declaredType.type) {
+      case OR:
+        let errors = [];
+        for (let type of declaredType.types) {
+          try {
+            _check(type);
+            return;
+          }
+          catch(e) {
+            if (e instanceof CheckError) {
+              errors.push(e);
+            }
+            else {
+              throw e;
+            }
+          }
         }
-        const res = check(ast.body, _context).$type;
-        if (!cast(declaredRes, res)) {
-          throw new CheckError(`Can not cast ${readable(res)} to ${readable(declaredRes)}`, ast.body.location);
+        throw errors[0];
+      case AND:
+        for (let type of declaredType.types) {
+          _check(type);
         }
-      }
+        return;
+      case FUNCTION:
+        if (declaredType.args.length !== ast.args.length) {
+          throw new CheckError(`Declared arity ${declaredType.args.length} does not match actual arity ${ast.args.length}`, ast.location);
+        }
+        else {
+          const _context = context.spawn();
+          for(let i = 0; i < ast.args.length; i++) {
+            define(ast.args[i], { type: declaredType.args[i] }, _context);
+          }
+          const res = check(ast.body, _context).$type;
+          if (!cast(declaredType.res, res)) {
+            throw new CheckError(`Can not cast ${readable(res)} to ${readable(declaredType.res)}`, ast.body.location);
+          }
+        }
+        return;
+      default:
+        throw new CheckError(`Declared type is not a function: ${readable(declaredType)}`, ast.location);
     }
-    return {
-      ...ast,
-      $type: declaredType
-    };
   }
+  const declaredType = getDefined(ast.name, context).type;
+  _check(declaredType);
+  return {
+    ...ast,
+    $type: declaredType
+  };
 }
 
 function checkDefinition(ast, context) {
