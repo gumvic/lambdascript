@@ -1,5 +1,5 @@
-ast = _ module:module _ {
-  return module;
+ast = _ expression:expression _ {
+  return expression;
 }
 
 nl = [\n\r] / [\n]
@@ -22,10 +22,6 @@ reservedWord "special word" =
   / wordFn
   / wordIn
   / wordEnd
-  / wordModule
-  / wordImport
-  / wordFrom
-  / wordExport
 
 wordWildcard "_" = "_" !beginNameChar
 wordCase "case" = "case" !beginNameChar
@@ -37,13 +33,9 @@ wordLet "let" = "let" !beginNameChar
 wordFn "fn" = "fn" !beginNameChar
 wordIn "in" = "in" !beginNameChar
 wordEnd "end" = "end" !beginNameChar
-wordModule "module" = "module" !beginNameChar
-wordImport "import" = "import" !beginNameChar
-wordFrom "from" = "from" !beginNameChar
-wordExport "export" = "export" !beginNameChar
 
 beginNameChar = [a-zA-Z_]
-nameChar = [0-9a-zA-Z_']
+nameChar = [a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
 name "name" =
   !reservedWord
   first:beginNameChar
@@ -57,7 +49,7 @@ name "name" =
   }
 
 reservedOperator = ("=" / "->") !operatorChar
-operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?\$]
+operatorChar = [\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
 operator "operator" =
   !reservedOperator
   chars:operatorChar+ {
@@ -276,12 +268,12 @@ match "match" =
   };
 }
 
-declarationDefinition = name:name _ ":" _ typeExpression:expression {
+declarationDefinition = name:name _ ":" _ typeAST:expression {
   return {
     type: "definition",
     kind: "declaration",
     name: name,
-    typeExpression: typeExpression,
+    typeAST: typeAST,
     location: location()
   };
 }
@@ -388,72 +380,3 @@ binary =
   }
 
 expression = binary / binaryOperand / operator
-
-moduleName = name:string {
-  return {
-    type: "name",
-    name: name.value,
-    location: name.location
-  };
-}
-
-names = first:(name / operator) rest:(_ "," _ name:(name / operator) { return name; })* {
-  return [first].concat(rest);
-}
-
-importSome = wordImport _ names:names _ wordFrom _ module:moduleName {
-  return {
-    type: "import",
-    kind: "some",
-    module: moduleName,
-    names: names,
-    location: location()
-  };
-}
-
-importAll = wordImport _ wordWildcard _ wordFrom _ module:string {
-  return {
-    type: "import",
-    kind: "all",
-    module: {
-      name: module.value,
-      location: module.location
-    },
-    location: location()
-  };
-}
-
-import = importSome / importAll
-
-exportSome = wordExport _ names:names {
-  return {
-    type: "export",
-    kind: "some",
-    names: names,
-    location: location()
-  };
-}
-
-exportAll = wordExport _ wordWildcard {
-  return {
-    type: "export",
-    kind: "all",
-    location: location()
-  };
-}
-
-export = exportSome / exportAll
-
-module "module" =
-  wordModule _ name:moduleName _
-  imports:(_import:import _ { return _import; })* _
-  definitions:(definition:definition _ { return definition; })+ _
-  _export:export? {
-    return {
-      type: "module",
-      name: name,
-      imports: imports,
-      definitions: definitions,
-      export: _export
-    };
-  }

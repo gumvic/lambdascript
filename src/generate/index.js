@@ -1,18 +1,12 @@
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
+const { namify } = require("../utils");
+const {
+  "define": { value: define }
+} = require("../core");
 
 const NOOP = {
   type: "EmptyStatement"
-};
-
-const REQUIRE = {
-  type: "Identifier",
-  name: "require"
-};
-
-const VALUE = {
-  type: "Identifier",
-  name: "value"
 };
 
 const LIST = {
@@ -30,39 +24,28 @@ const MATCH = {
   name: "match"
 };
 
-function namify(name) {
-  return name
-    .replace(
-      /^(do|if|in|for|let|new|try|var|case|else|enum|eval|null|undefined|this|true|void|with|await|break|catch|class|const|false|super|throw|while|yield|delete|export|import|public|return|static|switch|typeof|default|extends|finally|package|private|continue|debugger|function|arguments|interface|protected|implements|instanceof)$/g,
-      function(match) {
-        return `$${match}`;
-      })
-    .replace(
-      /[\+\-\*\/\>\<\=\%\!\|\&\^\~\?\.\']/g,
-      function(match) {
-        switch(match) {
-          case "+": return "$plus";
-          case "-": return "$dash";
-          case "*": return "$star";
-          case "/": return "$slash";
-          case ">": return "$right";
-          case "<": return "$left";
-          case "=": return "$equals";
-          case "%": return "$percent";
-          case "!": return "$bang";
-          case "|": return "$pipe";
-          case "&": return "$and";
-          case "^": return "$caret";
-          case "~": return "$tilda";
-          case "?": return "$question";
-          case ".": return "$dot";
-          case "'": return "$quote";
-        }
-      });
+class GlobalContext {
+  isGlobal() {
+    return true;
+  }
+
+  spawn() {
+    return new LocalContext(this);
+  }
 }
 
-class Context {
+class LocalContext {
+  constructor(parent) {
+    this.parent = parent;
+  }
 
+  isGlobal() {
+    return false;
+  }
+
+  spawn() {
+    return new LocalContext(this);
+  }
 }
 
 function genSkip(ast, context) {
@@ -148,6 +131,7 @@ function genMap({ items }, context) {
 }
 
 function genFunction({ args, body }, context) {
+  context = context.spawn();
   return {
     type: "ArrowFunctionExpression",
     params: args.map((arg) => genName(arg, context)),
@@ -207,6 +191,9 @@ function genMatch({ names, branches, otherwise }, context) {
 }
 
 function genScope({ definitions, body }, context) {
+  context = context.spawn();
+  definitions = definitions.map((definition) => genDefinition(definition, context));
+  body = generate(body, context);
   return {
     type: "CallExpression",
     callee: {
@@ -215,10 +202,10 @@ function genScope({ definitions, body }, context) {
       body: {
         type: "BlockStatement",
         body: [
-          ...genDefinitions(definitions, context),
+          ...definitions,
           {
             type: "ReturnStatement",
-            argument: generate(body, context)
+            argument: body
           }
         ]
       }
@@ -236,38 +223,67 @@ function genCall({ callee, args }, context) {
 }
 
 function genDeclarationDefinition(ast, context) {
-  return NOOP;
+  const { name, typeValue } = ast;
+  if (context.isGlobal()) {
+    define(name.name, {
+      type: typeValue,
+      ast
+    });
+    return genUndefined(ast, context);
+  }
+  else {
+    return NOOP;
+  }
 }
 
-function genConstantDefinition({ name, value }, context) {
-  return {
-    type: "VariableDeclaration",
-    declarations: [
-      {
-        type: "VariableDeclarator",
-        id: generate(name, context),
-        init: generate(value, context)
-      }
-    ],
-    kind: "const"
-  };
-}
-
-function genFunctionDefinition({ name, args, body }, context) {
-  return {
-    type: "FunctionDeclaration",
-    id: generate(name, context),
-    params: args.map((arg) => genName(arg, context)),
-    body: {
-      type: "BlockStatement",
-      body: [
+function genConstantDefinition(ast, context) {
+  const { name, value, typeValue } = ast;
+  if (context.isGlobal()) {
+    define(name.name, {
+      value: eval(generate(value, context)),
+      type: typeValue,
+      ast
+    });
+    return generate(name, context);
+  }
+  else {
+    return {
+      type: "VariableDeclaration",
+      declarations: [
         {
-          type: "ReturnStatement",
-          argument: generate(body, context)
+          type: "VariableDeclarator",
+          id: generate(name, context),
+          init: generate(value, context)
         }
-      ]
-    }
-  };
+      ],
+      kind: "const"
+    };
+  }
+}
+
+function genFunctionDefinition(ast, context) {
+  const { name, args, body, typeValue } = ast;
+  if (context.isGlobal()) {
+    define(name.name, {
+      value: eval(genFunction({ args, body }, context)),
+      type: typeValue,
+      ast
+    });
+    return generate(name, context);
+  }
+  else {
+    return {
+      type: "VariableDeclaration",
+      declarations: [
+        {
+          type: "VariableDeclarator",
+          id: generate(name, context),
+          init: genFunction({ args, body }, context)
+        }
+      ],
+      kind: "const"
+    };
+  }
 }
 
 function genDefinition(ast, context) {
@@ -277,110 +293,6 @@ function genDefinition(ast, context) {
     case "function": return genFunctionDefinition(ast, context);
     default: throw new GenerationError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
   }
-}
-
-function genDefinitions(definitions, context) {
-  return definitions.map((definition) => genDefinition(definition, context));
-}
-
-function genImportRequire(module, context) {
-  return {
-    type: "CallExpression",
-    callee: REQUIRE,
-    arguments: [
-      {
-        type: "Literal",
-        value: module.name
-      }
-    ]
-  };
-}
-
-function genImportSome({ module, names, $module }, context) {
-  return {
-    type: "VariableDeclaration",
-    declarations: [
-      {
-        type: "VariableDeclarator",
-        id: {
-          type: "ObjectPattern",
-          properties: names.map((name) => ({
-            type: "Property",
-            kind: "init",
-            key: {
-              type: "Literal",
-              value: name.name
-            },
-            value: {
-              type: "ObjectPattern",
-              properties: [
-                {
-                  type: "Property",
-                  kind: "init",
-                  key: VALUE,
-                  value: generate(name, context)
-                }
-              ]
-            }
-          }))
-        },
-        init: genImportRequire(module, context)
-      }
-    ],
-    kind: "const"
-  };
-}
-
-function genImportAll({ module, $module }, context) {
-  const names = Object.keys($module)
-    .map((name) => ({
-      type: "name",
-      name
-    }));
-  return genImportSome({ module, names, $module }, context);
-}
-
-function genImport(ast, context) {
-  switch(ast.kind) {
-    case "some": return genImportSome(ast, context);
-    case "all": return genImportAll(ast, context);
-    default: throw new GenerationError(`Internal error: unknown AST import kind ${ast.kind}.`, ast.location);
-  }
-}
-
-function genImports(imports, context) {
-  return imports.map((_import) => genImport(_import, context));
-}
-
-function genExportSome(ast, context) {
-  // TODO
-}
-
-function genExportAll(ast, context) {
-  // TODO
-}
-
-function genExport(ast, context) {
-  if (!ast) {
-    return NOOP;
-  }
-  else {
-    switch(ast.kind) {
-      case "some": return genExportSome(ast, context);
-      case "all": return genExportAll(ast, context);
-      default: throw new GenerationError(`Internal error: unknown AST import kind ${ast.kind}.`, ast.location);
-    }
-  }
-}
-
-function genModule({ imports, definitions, export: _export }, context) {
-  return {
-    type: "Program",
-    body: [
-      ...genImports(imports, context),
-      ...genDefinitions(definitions, context),
-      genExport(_export, context)]
-  };
 }
 
 function generate(ast, context) {
@@ -400,7 +312,7 @@ function generate(ast, context) {
     case "match": return genMatch(ast, context);
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
-    case "module": return genModule(ast, context);
+    case "definition": return genDefinition(ast, context);
     case "Program":
     case "BlockStatement":
     case "ClassBody":
@@ -466,6 +378,6 @@ function generate(ast, context) {
 }
 
 module.exports = function(ast) {
-  const estree = generate(ast, new Context());
+  const estree = generate(ast, new GlobalContext());
   return emit(estree);
 };

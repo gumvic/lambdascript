@@ -6,16 +6,30 @@ tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
 - type checking declarations
-- ditch `res`, let functions only have `args` and `fn`, and just do `fn(...args)` when needsed
+- dangling `declare`s -- check in `checkScope` and `endModule`
+- modules
+- repl should show the current module, like
+```
+repl>
+```
+- repl should also output the expression's type, like
+```
+repl> 42
+42 : number(42)
+```
+- `generate` calls `define` directly
+- keywords and fully qualified keywords
+- `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for aliases
+- stick to native js data structures for now
+- `define(name, data)`/`defined(name)` -> `symbol(name, data)`/`symbol(name)`
+- `core` definitions should be frozen
 - disallow `match`ing on functions?
-- `checkCall` should account for `tNone`
-- `checkMatch` should understand `tAnd`, e. g., `((a | b) & (c, d, e))` -- should go over all those types
+- `checkCall` should understand `typeNone`
 - `checkMatch` `else` should narrow, too, -- track the combinations in `when`, and assume the combinations that were left out
-- `tOr` should flatten and deduplicate its `types`; also, `tOr` of one is just that one; same for `tAnd`
+- `typeOr` should flatten and deduplicate its `types`; also, `typeOr` of one is just that one; same for `typeAnd`
 - `not` type, like `!undefined`
 - `_` should be typed, too
 - lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`
-- js modules that require other local js modules, i. e., multi-file local js modules
 - syntax for defining operators
 - template strings
 
@@ -54,6 +68,7 @@ bug or feature?
 - optimize when the AST's `$type` is a primitive with a value--just generate that value?
 - optimize to `===` when at least one is a primitive
 - optimize operators
+- `match`ing can be inlined
 
 # Misc
 - clean up `package.json`

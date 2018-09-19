@@ -1,33 +1,63 @@
 #!/usr/bin/env node
 
-const { readFile } = require("fs-extra");
-const cli = require("yargs");
+const readlineSync = require("readline-sync");
+const core = require("./src/core");
+const {
+  "define": { value: define },
+  "begin-module": { value: beginModule }
+} = core;
+const parse = require("./src/parse");
+const check = require("./src/check");
+const generate = require("./src/generate");
 
-const { formatError } = require("./src/utils");
-const build = require("./src/build");
-
-function outputError(error) {
-  return formatError(error).then(console.error);
+function compile(js) {
+  return generate(check(parse(js)));
 }
 
-function outputSuccess() {
-  console.log("Done.");
+function formatError(e) {
+  if (e.location) {
+    const message = e.message;
+    const { src, start: { line, column } } = e.location;
+    if (src && line && column) {
+      // TODO append line like 42:
+      // TODO file
+      return [message, line, "^".padStart(column)].join("\n");
+    }
+    else {
+      return message;
+    }
+  }
+  else {
+    return e.stack;
+  }
+}
+
+function repl() {
+  while(true) {
+    const src = readlineSync.question(">");
+    try {
+      const ast = parse(src);
+      const checkedAST = check(ast);
+      const js = generate(checkedAST);
+      const res = eval(js);
+      console.log(res);
+    }
+    catch(e) {
+      console.error(formatError(e));
+    }
+  }
+}
+
+function init() {
+  beginModule("repl");
+  Object.keys(core).forEach((name) => {
+    define(name, core[name]);
+  });
 }
 
 function run() {
-  const args = cli
-    .usage("monada <srcDir> <distDir>")
-    .parse(process.argv);
-  const [$0, $1, srcDir, distDir] = args._;
-  if (!srcDir) {
-    throw "srcDir is required";
-  }
-  else if (!distDir) {
-    throw "distDir is required";
-  }
-  else {
-    return build(srcDir, distDir).then(outputSuccess, outputError);
-  }
+  init();
+  repl();
 }
 
 run();
