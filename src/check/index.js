@@ -189,6 +189,7 @@ function checkName(ast, context) {
 // TODO copy all of the context's contents, then spawn off of that
 function checkFunction(ast, context) {
   const args = ast.args.map((_) => tNone);
+  const res = tNone;
   function fn(...args) {
     const _context = context.spawn();
     for(let i = 0; i < args.length; i++) {
@@ -206,8 +207,8 @@ function checkFunction(ast, context) {
       }
     }
   }
-  fn.readable = ast.text;
-  const type = tFunction(...args, fn);
+  const readable = ast.text;
+  const type =  tFunction(args, res, fn, readable);
   return {
     ...ast,
     $type: type
