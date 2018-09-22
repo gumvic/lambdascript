@@ -38,9 +38,10 @@ function repl() {
     try {
       const ast = parse(src);
       const checkedAST = check(ast);
+      const type = checkedAST.typeValue;
       const js = generate(checkedAST);
       const res = eval(js);
-      console.log(res);
+      console.log(`${res} : ${type}`);
     }
     catch(e) {
       console.error(formatError(e));
