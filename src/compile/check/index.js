@@ -1,15 +1,15 @@
 const generate = require("../generate");
 const CheckError = require("./error");
 const {
-  "cast-type": castType,
-  "type-none": typeNone,
-  "type-undefined": typeUndefined,
-  "type-null": typeNull,
-  "type-boolean": typeBoolean,
-  "type-number": typeNumber,
-  "type-string": typeString,
-  "type-function": typeFunction,
-  "type-or": typeOr
+  castType,
+  typeNone,
+  typeUndefined,
+  typeNull,
+  typeBoolean,
+  typeNumber,
+  typeString,
+  typeFunction,
+  typeOr
 } = require("../../type");
 const { defined } = require("../../meta");
 

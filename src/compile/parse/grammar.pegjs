@@ -35,7 +35,7 @@ wordIn "in" = "in" !beginNameChar
 wordEnd "end" = "end" !beginNameChar
 
 beginNameChar = [a-zA-Z_]
-nameChar = [a-zA-Z_\+\-\*\/\>\<\=\%\!\|\&|\^|\~\?]
+nameChar = [a-zA-Z_0-9]
 name "name" =
   !reservedWord
   first:beginNameChar

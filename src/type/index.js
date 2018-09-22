@@ -231,17 +231,17 @@ function typeOr(...types) {
 
 module.exports = {
   $type,
-  "cast-type": castType,
-  "match-type": matchType,
-  "typeof": typeOf,
-  "type-none": typeNone,
-  "type-any": typeAny,
-  "type-undefined": typeUndefined,
-  "type-null": typeNull,
-  "type-boolean": typeBoolean,
-  "type-number": typeNumber,
-  "type-string": typeString,
-  "type-function": typeFunction,
-  "type-and": typeAnd,
-  "type-or": typeOr
+  castType,
+  matchType,
+  typeof: typeOf,
+  typeNone,
+  typeAny,
+  typeUndefined,
+  typeNull,
+  typeBoolean,
+  typeNumber,
+  typeString,
+  typeFunction,
+  typeAnd,
+  typeOr
 };

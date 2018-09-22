@@ -1,5 +1,5 @@
 const { namify } = require("../utils");
-const { "typeof": typeOf } = require("../type");
+const { typeof: typeOf } = require("../type");
 function symbols() {
   return global.$monada.symbols;
 }

@@ -1,9 +1,9 @@
 const {
   $type,
-  "type-number": typeNumber,
-  "type-string": typeString,
-  "type-function": typeFunction,
-  "type-and": typeAnd
+  typeNumber,
+  typeString,
+  typeFunction,
+  typeAnd
 } = require("../type");
 
 function $typeof(x) {
