@@ -16,6 +16,7 @@ repl>
 - `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for aliases; maybe even `++@core.contrib`?
 - stick to native js data structures for now, will need to implement `==` properly, but maybe `Immutable.is` will do
 - `define(name, data)`/`defined(name)` -> `symbol(name, data)`/`symbol(name)`
+- `typeof` overrides the native `typeof`
 - `core` definitions should be frozen
 - disallow `match`ing on functions?
 - `checkMatch` `else` should narrow, too, -- track the combinations in `when`, and assume the combinations that were left out

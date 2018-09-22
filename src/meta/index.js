@@ -1,10 +1,11 @@
 const { namify } = require("../utils");
-
+const { "typeof": typeOf } = require("../type");
 function symbols() {
   return global.$monada.symbols;
 }
 
 function define(name, data) {
+  // TODO check if frozen?
   const oldData = symbols().byName[name] || {};
   symbols().byName[name] = { ...oldData, ...data };
   global[namify(name)] = data.value;
@@ -30,6 +31,20 @@ function endModule() {
   //previousModuleName = undefined;
 }
 
+function load(name) {
+  // TODO if file exists and it's .monada, load monada
+  // otherwise:
+  const module = require(name);
+  Object.keys(module).forEach((name) => {
+    const value = module[name];
+    define(name, {
+      type: typeOf(value),
+      value,
+      frozen: true
+    });
+  });
+}
+
 function init() {
   global.$monada = {
     symbols: {
@@ -42,5 +57,6 @@ init();
 
 module.exports = {
   define,
-  defined
+  defined,
+  load
 };

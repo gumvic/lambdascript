@@ -2,9 +2,7 @@
 
 const { EOL } = require("os");
 const { terminal } = require("terminal-kit");
-//const core = require("./src/core");
-//const { define } = core;
-const { compile } = require("./src/compile");
+const { load, compile } = require("./index");
 
 function formatError({ error }) {
   if (error.location) {
@@ -50,9 +48,7 @@ function repl() {
 }
 
 function init() {
-  //Object.keys(core).forEach((name) => {
-    //define(name, core[name]);
-  //});
+  load(__dirname);
 }
 
 function run() {

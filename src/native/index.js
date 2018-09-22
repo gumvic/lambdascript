@@ -1,8 +1,9 @@
 const {
-  "type-number": { value: typeNumber },
-  "type-string": { value: typeString },
-  "type-function": { value: typeFunction },
-  "type-and": { value: typeAnd }
+  $type,
+  "type-number": typeNumber,
+  "type-string": typeString,
+  "type-function": typeFunction,
+  "type-and": typeAnd
 } = require("../type");
 
 function $typeof(x) {
@@ -47,17 +48,21 @@ function $throw(e) {
 // +
 function $plus(x, y) {
   switch(arguments.length) {
-    case 0: return 0;
     case 1: return +x;
     case 2: return x + y;
     default: throw new TypeError(`Bad arity: ${arguments.length}`);
   }
 }
 
+$plus[$type] = typeAnd(
+  typeFunction([typeNumber], typeNumber),
+  typeFunction([typeString], typeString),
+  typeFunction([typeNumber, typeNumber], typeNumber),
+  typeFunction([typeString, typeString], typeString));
+
 // -
 function $dash(x, y) {
   switch(arguments.length) {
-    case 0: return 0;
     case 1: return -x;
     case 2: return x - y;
     default: throw new TypeError(`Bad arity: ${arguments.length}`);
@@ -150,12 +155,5 @@ function $and$and(x, y) {
 }
 
 module.exports = {
-  $monada: {
-    "+": {
-      type: typeAnd(
-        typeFunction([typeNumber, typeNumber], typeNumber),
-        typeFunction([typeString, typeString], typeString))
-    }
-  },
   "+": $plus
 };
