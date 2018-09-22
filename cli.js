@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const readlineSync = require("readline-sync");
+const terminal = require("terminal-kit").terminal;
 const core = require("./src/core");
 const {
   "define": { value: define },
@@ -9,10 +9,6 @@ const {
 const parse = require("./src/parse");
 const check = require("./src/check");
 const generate = require("./src/generate");
-
-function compile(js) {
-  return generate(check(parse(js)));
-}
 
 function formatError(e) {
   if (e.location) {
@@ -33,20 +29,33 @@ function formatError(e) {
 }
 
 function repl() {
-  while(true) {
-    const src = readlineSync.question(">");
-    try {
-      const ast = parse(src);
-      const checkedAST = check(ast);
-      const type = checkedAST.typeValue;
-      const js = generate(checkedAST);
-      const res = eval(js);
-      console.log(`${res} : ${type}`);
+  terminal.on("key", (key) => {
+    if (key === "CTRL_C") {
+      process.exit();
     }
-    catch(e) {
-      console.error(formatError(e));
-    }
+  });
+  function loop() {
+    terminal("> ");
+    terminal.inputField((err, src) => {
+      try {
+        terminal("\n");
+        const ast = parse(src);
+        const checkedAST = check(ast);
+        const type = checkedAST.typeValue;
+        const js = generate(checkedAST);
+        const res = eval(js);
+        terminal(`${res} : ${type}`);
+      }
+      catch(e) {
+        terminal(formatError(e));
+      }
+      finally {
+        terminal("\n");
+        loop();
+      }
+    });
   }
+  loop();
 }
 
 function init() {
