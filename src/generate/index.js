@@ -1,12 +1,14 @@
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
 const { namify } = require("../utils");
-const {
-  "define": { value: define }
-} = require("../core");
 
 const NOOP = {
   type: "EmptyStatement"
+};
+
+const GLOBAL = {
+  type: "Identifier",
+  name: "global"
 };
 
 const LIST = {
@@ -223,28 +225,22 @@ function genCall({ callee, args }, context) {
 }
 
 function genDeclarationDefinition(ast, context) {
-  const { name, typeValue } = ast;
-  if (context.isGlobal()) {
-    define(name.name, {
-      type: typeValue,
-      ast
-    });
-    return genUndefined(ast, context);
-  }
-  else {
-    return NOOP;
-  }
+  return NOOP;
 }
 
-function genConstantDefinition(ast, context) {
-  const { name, value, typeValue } = ast;
+function genConstantDefinition({ name, value }, context) {
   if (context.isGlobal()) {
-    define(name.name, {
-      value: eval(emit(generate(value, context))),
-      type: typeValue,
-      ast
-    });
-    return generate(name, context);
+    return {
+      type: "AssignmentExpression",
+      operator: "=",
+      left: {
+        type: "MemberExpression",
+        object: GLOBAL,
+        property: generate(name, context),
+        computed: false
+      },
+      right: generate(value, context)
+    };
   }
   else {
     return {
@@ -261,15 +257,19 @@ function genConstantDefinition(ast, context) {
   }
 }
 
-function genFunctionDefinition(ast, context) {
-  const { name, args, body, typeValue } = ast;
+function genFunctionDefinition({ name, args, body, location }, context) {
   if (context.isGlobal()) {
-    define(name.name, {
-      value: eval(emit(genFunction({ args, body }, context))),
-      type: typeValue,
-      ast
-    });
-    return generate(name, context);
+    return {
+      type: "AssignmentExpression",
+      operator: "=",
+      left: {
+        type: "MemberExpression",
+        object: GLOBAL,
+        property: generate(name, context),
+        computed: false
+      },
+      right: genFunction({ args, body, location }, context)
+    };
   }
   else {
     return {
@@ -278,7 +278,7 @@ function genFunctionDefinition(ast, context) {
         {
           type: "VariableDeclarator",
           id: generate(name, context),
-          init: genFunction({ args, body }, context)
+          init: genFunction({ args, body, location }, context)
         }
       ],
       kind: "const"

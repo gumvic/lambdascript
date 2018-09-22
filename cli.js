@@ -4,20 +4,15 @@ const { EOL } = require("os");
 const { terminal } = require("terminal-kit");
 const core = require("./src/core");
 const {
-  "define": { value: define },
-  "begin-module": { value: beginModule }
+  "define": { value: define }
 } = core;
-const parse = require("./src/parse");
-const check = require("./src/check");
-const generate = require("./src/generate");
+const compile = require("./src/compile");
 
-function formatError(e) {
-  if (e.location) {
-    const message = e.message;
-    const { src, start: { line, column } } = e.location;
+function formatError({ error }) {
+  if (error.location) {
+    const message = error.message;
+    const { src, start: { line, column } } = error.location;
     if (src && line && column) {
-      // TODO append line like 42:
-      // TODO file
       return [message, line, "^".padStart(column)].join(EOL);
     }
     else {
@@ -25,8 +20,12 @@ function formatError(e) {
     }
   }
   else {
-    return e.stack;
+    return error.stack;
   }
+}
+
+function formatSuccess({ type, value }) {
+  return `${value} : ${type}`;
 }
 
 function repl() {
@@ -38,30 +37,21 @@ function repl() {
   });
   function loop() {
     terminal("> ");
-    terminal.inputField((err, src) => {
-      try {
-        terminal(EOL);
-        const ast = parse(src);
-        const checkedAST = check(ast);
-        const type = checkedAST.typeValue;
-        const js = generate(checkedAST);
-        const res = eval(js);
-        terminal(`${res} : ${type}`);
-      }
-      catch(e) {
-        terminal(formatError(e));
-      }
-      finally {
-        terminal(EOL);
-        loop();
-      }
+    terminal.inputField((err, input) => {
+      terminal(EOL);
+      const compiled = compile(input);
+      const output = compiled.error ?
+        formatError(compiled) :
+        formatSuccess(compiled);
+      terminal(output);
+      terminal(EOL);
+      loop();
     });
   }
   loop();
 }
 
 function init() {
-  beginModule("repl");
   Object.keys(core).forEach((name) => {
     define(name, core[name]);
   });

@@ -9,9 +9,11 @@ const {
   "type-number": { value: typeNumber },
   "type-string": { value: typeString },
   "type-function": { value: typeFunction },
-  "type-or": { value: typeOr },
+  "type-or": { value: typeOr }
+} = require("../core/types");
+const {
   "defined": { value: defined }
-} = require("../core");
+} = require("../core/meta");
 
 function throwNotDefined(name, location) {
   throw new CheckError(`Not defined: ${name}`, location);
