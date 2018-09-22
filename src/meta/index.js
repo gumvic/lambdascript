@@ -8,10 +8,10 @@ function define(name, data) {
   // TODO check if frozen?
   const oldData = symbols().byName[name] || {};
   symbols().byName[name] = { ...oldData, ...data };
-  global[namify(name)] = data.value;
+  return global[namify(name)] = data.value;
 }
 
-function defined(name) {
+function getDefined(name) {
   return symbols().byName[name];
 }
 
@@ -57,6 +57,6 @@ init();
 
 module.exports = {
   define,
-  defined,
+  getDefined,
   load
 };

@@ -14,14 +14,15 @@ repl>
 ```
 - keywords and fully qualified keywords
 - `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for aliases; maybe even `++@core.contrib`?
+- `define` should do all the checks--`frozen` and deps integrity; `check` might still perform `frozen` for a better UX
+- then should `getDefined` throw `not defined`?
 - stick to native js data structures for now, will need to implement `==` properly, but maybe `Immutable.is` will do
-- `define(name, data)`/`defined(name)` -> `symbol(name, data)`/`symbol(name)`
 - `typeof` overrides the native `typeof`
 - `core` definitions should be frozen
 - disallow `match`ing on functions? or make use of `$type`? but consider this:
 ```
 f: typeOr(typeFunction([typeNumber], typeNumber), typeFunction([typeString], typeString))
-f = fn(x) -> x
+f = fn(x) -> x # or let's say based on some condition it's either fn(x) -> x + 42 or fn(x) -> x + "42"
 match(f)
   when typeFunction([typeNumber], typeNumber): ... # how? lambdas can't have $type attached to them...
   when typeFunction([typeString], typeString): ...

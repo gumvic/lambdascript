@@ -11,7 +11,7 @@ const {
   typeFunction,
   typeOr
 } = require("../../type");
-const { defined } = require("../../meta");
+const { getDefined } = require("../../meta");
 
 function throwNotDefined(name, location) {
   throw new CheckError(`Not defined: ${name}`, location);
@@ -27,7 +27,7 @@ function throwCantCast(to, from, location) {
 
 class GlobalContext {
   constructor() {
-    this._defined = {};
+    this.defined = {};
   }
 
   isGlobal() {
@@ -35,20 +35,20 @@ class GlobalContext {
   }
 
   define({ name, location }, data) {
-    const oldData = this._defined[name] || defined(name) || {};
+    const oldData = this.defined[name] || getDefined(name) || {};
     if (oldData.frozen) {
       throwCantRedefine(name, location);
     }
-    else if (oldData.type && data.type && !cast(oldData.type, data.type)) {
+    else if (oldData.type && data.type && !castType(oldData.type, data.type)) {
       throwCantCast(oldData.type, data.type, location);
     }
     else {
-      return this._defined[name] = { ...oldData, ...data };
+      return this.defined[name] = { ...oldData, ...data };
     }
   }
 
-  defined({ name, location }) {
-    const data = this._defined[name] || defined(name);
+  getDefined({ name, location }) {
+    const data = this.defined[name] || getDefined(name);
     if (data) {
       return data;
     }
@@ -65,7 +65,7 @@ class GlobalContext {
 class LocalContext {
   constructor(parent) {
     this.parent = parent;
-    this._defined = {};
+    this.defined = {};
   }
 
   isGlobal() {
@@ -73,20 +73,20 @@ class LocalContext {
   }
 
   define({ name, location }, data) {
-    const oldData = this._defined[name] || {};
+    const oldData = this.defined[name] || {};
     if (oldData.frozen) {
       throwCantRedefine(name, location);
     }
-    else if (oldData.type && data.type && !cast(oldData.type, data.type)) {
+    else if (oldData.type && data.type && !castType(oldData.type, data.type)) {
       throwCantCast(oldData.type, data.type, location);
     }
     else {
-      return this._defined[name] = { ...oldData, ...data };
+      return this.defined[name] = { ...oldData, ...data };
     }
   }
 
-  defined({ name, location }) {
-    return this._defined[name] || this.parent.defined({ name, location });
+  getDefined({ name, location }) {
+    return this.defined[name] || this.parent.getDefined({ name, location });
   }
 
   spawn() {
@@ -149,7 +149,7 @@ function checkMap(ast, context) {
 function checkName(ast, context) {
   return {
     ...ast,
-    typeValue: context.defined(ast).type
+    typeValue: context.getDefined(ast).type
   };
 }
 
@@ -269,7 +269,7 @@ function narrowType(to, from) {
 function checkMatch(ast, context) {
   const names = ast.names;
   const nameTypes = ast.names.map((name) => {
-    const type = context.defined(name).type;
+    const type = context.getDefined(name).type;
   });
   const branches = ast.branches.map(({ patterns, value }) => {
     // TODO check patterns in global context
@@ -285,7 +285,7 @@ function checkMatch(ast, context) {
         throw new CheckError(`Can not narrow ${nameType} to ${patternType}`, pattern.location);
       }
       else {
-        define(name, { type, frozen: _context.isGlobal() }, _context);
+        _context.define(name, { type, frozen: _context.isGlobal() });
       }
     }
     value = check(value, _context);
@@ -375,7 +375,7 @@ function _checkFunctionDefinition(declaredType, definition, context) {
       else {
         const _context = context.spawn();
         for(let i = 0; i < args.length; i++) {
-          define(args[i], { type: declaredArgs[i] }, _context);
+          _context.define(args[i], { type: declaredArgs[i] });
         }
         const res = check(body, _context).typeValue;
         if (!castType(declaredRes, res)) {
@@ -389,7 +389,7 @@ function _checkFunctionDefinition(declaredType, definition, context) {
 }
 
 function checkFunctionDefinition(ast, context) {
-  const type = context.defined(ast.name).type;
+  const type = context.getDefined(ast.name).type;
   _checkFunctionDefinition(type);
   context.define(ast.name, { frozen: !context.isGlobal() });
   return {

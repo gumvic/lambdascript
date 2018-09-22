@@ -47,16 +47,10 @@ function $throw(e) {
 
 // +
 function $plus(x, y) {
-  switch(arguments.length) {
-    case 1: return +x;
-    case 2: return x + y;
-    default: throw new TypeError(`Bad arity: ${arguments.length}`);
-  }
+  return x + y;
 }
 
 $plus[$type] = typeAnd(
-  typeFunction([typeNumber], typeNumber),
-  typeFunction([typeString], typeString),
   typeFunction([typeNumber, typeNumber], typeNumber),
   typeFunction([typeString, typeString], typeString));
 
