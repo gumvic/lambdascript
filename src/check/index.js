@@ -218,7 +218,7 @@ function checkCall(ast, context) {
   const argTypes = args.map(({ typeValue }) => typeValue);
   const type = applyType(calleeType, argTypes, context);
   if (!type) {
-    throw new CheckError(`Can not apply ${calleeType} to ${argTypes.join(", ")}`, ast.location);
+    throw new CheckError(`Can not apply ${calleeType} to (${argTypes.join(", ")})`, ast.location);
   }
   else {
     return {

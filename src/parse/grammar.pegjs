@@ -1,5 +1,5 @@
-ast = _ expression:expression _ {
-  return expression;
+ast = _ statement:statement _ {
+  return statement;
 }
 
 nl = [\n\r] / [\n]
@@ -380,3 +380,5 @@ binary =
   }
 
 expression = binary / binaryOperand / operator
+
+statement = definition / expression

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-const terminal = require("terminal-kit").terminal;
+const { EOL } = require("os");
+const { terminal } = require("terminal-kit");
 const core = require("./src/core");
 const {
   "define": { value: define },
@@ -17,7 +18,7 @@ function formatError(e) {
     if (src && line && column) {
       // TODO append line like 42:
       // TODO file
-      return [message, line, "^".padStart(column)].join("\n");
+      return [message, line, "^".padStart(column)].join(EOL);
     }
     else {
       return message;
@@ -31,6 +32,7 @@ function formatError(e) {
 function repl() {
   terminal.on("key", (key) => {
     if (key === "CTRL_C") {
+      terminal(EOL);
       process.exit();
     }
   });
@@ -38,7 +40,7 @@ function repl() {
     terminal("> ");
     terminal.inputField((err, src) => {
       try {
-        terminal("\n");
+        terminal(EOL);
         const ast = parse(src);
         const checkedAST = check(ast);
         const type = checkedAST.typeValue;
@@ -50,7 +52,7 @@ function repl() {
         terminal(formatError(e));
       }
       finally {
-        terminal("\n");
+        terminal(EOL);
         loop();
       }
     });

@@ -12,11 +12,6 @@ tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
 repl>
 ```
-- repl should also output the expression's type, like
-```
-repl> 42
-42 : number(42)
-```
 - `generate` calls `define` directly
 - keywords and fully qualified keywords
 - `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for aliases
@@ -47,7 +42,7 @@ in
 end
 ```
 
-# Feature bugs
+# Featured bugs
 - this compiles, because the actual type overrides the declared one:
 ```
 f: tFunction(tNumber, tNumber)

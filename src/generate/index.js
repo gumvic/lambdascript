@@ -240,7 +240,7 @@ function genConstantDefinition(ast, context) {
   const { name, value, typeValue } = ast;
   if (context.isGlobal()) {
     define(name.name, {
-      value: eval(generate(value, context)),
+      value: eval(emit(generate(value, context))),
       type: typeValue,
       ast
     });
@@ -265,7 +265,7 @@ function genFunctionDefinition(ast, context) {
   const { name, args, body, typeValue } = ast;
   if (context.isGlobal()) {
     define(name.name, {
-      value: eval(genFunction({ args, body }, context)),
+      value: eval(emit(genFunction({ args, body }, context))),
       type: typeValue,
       ast
     });
