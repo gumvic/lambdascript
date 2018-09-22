@@ -18,7 +18,16 @@ repl>
 - `define(name, data)`/`defined(name)` -> `symbol(name, data)`/`symbol(name)`
 - `typeof` overrides the native `typeof`
 - `core` definitions should be frozen
-- disallow `match`ing on functions?
+- disallow `match`ing on functions? or make use of `$type`? but consider this:
+```
+f: typeOr(typeFunction([typeNumber], typeNumber), typeFunction([typeString], typeString))
+f = fn(x) -> x
+match(f)
+  when typeFunction([typeNumber], typeNumber): ... # how? lambdas can't have $type attached to them...
+  when typeFunction([typeString], typeString): ...
+  ...
+end
+```
 - `checkMatch` `else` should narrow, too, -- track the combinations in `when`, and assume the combinations that were left out
 - `checkCall` should understand `typeNone`
 - `typeOr` should flatten and deduplicate its `types`; also, `typeOr` of one is just that one; same for `typeAnd`
