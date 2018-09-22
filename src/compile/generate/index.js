@@ -1,6 +1,6 @@
 const { generate: emit } = require("astring");
 const GenerationError = require("./error");
-const { namify } = require("../utils");
+const { namify } = require("../../utils");
 
 const NOOP = {
   type: "EmptyStatement"
@@ -377,7 +377,6 @@ function generate(ast, context) {
   }
 }
 
-module.exports = function(ast) {
-  const estree = generate(ast, new GlobalContext());
-  return emit(estree);
+module.exports = {
+  generate: (ast) => emit(generate(ast, new GlobalContext()))
 };

@@ -14,7 +14,7 @@ repl>
 ```
 - keywords and fully qualified keywords
 - `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for aliases; maybe even `++@core.contrib`?
-- stick to native js data structures for now
+- stick to native js data structures for now, will need to implement `==` properly, but maybe `Immutable.is` will do
 - `define(name, data)`/`defined(name)` -> `symbol(name, data)`/`symbol(name)`
 - `core` definitions should be frozen
 - disallow `match`ing on functions?
@@ -23,7 +23,8 @@ repl>
 - `typeOr` should flatten and deduplicate its `types`; also, `typeOr` of one is just that one; same for `typeAnd`
 - `not` type, like `!undefined`
 - `_` should be typed, too
-- lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`, and:
+- why have access syntax if we can have an operator? like `point ~> :x`
+- lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`, and for sure:
 ```
 it "should pass", do
   assert(42 == 42)

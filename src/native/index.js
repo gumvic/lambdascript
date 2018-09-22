@@ -3,7 +3,7 @@ const {
   "type-string": { value: typeString },
   "type-function": { value: typeFunction },
   "type-and": { value: typeAnd }
-} = require("./types");
+} = require("../type");
 
 function $typeof(x) {
   return typeof x;
@@ -150,10 +150,12 @@ function $and$and(x, y) {
 }
 
 module.exports = {
-  "+": {
-    type: typeAnd(
-      typeFunction([typeNumber, typeNumber], typeNumber),
-      typeFunction([typeString, typeString], typeString)),
-    value: $plus
-  }
+  $monada: {
+    "+": {
+      type: typeAnd(
+        typeFunction([typeNumber, typeNumber], typeNumber),
+        typeFunction([typeString, typeString], typeString))
+    }
+  },
+  "+": $plus
 };

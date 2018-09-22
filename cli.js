@@ -2,11 +2,9 @@
 
 const { EOL } = require("os");
 const { terminal } = require("terminal-kit");
-const core = require("./src/core");
-const {
-  "define": { value: define }
-} = core;
-const compile = require("./src/compile");
+//const core = require("./src/core");
+//const { define } = core;
+const { compile } = require("./src/compile");
 
 function formatError({ error }) {
   if (error.location) {
@@ -52,9 +50,9 @@ function repl() {
 }
 
 function init() {
-  Object.keys(core).forEach((name) => {
-    define(name, core[name]);
-  });
+  //Object.keys(core).forEach((name) => {
+    //define(name, core[name]);
+  //});
 }
 
 function run() {

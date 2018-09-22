@@ -10,4 +10,6 @@ function parse(src) {
   }
 }
 
-module.exports = parse;
+module.exports = {
+  parse
+};

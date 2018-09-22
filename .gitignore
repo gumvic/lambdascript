@@ -58,4 +58,4 @@ typings/
 .env
 
 # This is auto generated on postinstall
-src/parse/parser.js
+src/compile/parse/parser.js

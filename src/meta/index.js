@@ -1,6 +1,3 @@
-const {
-  "type-none": { value: typeNone }
-} = require("./types");
 const { namify } = require("../utils");
 
 function symbols() {
@@ -44,20 +41,6 @@ function init() {
 init();
 
 module.exports = {
-  "define": {
-    type: typeNone,
-    value: define
-  },
-  "defined": {
-    type: typeNone,
-    value: defined
-  },
-  "begin-module": {
-    type: typeNone,
-    value: beginModule
-  },
-  "end-module": {
-    type: typeNone,
-    value: endModule
-  }
+  define,
+  defined
 };

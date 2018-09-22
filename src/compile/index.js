@@ -1,9 +1,7 @@
-const {
-  "define": { value: define }
-} = require("../core/meta");
-const parse = require("../parse");
-const check = require("../check");
-const generate = require("../generate");
+const { define } = require("../meta");
+const { parse } = require("./parse");
+const { check } = require("./check");
+const { generate } = require("./generate");
 
 function compile(src) {
   try {
@@ -29,4 +27,9 @@ function compile(src) {
   }
 }
 
-module.exports = compile;
+module.exports = {
+  parse,
+  check,
+  generate,
+  compile
+};

@@ -1,19 +1,17 @@
 const generate = require("../generate");
 const CheckError = require("./error");
 const {
-  "cast-type": { value: castType },
-  "type-none": { value: typeNone },
-  "type-undefined": { value: typeUndefined },
-  "type-null": { value: typeNull },
-  "type-boolean": { value: typeBoolean },
-  "type-number": { value: typeNumber },
-  "type-string": { value: typeString },
-  "type-function": { value: typeFunction },
-  "type-or": { value: typeOr }
-} = require("../core/types");
-const {
-  "defined": { value: defined }
-} = require("../core/meta");
+  "cast-type": castType,
+  "type-none": typeNone,
+  "type-undefined": typeUndefined,
+  "type-null": typeNull,
+  "type-boolean": typeBoolean,
+  "type-number": typeNumber,
+  "type-string": typeString,
+  "type-function": typeFunction,
+  "type-or": typeOr
+} = require("../../type");
+const { defined } = require("../../meta");
 
 function throwNotDefined(name, location) {
   throw new CheckError(`Not defined: ${name}`, location);
@@ -431,6 +429,6 @@ function check(ast, context) {
   }
 }
 
-module.exports = function(ast) {
-  return check(ast, new GlobalContext());
+module.exports = {
+  check: (ast) => check(ast, new GlobalContext())
 };

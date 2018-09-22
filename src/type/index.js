@@ -211,52 +211,16 @@ function typeOr(...types) {
 }
 
 module.exports = {
-  "cast-type": {
-    type: typeNone,
-    value: castType
-  },
-  "match-type": {
-    type: typeNone,
-    value: matchType
-  },
-  "type-none": {
-    type: typeNone,
-    value: typeNone
-  },
-  "type-any": {
-    type: typeNone,
-    value: typeAny
-  },
-  "type-undefined": {
-    type: typeNone,
-    value: typeUndefined
-  },
-  "type-null": {
-    type: typeNone,
-    value: typeNull
-  },
-  "type-boolean": {
-    type: typeNone,
-    value: typeBoolean
-  },
-  "type-number": {
-    type: typeNone,
-    value: typeNumber
-  },
-  "type-string": {
-    type: typeNone,
-    value: typeString
-  },
-  "type-function": {
-    type: typeNone,
-    value: typeFunction
-  },
-  "type-and": {
-    type: typeNone,
-    value: typeAnd
-  },
-  "type-or": {
-    type: typeNone,
-    value: typeOr
-  }
+  "cast-type": castType,
+  "match-type": matchType,
+  "type-none": typeNone,
+  "type-any": typeAny,
+  "type-undefined": typeUndefined,
+  "type-null": typeNull,
+  "type-boolean": typeBoolean,
+  "type-number": typeNumber,
+  "type-string": typeString,
+  "type-function": typeFunction,
+  "type-and": typeAnd,
+  "type-or": typeOr
 };
