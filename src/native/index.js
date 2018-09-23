@@ -50,17 +50,13 @@ function $plus(x, y) {
   return x + y;
 }
 
-$plus[$type] = typeAnd(
+$plus[$type] = typeAnd([
   typeFunction([typeNumber, typeNumber], typeNumber),
-  typeFunction([typeString, typeString], typeString));
+  typeFunction([typeString, typeString], typeString)]);
 
 // -
 function $dash(x, y) {
-  switch(arguments.length) {
-    case 1: return -x;
-    case 2: return x - y;
-    default: throw new TypeError(`Bad arity: ${arguments.length}`);
-  }
+  return x - y;
 }
 
 // *

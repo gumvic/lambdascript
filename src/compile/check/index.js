@@ -238,7 +238,7 @@ function checkCase(ast, context) {
   const otherwise = check(ast.otherwise, context);
   const branchTypes = branches.map(({ typeValue }) => typeValue);
   const otherwiseType = otherwise.typeValue;
-  const type = typeOr(...branchTypes, otherwiseType);
+  const type = typeOr([...branchTypes, otherwiseType]);
   return {
     ...ast,
     branches,
@@ -253,12 +253,12 @@ function narrowType(to, from) {
       const types = from.types
         .map((from) => narrowType(to, from))
         .filter((type) => !!type);
-      return types.length && typeOr(...types);
+      return types.length && typeOr([types]);
     case "and":
       const types = from.types
         .map((from) => narrowType(to, from))
         .filter((type) => !!type);
-      return types.length && typeAnd(...types);
+      return types.length && typeAnd([types]);
     default:
       return (
         (castType(to, from) && from) ||
@@ -297,7 +297,7 @@ function checkMatch(ast, context) {
   const otherwise = check(ast.otherwise, context);
   const branchTypes = branches.map(({ typeValue }) => typeValue);
   const otherwiseType = otherwise.typeValue;
-  const type = typeOr(...branchTypes, otherwiseType);
+  const type = typeOr([...branchTypes, otherwiseType]);
   return {
     ...ast,
     branches,

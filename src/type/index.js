@@ -209,7 +209,7 @@ function typeFunction(args, res, fn, readable) {
 //typeFunction.res = typeNone;
 //typeFunction.fn = (..._) => typeNone;
 
-function typeAnd(...types) {
+function typeAnd(types) {
   return {
     type: "and",
     types,
@@ -219,7 +219,7 @@ function typeAnd(...types) {
   };
 }
 
-function typeOr(...types) {
+function typeOr(types) {
   return {
     type: "or",
     types,
