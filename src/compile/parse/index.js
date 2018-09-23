@@ -1,12 +1,12 @@
 const parser = require("./parser");
-const SyntaxError = require("./error");
+const CompilationError = require("../error");
 
 function parse(src) {
   try {
     return parser.parse(src);
   }
   catch(e) {
-    throw new SyntaxError(e.message, e.location);
+    throw new CompilationError(e.message, e.location);
   }
 }
 

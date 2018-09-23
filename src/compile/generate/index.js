@@ -1,5 +1,4 @@
 const { generate: emit } = require("astring");
-const GenerationError = require("./error");
 const { namify } = require("../../utils");
 
 const NOOP = {
@@ -291,7 +290,7 @@ function genDefinition(ast, context) {
     case "declaration": return genDeclarationDefinition(ast, context);
     case "constant": return genConstantDefinition(ast, context);
     case "function": return genFunctionDefinition(ast, context);
-    default: throw new GenerationError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
+    default: throw new TypeError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
   }
 }
 
@@ -373,7 +372,7 @@ function generate(ast, context) {
     case "Identifier":
     case "Literal":
     case "RegExpLiteral": return ast;
-    default: throw new GenerationError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
+    default: throw new TypeError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
   }
 }
 

@@ -1,5 +1,5 @@
 const generate = require("../generate");
-const CheckError = require("./error");
+const CompilationError = require("../error");
 const {
   castType,
   typeNone,
@@ -14,15 +14,15 @@ const {
 const { getDefined } = require("../../meta");
 
 function throwNotDefined(name, location) {
-  throw new CheckError(`Not defined: ${name}`, location);
+  throw new CompilationError(`Not defined: ${name}`, location);
 }
 
 function throwCantRedefine(name, location) {
-  throw new CheckError(`Can not redefine: ${name}`, location);
+  throw new CompilationError(`Can not redefine: ${name}`, location);
 }
 
 function throwCantCast(to, from, location) {
-  throw new CheckError(`Can not cast ${from} to ${to}`, location);
+  throw new CompilationError(`Can not cast ${from} to ${to}`, location);
 }
 
 class GlobalContext {
@@ -166,7 +166,7 @@ function checkFunction(ast, context) {
       return check(ast.body, _context).typeValue;
     }
     catch(e) {
-      if (e instanceof CheckError) {
+      if (e instanceof CompilationError) {
         return undefined;
       }
       else {
@@ -218,7 +218,7 @@ function checkCall(ast, context) {
   const argTypes = args.map(({ typeValue }) => typeValue);
   const type = applyType(calleeType, argTypes, context);
   if (!type) {
-    throw new CheckError(`Can not apply ${calleeType} to (${argTypes.join(", ")})`, ast.location);
+    throw new CompilationError(`Can not apply ${calleeType} to (${argTypes.join(", ")})`, ast.location);
   }
   else {
     return {
@@ -282,7 +282,7 @@ function checkMatch(ast, context) {
       //const patternType = eval(pattern, context.global());
       const type = narrowType(patternType, nameType);
       if (!type) {
-        throw new CheckError(`Can not narrow ${nameType} to ${patternType}`, pattern.location);
+        throw new CompilationError(`Can not narrow ${nameType} to ${patternType}`, pattern.location);
       }
       else {
         _context.define(name, { type, constant: true });
@@ -354,7 +354,7 @@ function _checkFunctionDefinition(declaredType, definition, context) {
           return;
         }
         catch(e) {
-          if (e instanceof CheckError) {
+          if (e instanceof CompilationError) {
             errors.push(e);
           }
           else {
@@ -370,7 +370,7 @@ function _checkFunctionDefinition(declaredType, definition, context) {
       return;
     case "function":
       if (declaredArgs.length !== args.length) {
-        throw new CheckError(`Declared arity ${declaredArgs.length} does not match defined arity ${args.length}`, location);
+        throw new CompilationError(`Declared arity ${declaredArgs.length} does not match defined arity ${args.length}`, location);
       }
       else {
         const _context = context.spawn();
@@ -384,7 +384,7 @@ function _checkFunctionDefinition(declaredType, definition, context) {
       }
       return;
     default:
-      throw new CheckError(`Declared type is not a function: ${declaredType}`, location);
+      throw new CompilationError(`Declared type is not a function: ${declaredType}`, location);
   }
 }
 
@@ -403,7 +403,7 @@ function checkDefinition(ast, context) {
     case "declaration": return checkDeclarationDefinition(ast, context);
     case "constant": return checkConstantDefinition(ast, context);
     case "function": return checkFunctionDefinition(ast, context);
-    default: throw new CheckError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
+    default: throw new TypeError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
   }
 }
 
