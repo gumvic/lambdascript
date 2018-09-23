@@ -36,7 +36,7 @@ class GlobalContext {
 
   define({ name, location }, data) {
     const oldData = this.defined[name] || getDefined(name) || {};
-    if (oldData.frozen) {
+    if (oldData.constant) {
       throwCantRedefine(name, location);
     }
     else if (oldData.type && data.type && !castType(oldData.type, data.type)) {
@@ -74,7 +74,7 @@ class LocalContext {
 
   define({ name, location }, data) {
     const oldData = this.defined[name] || {};
-    if (oldData.frozen) {
+    if (oldData.constant) {
       throwCantRedefine(name, location);
     }
     else if (oldData.type && data.type && !castType(oldData.type, data.type)) {
@@ -285,7 +285,7 @@ function checkMatch(ast, context) {
         throw new CheckError(`Can not narrow ${nameType} to ${patternType}`, pattern.location);
       }
       else {
-        _context.define(name, { type, frozen: _context.isGlobal() });
+        _context.define(name, { type, constant: true });
       }
     }
     value = check(value, _context);
@@ -333,7 +333,7 @@ function checkDeclarationDefinition(ast, context) {
 function checkConstantDefinition(ast, context) {
   const value = check(ast.value, context);
   const type = value.typeValue;
-  context.define(ast.name, { type, frozen: !context.isGlobal() });
+  context.define(ast.name, { type, constant: !context.isGlobal() });
   return {
     ...ast,
     value,
@@ -391,7 +391,7 @@ function _checkFunctionDefinition(declaredType, definition, context) {
 function checkFunctionDefinition(ast, context) {
   const type = context.getDefined(ast.name).type;
   _checkFunctionDefinition(type);
-  context.define(ast.name, { frozen: !context.isGlobal() });
+  context.define(ast.name, { constant: !context.isGlobal() });
   return {
     ...ast,
     typeValue: type

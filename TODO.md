@@ -14,11 +14,11 @@ repl>
 ```
 - keywords and fully qualified keywords
 - `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for aliases; maybe even `++@core.contrib`?
-- `define` should do all the checks--`frozen` and deps integrity; `check` might still perform `frozen` for a better UX
-- then should `getDefined` throw `not defined`?
+- `define` should be safe and guarantee all the checks--simply by calling `check`
 - stick to native js data structures for now, will need to implement `==` properly, but maybe `Immutable.is` will do
+- get rid of all of those error classes
 - `typeof` overrides the native `typeof`
-- `core` definitions should be frozen
+- nothing should throw, instead return `either`s
 - disallow `match`ing on functions? or make use of `$type`? but consider this:
 ```
 f: typeOr(typeFunction([typeNumber], typeNumber), typeFunction([typeString], typeString))

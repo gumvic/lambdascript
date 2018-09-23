@@ -5,7 +5,6 @@ function symbols() {
 }
 
 function define(name, data) {
-  // TODO check if frozen?
   const oldData = symbols().byName[name] || {};
   symbols().byName[name] = { ...oldData, ...data };
   return global[namify(name)] = data.value;
@@ -40,7 +39,7 @@ function load(name) {
     define(name, {
       type: typeOf(value),
       value,
-      frozen: true
+      constant: true
     });
   });
 }
