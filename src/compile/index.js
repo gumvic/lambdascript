@@ -7,16 +7,16 @@ function compile(src) {
   try {
     const ast = check(parse(src));
     const js = generate(ast);
-    const type = ast.typeValue;
     const value = eval(js);
     if (ast.type === "definition") {
       define(ast.name.name, {
-        type,
-        value
+        value,
+        ast,
+        ...ast.meta
       });
     }
     return {
-      type,
+      type: ast.meta.type,
       value
     };
   }

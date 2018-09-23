@@ -5,9 +5,37 @@ function symbols() {
 }
 
 function define(name, data) {
-  const oldData = symbols().byName[name] || {};
-  symbols().byName[name] = { ...oldData, ...data };
-  return global[namify(name)] = data.value;
+  const oldData = symbols().byName[name] || {
+    dependencies: [],
+    dependants: []
+  };
+  const newData = {
+    dependencies: [],
+    dependants: [],
+    ...data
+  };
+  for (let dependencyName of oldData.dependencies) {
+    if (dependencyName !== name &&
+        newData.dependencies.indexOf(dependencyName) < 0) {
+      const dependency = getDefined(dependencyName);
+      if (dependency) {
+        dependency.dependants = dependency.dependants
+          .filter((dependantName) => dependantName !== name);
+      }
+    }
+  }
+  for(let dependencyName of newData.dependencies) {
+    if (dependencyName !== name &&
+        oldData.dependencies.indexOf(dependencyName) < 0) {
+      const dependency = getDefined(dependencyName);
+      if (dependency &&
+          dependency.dependants.indexOf(name) < 0) {
+        dependency.dependants.push(name);
+      }
+    }
+  }
+  symbols().byName[name] = { ...oldData, ...newData };
+  return global[namify(name)] = newData.value;
 }
 
 function getDefined(name) {

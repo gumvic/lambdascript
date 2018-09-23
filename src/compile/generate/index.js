@@ -103,7 +103,7 @@ function genName({ name }, context) {
 }
 
 function genList({ items }, context) {
-  return {
+  /*return {
     type: "CallExpression",
     callee: LIST,
     arguments: [
@@ -112,6 +112,10 @@ function genList({ items }, context) {
         elements: items.map((item) => generate(item, context))
       }
     ]
+  };*/
+  return {
+    type: "ArrayExpression",
+    elements: items.map((item) => generate(item, context))
   };
 }
 
@@ -306,7 +310,7 @@ function generate(ast, context) {
     case "name": return genName(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
-    case "function": return genFunction(ast, context);
+    //case "function": return genFunction(ast, context);
     case "case": return genCase(ast, context);
     case "match": return genMatch(ast, context);
     case "scope": return genScope(ast, context);

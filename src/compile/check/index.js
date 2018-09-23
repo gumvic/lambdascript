@@ -1,5 +1,4 @@
-const generate = require("../generate");
-const CompilationError = require("../error");
+const { generate } = require("../generate");
 const {
   castType,
   typeNone,
@@ -12,6 +11,7 @@ const {
   typeOr
 } = require("../../type");
 const { getDefined } = require("../../meta");
+const CompilationError = require("../error");
 
 function throwNotDefined(name, location) {
   throw new CompilationError(`Not defined: ${name}`, location);
@@ -27,7 +27,9 @@ function throwCantCast(to, from, location) {
 
 class GlobalContext {
   constructor() {
-    this.defined = {};
+    this.definedName = null;
+    this.definedData = null;
+    this.dependencies = [];
   }
 
   isGlobal() {
@@ -35,26 +37,46 @@ class GlobalContext {
   }
 
   define({ name, location }, data) {
-    const oldData = this.defined[name] || getDefined(name) || {};
-    if (oldData.constant) {
+    const oldData = this.definedName === name ? this.definedData : getDefined(name);
+    if (oldData && oldData.constant) {
       throwCantRedefine(name, location);
     }
-    else if (oldData.type && data.type && !castType(oldData.type, data.type)) {
-      throwCantCast(oldData.type, data.type, location);
-    }
     else {
-      return this.defined[name] = { ...oldData, ...data };
+      this.definedName = name;
+      this.definedData = data;
+      if (oldData && !castType(oldData.type, data.type)) {
+        for(let dependantName of oldData.dependants) {
+          const dependant = this.getDefined({ name: dependantName, location});
+          const context = new GlobalContext();
+          context.definedName = this.definedName;
+          context.definedData = this.definedData;
+          check(dependant.ast, context);
+        }
+      }
+      return this.definedData;
     }
   }
 
   getDefined({ name, location }) {
-    const data = this.defined[name] || getDefined(name);
-    if (data) {
-      return data;
+    if (this.definedName === name) {
+      return this.definedData;
     }
     else {
-      throwNotDefined(name, location);
+      const data = getDefined(name);
+      if (data) {
+        if (this.dependencies.indexOf(name) < 0) {
+          this.dependencies.push(name);
+        }
+        return data;
+      }
+      else {
+        throwNotDefined(name, location);
+      }
     }
+  }
+
+  getDependencies() {
+    return this.dependencies;
   }
 
   spawn() {
@@ -74,10 +96,10 @@ class LocalContext {
 
   define({ name, location }, data) {
     const oldData = this.defined[name] || {};
-    if (oldData.constant) {
+    if (oldData && oldData.constant) {
       throwCantRedefine(name, location);
     }
-    else if (oldData.type && data.type && !castType(oldData.type, data.type)) {
+    else if (oldData && !castType(oldData.type, data.type)) {
       throwCantCast(oldData.type, data.type, location);
     }
     else {
@@ -89,6 +111,10 @@ class LocalContext {
     return this.defined[name] || this.parent.getDefined({ name, location });
   }
 
+  getDependencies() {
+    return [];
+  }
+
   spawn() {
     return new LocalContext(this);
   }
@@ -97,42 +123,54 @@ class LocalContext {
 function checkUndefined(ast, context) {
   return {
     ...ast,
-    typeValue: typeUndefined
+    meta: {
+      type: typeUndefined
+    }
   };
 }
 
 function checkNull(ast, context) {
   return {
     ...ast,
-    typeValue: typeNull
+    meta: {
+      type: typeNull
+    }
   };
 }
 
 function checkFalse(ast, context) {
   return {
     ...ast,
-    typeValue: typeBoolean(false)
+    meta: {
+      type: typeBoolean(false)
+    }
   };
 }
 
 function checkTrue(ast, context) {
   return {
     ...ast,
-    typeValue: typeBoolean(true)
+    meta: {
+      type: typeBoolean(true)
+    }
   };
 }
 
 function checkNumber(ast, context) {
   return {
     ...ast,
-    typeValue: typeNumber(parseFloat(ast.value))
+    meta: {
+      type: typeNumber(parseFloat(ast.value))
+    }
   };
 }
 
 function checkString(ast, context) {
   return {
     ...ast,
-    typeValue: typeString(ast.value)
+    meta: {
+      type: typeString(ast.value)
+    }
   };
 }
 
@@ -149,7 +187,9 @@ function checkMap(ast, context) {
 function checkName(ast, context) {
   return {
     ...ast,
-    typeValue: context.getDefined(ast).type
+    meta: {
+      type: context.getDefined(ast).type
+    }
   };
 }
 
@@ -163,7 +203,7 @@ function checkFunction(ast, context) {
       for(let i = 0; i < args.length; i++) {
         _context.define(ast.args[i], { type: args[i] });
       }
-      return check(ast.body, _context).typeValue;
+      return check(ast.body, _context).meta.type;
     }
     catch(e) {
       if (e instanceof CompilationError) {
@@ -178,7 +218,7 @@ function checkFunction(ast, context) {
   const type =  typeFunction(args, res, fn, readable);
   return {
     ...ast,
-    typeValue: type
+    meta: { type }
   };
 }
 
@@ -214,8 +254,8 @@ function applyType(callee, args, context) {
 function checkCall(ast, context) {
   const callee = check(ast.callee, context);
   const args = ast.args.map((arg) => check(arg, context));
-  const calleeType = callee.typeValue;
-  const argTypes = args.map(({ typeValue }) => typeValue);
+  const calleeType = callee.meta.type;
+  const argTypes = args.map((arg) => arg.meta.type);
   const type = applyType(calleeType, argTypes, context);
   if (!type) {
     throw new CompilationError(`Can not apply ${calleeType} to (${argTypes.join(", ")})`, ast.location);
@@ -225,7 +265,9 @@ function checkCall(ast, context) {
       ...ast,
       callee,
       args,
-      typeValue: type
+      meta: {
+        type
+      }
     };
   }
 }
@@ -236,14 +278,14 @@ function checkCase(ast, context) {
     value: check(value, context)
   }));
   const otherwise = check(ast.otherwise, context);
-  const branchTypes = branches.map(({ typeValue }) => typeValue);
-  const otherwiseType = otherwise.typeValue;
+  const branchTypes = branches.map((branch) => branch.value.meta.type);
+  const otherwiseType = otherwise.meta.type;
   const type = typeOr([...branchTypes, otherwiseType]);
   return {
     ...ast,
     branches,
     otherwise,
-    typeValue: type
+    meta: { type }
   };
 }
 
@@ -295,14 +337,14 @@ function checkMatch(ast, context) {
     };
   });
   const otherwise = check(ast.otherwise, context);
-  const branchTypes = branches.map(({ typeValue }) => typeValue);
-  const otherwiseType = otherwise.typeValue;
+  const branchTypes = branches.map((branch) => branch.value.meta.type);
+  const otherwiseType = otherwise.meta.type;
   const type = typeOr([...branchTypes, otherwiseType]);
   return {
     ...ast,
     branches,
     otherwise,
-    typeValue: type
+    meta: { type }
   };
 }
 
@@ -312,9 +354,10 @@ function checkScope(ast, context) {
     checkDefinition(definition, context);
   }
   const body = check(ast.body, context);
+  const type = body.meta.type;
   return {
     ...ast,
-    typeValue: body.typeValue
+    meta: { type }
   };
 }
 
@@ -326,18 +369,19 @@ function checkDeclarationDefinition(ast, context) {
   context.define(ast.name, { type });
   return {
     ...ast,
-    typeValue: typeUndefined
+    meta: { type }
   };
 }
 
 function checkConstantDefinition(ast, context) {
   const value = check(ast.value, context);
-  const type = value.typeValue;
+  const type = value.meta.type;
   context.define(ast.name, { type, constant: !context.isGlobal() });
+  const dependencies = context.getDependencies();
   return {
     ...ast,
     value,
-    typeValue: type
+    meta: { type, dependencies }
   };
 }
 
@@ -377,7 +421,7 @@ function _checkFunctionDefinition(declaredType, definition, context) {
         for(let i = 0; i < args.length; i++) {
           _context.define(args[i], { type: declaredArgs[i] });
         }
-        const res = check(body, _context).typeValue;
+        const res = check(body, _context).meta.type;
         if (!castType(declaredRes, res)) {
           throwCantCast(declaredRes, res, body.location);
         }
@@ -390,11 +434,12 @@ function _checkFunctionDefinition(declaredType, definition, context) {
 
 function checkFunctionDefinition(ast, context) {
   const type = context.getDefined(ast.name).type;
-  _checkFunctionDefinition(type);
-  context.define(ast.name, { constant: !context.isGlobal() });
+  _checkFunctionDefinition(type, ast, context);
+  context.define(ast.name, { type, constant: !context.isGlobal() });
+  const dependencies = context.getDependencies();
   return {
     ...ast,
-    typeValue: type
+    meta: { type, dependencies }
   };
 }
 
@@ -419,7 +464,7 @@ function check(ast, context) {
     case "name": return checkName(ast, context);
     case "list": return checkList(ast, context);
     case "map":  return checkMap(ast, context);
-    case "function": return checkFunction(ast, context);
+    //case "function": return checkFunction(ast, context);
     case "call": return checkCall(ast, context);
     case "case": return checkCase(ast, context);
     case "match": return checkMatch(ast, context);
