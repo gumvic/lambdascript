@@ -13,30 +13,6 @@ const {
 const { getDefined } = require("../../meta");
 const CompilationError = require("../error");
 
-function throwUnknownAST(type, location) {
-  throw new CompilationError(`[Internal] Unknown AST ${type}`, location);
-}
-
-function throwCantApply(callee, args, location) {
-  throw new CompilationError(`Can not apply ${callee} to (${args.join(", ")})`, location);
-}
-
-function throwCantNarrow(to, from, location) {
-  throw new CompilationError(`Can not narrow ${from} to ${to}`, location);
-}
-
-function throwNotDefined(name, location) {
-  throw new CompilationError(`Not defined: ${name}`, location);
-}
-
-function throwCantRedefine(name, location) {
-  throw new CompilationError(`Can not redefine: ${name}`, location);
-}
-
-function throwCantCast(to, from, location) {
-  throw new CompilationError(`Can not cast ${from} to ${to}`, location);
-}
-
 class GlobalContext {
   constructor() {
     this.defined = {};
@@ -96,6 +72,91 @@ class LocalContext {
   spawn() {
     return new LocalContext(this);
   }
+}
+
+function throwUnknownAST(type, location) {
+  throw new CompilationError(`[Internal] Unknown AST ${type}`, location);
+}
+
+function throwCantApply(callee, args, location) {
+  throw new CompilationError(`Can not apply ${callee} to (${args.join(", ")})`, location);
+}
+
+function throwCantNarrow(to, from, location) {
+  throw new CompilationError(`Can not narrow ${from} to ${to}`, location);
+}
+
+function throwNotDefined(name, location) {
+  throw new CompilationError(`Not defined: ${name}`, location);
+}
+
+function throwCantRedefine(name, location) {
+  throw new CompilationError(`Can not redefine: ${name}`, location);
+}
+
+function throwCantCast(to, from, location) {
+  throw new CompilationError(`Can not cast ${from} to ${to}`, location);
+}
+
+function applyType(callee, args, context) {
+  switch(callee.type) {
+    case "or":
+      let types = [];
+      for (let _callee of callee.types) {
+        const res = applyType(_callee, args, context);
+        if (!res) {
+          return undefined;
+        }
+        else {
+          types.push(res);
+        }
+      }
+      return typeOr(types);
+    case "and":
+      for (let _callee of callee.types) {
+        const res = applyType(_callee, args, context);
+        if (res) {
+          return res;
+        }
+      }
+      return undefined;
+    case "function":
+      return callee.fn(...args);
+    default:
+      return undefined;
+  }
+}
+
+function narrowType(to, from) {
+  switch(from.type) {
+    case "or":
+      const types = from.types
+        .map((from) => narrowType(to, from))
+        .filter((type) => !!type);
+      return types.length && typeOr([types]);
+    case "and":
+      const types = from.types
+        .map((from) => narrowType(to, from))
+        .filter((type) => !!type);
+      return types.length && typeAnd([types]);
+    default:
+      return (
+        (castType(to, from) && from) ||
+        (castType(from, to) && to));
+  }
+}
+
+function typeOfFunction({ args, resTypeExpression }) {
+  const argTypes = args
+    .map((arg) => (arg.typeExpression && evalType(arg.typeExpression)) || typeAny);
+  const resType = (resTypeExpression && evalType(resTypeExpression)) || typeAny;
+  return typeFunction(argTypes, resType);
+}
+
+function evalType(ast) {
+  // check(ast, new GlobalContext());
+  // check it's a type
+  return eval(generate(ast));
 }
 
 function checkUndefined(ast, context) {
@@ -171,35 +232,6 @@ function checkName(ast, context) {
   };
 }
 
-function applyType(callee, args, context) {
-  switch(callee.type) {
-    case "or":
-      let types = [];
-      for (let _callee of callee.types) {
-        const res = applyType(_callee, args, context);
-        if (!res) {
-          return undefined;
-        }
-        else {
-          types.push(res);
-        }
-      }
-      return typeOr(types);
-    case "and":
-      for (let _callee of callee.types) {
-        const res = applyType(_callee, args, context);
-        if (res) {
-          return res;
-        }
-      }
-      return undefined;
-    case "function":
-      return callee.fn(...args);
-    default:
-      return undefined;
-  }
-}
-
 function checkCall(ast, context) {
   const callee = check(ast.callee, context);
   const args = ast.args.map((arg) => check(arg, context));
@@ -238,25 +270,6 @@ function checkCase(ast, context) {
   };
 }
 
-function narrowType(to, from) {
-  switch(from.type) {
-    case "or":
-      const types = from.types
-        .map((from) => narrowType(to, from))
-        .filter((type) => !!type);
-      return types.length && typeOr([types]);
-    case "and":
-      const types = from.types
-        .map((from) => narrowType(to, from))
-        .filter((type) => !!type);
-      return types.length && typeAnd([types]);
-    default:
-      return (
-        (castType(to, from) && from) ||
-        (castType(from, to) && to));
-  }
-}
-
 function checkMatch(ast, context) {
   const names = ast.names;
   const nameTypes = ast.names.map((name) => {
@@ -270,7 +283,7 @@ function checkMatch(ast, context) {
       const pattern = patterns[i];
       const nameType = nameTypes[i];
       // TODO
-      //const patternType = eval(pattern, context.global());
+      //const patternType = evalType(pattern, context.global());
       const type = narrowType(patternType, nameType);
       if (!type) {
         throwCantNarrow(nameType, patternType, pattern.location);
@@ -298,25 +311,41 @@ function checkMatch(ast, context) {
 }
 
 function checkFunction(ast, context) {
-
-}
-
-function checkScope(ast, context) {
+  const type = typeOfFunction(ast);
   context = context.spawn();
-  for(let definition of ast.definitions) {
-    checkDefinition(definition, context);
-  }
+  ast.args.forEach((arg, i) => {
+    context.define(arg, { type: type.args[i], constant: true });
+  });
   const body = check(ast.body, context);
-  const type = body.meta.type;
+  if (!castType(type.res, body.meta.type)) {
+    throwCantCast(type.res, body.meta.type, body.location);
+  }
   return {
     ...ast,
+    body,
     meta: { type }
   };
 }
 
-function checkDefinition(ast, context) {
+function checkScope(ast, context) {
+  context = context.spawn();
+  const definitions = ast.definitions.map((definition) => checkDefinition(definition, context));
+  const body = check(ast.body, context);
+  const type = body.meta.type;
+  return {
+    ...ast,
+    definitions,
+    meta: { type }
+  };
+}
+
+function checkConstantDefinition(ast, context) {
   const value = check(ast.value, context);
-  const type = value.meta.type;
+  const declaredType = ast.typeExpression && evalType(ast.typeExpression);
+  if (declaredType && !castType(declaredType, value.meta.type)) {
+    throwCantCast(declaredType, value.meta.type, value.location);
+  }
+  const type = declaredType || value.meta.type;
   context.define(ast.name, { type });
   return {
     ...ast,
@@ -325,52 +354,19 @@ function checkDefinition(ast, context) {
   };
 }
 
-// TODO refactor
-/*function _checkFunctionDefinition(declaredType, definition, context) {
-  const { type, types, args: declaredArgs, res: declaredRes } = declaredType;
-  const { args, body, location } = definition;
-  switch(type) {
-    case "or":
-      let errors = [];
-      for (let _type of types) {
-        try {
-          _checkFunctionDefinition(_type, definition, context);
-          return;
-        }
-        catch(e) {
-          if (e instanceof CompilationError) {
-            errors.push(e);
-          }
-          else {
-            throw e;
-          }
-        }
-      }
-      throw errors[0];
-    case "and":
-      for (let _type of types) {
-        _checkFunctionDefinition(_type, definition, context);
-      }
-      return;
-    case "function":
-      if (declaredArgs.length !== args.length) {
-        throw new CompilationError(`Declared arity ${declaredArgs.length} does not match defined arity ${args.length}`, location);
-      }
-      else {
-        const _context = context.spawn();
-        for(let i = 0; i < args.length; i++) {
-          _context.define(args[i], { type: declaredArgs[i] });
-        }
-        const res = check(body, _context).meta.type;
-        if (!castType(declaredRes, res)) {
-          throwCantCast(declaredRes, res, body.location);
-        }
-      }
-      return;
-    default:
-      throw new CompilationError(`Declared type is not a function: ${declaredType}`, location);
+function checkFunctionDefinition(ast, context) {
+  const type = typeOfFunction(ast);
+  context.define(ast.name, { type });
+  return checkFunction(ast, context);
+}
+
+function checkDefinition(ast, context) {
+  switch(ast.kind) {
+    case "constant": return checkConstantDefinition(ast, context);
+    case "function": return checkFunctionDefinition(ast, context);
+    default: throwUnknownAST(ast.kind, ast.location);
   }
-}*/
+}
 
 function check(ast, context) {
   switch (ast.type) {

@@ -25,10 +25,6 @@ const MATCH = {
   name: "match"
 };
 
-function throwUnknownAST(type, location) {
-  throw new CompilationError(`[Internal] Unknown AST ${type}`, location);
-}
-
 class GlobalContext {
   isGlobal() {
     return true;
@@ -51,6 +47,10 @@ class LocalContext {
   spawn() {
     return new LocalContext(this);
   }
+}
+
+function throwUnknownAST(type, location) {
+  throw new CompilationError(`[Internal] Unknown AST ${type}`, location);
 }
 
 function genSkip(ast, context) {
@@ -231,7 +231,7 @@ function genCall({ callee, args }, context) {
   };
 }
 
-function genDefinition({ name, value }, context) {
+function genConstantDefinition({ name, value }, context) {
   if (context.isGlobal()) {
     return {
       type: "AssignmentExpression",
@@ -257,6 +257,43 @@ function genDefinition({ name, value }, context) {
       ],
       kind: "var"
     };
+  }
+}
+
+function genFunctionDefinition({ name, args, body }, context) {
+  if (context.isGlobal()) {
+    return {
+      type: "AssignmentExpression",
+      operator: "=",
+      left: {
+        type: "MemberExpression",
+        object: GLOBAL,
+        property: generate(name, context),
+        computed: false
+      },
+      right: genFunction({ args, body }, context)
+    };
+  }
+  else {
+    return {
+      type: "VariableDeclaration",
+      declarations: [
+        {
+          type: "VariableDeclarator",
+          id: generate(name, context),
+          init: genFunction({ args, body }, context)
+        }
+      ],
+      kind: "var"
+    };
+  }
+}
+
+function genDefinition(ast, context) {
+  switch(ast.kind) {
+    case "constant": return genConstantDefinition(ast, context);
+    case "function": return genFunctionDefinition(ast, context);
+    default: throwUnknownAST(ast.kind, ast.location);
   }
 }
 

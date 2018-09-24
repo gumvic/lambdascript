@@ -157,14 +157,14 @@ list "list" =
 
 mapKeyValueItem = key:expression _ ":" _ value:expression {
   return {
-    key: key,
-    value: value
+    key,
+    value
   };
 }
 
 mapKeyItem = key:name {
   return {
-    key: key,
+    key,
     value: key
   };
 }
@@ -182,26 +182,38 @@ map "map" =
     };
   }
 
+typeExpression = ":" _ typeExpression:expression {
+  return typeExpression;
+}
+
+funArg = name:name _ typeExpression:typeExpression? {
+  return {
+    ...name,
+    typeExpression
+  };
+}
+
 funArgs =
   "(" _
-  args:(first:name rest:(_ "," _ arg:name { return arg; })* { return [first].concat(rest); })? _
+  args:(first:funArg rest:(_ "," _ arg:funArg { return arg; })* { return [first].concat(rest); })? _
   _ ")" {
   return args || [];
 }
 
-lambdaFunction = wordFn _ args:funArgs _ "->" _ body:expression {
+function = wordFn _ args:funArgs _ resTypeExpression:typeExpression? _ "->" _ body:expression {
   return {
     type: "function",
-    args: args,
-    body: body,
+    args,
+    body,
+    resTypeExpression,
     location: location()
   };
 }
 
 caseBranch = wordWhen _ condition:expression _ ":" _ value:expression {
   return {
-    condition: condition,
-    value: value
+    condition,
+    value
   };
 }
 
@@ -216,8 +228,8 @@ case "case" =
   wordEnd {
   return {
     type: "case",
-    branches: branches,
-    otherwise: otherwise,
+    branches,
+    otherwise,
     location: location()
   };
 }
@@ -228,8 +240,8 @@ matchBranch =
   _ ":" _
   value:expression {
   return {
-    patterns: patterns,
-    value: value
+    patterns,
+    value
   };
 }
 
@@ -250,32 +262,32 @@ match "match" =
   }
   return {
     type: "match",
-    names: names,
-    branches: branches,
-    otherwise: otherwise,
+    names,
+    branches,
+    otherwise,
     location: location()
   };
 }
 
-constantDefinition = name:name _ "=" _ value:expression {
+constantDefinition = name:name _ typeExpression:typeExpression? _ "=" _ value:expression {
   return {
     type: "definition",
-    name: name,
-    value: value,
+    kind: "constant",
+    name,
+    value,
+    typeExpression,
     location: location()
   };
 }
 
-functionDefinition = name:name _ args:funArgs _ "->" _ body:expression {
+functionDefinition = name:name _ args:funArgs _ resTypeExpression:typeExpression? _ "->" _ body:expression {
   return {
     type: "definition",
-    name: name,
-    value: {
-      type: "function",
-      args: args,
-      body: body,
-      location: location()
-    },
+    kind: "function",
+    name,
+    args,
+    body,
+    resTypeExpression,
     location: location()
   };
 }
@@ -290,8 +302,8 @@ scope "let" =
   wordEnd {
   return {
     type: "scope",
-    definitions: definitions,
-    body: body,
+    definitions,
+    body,
     location: location()
   };
 }
@@ -311,7 +323,7 @@ atom =
   / name
   / list
   / map
-  / lambdaFunction
+  / function
   / case
   / match
   / scope
@@ -337,8 +349,8 @@ _ ")" {
 call = callee:callee __ chain:(args:callArgs __ { return args; })+ {
   return chain.reduce((callee, args) => ({
     type: "call",
-    callee: callee,
-    args: args,
+    callee,
+    args,
     location: args.location
   }), callee);
 }
