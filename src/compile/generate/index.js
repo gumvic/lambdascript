@@ -25,6 +25,10 @@ const MATCH = {
   name: "match"
 };
 
+function throwUnknownAST(type, location) {
+  throw new CompilationError(`[Internal] Unknown AST ${type}`, location);
+}
+
 class GlobalContext {
   isGlobal() {
     return true;
@@ -334,7 +338,7 @@ function generate(ast, context) {
     case "Identifier":
     case "Literal":
     case "RegExpLiteral": return ast;
-    default: throw new TypeError(`Internal error: unknown AST type ${ast.type}.`, ast.location);
+    default: throwUnknownAST(ast.type, ast.location);
   }
 }
 

@@ -13,6 +13,18 @@ const {
 const { getDefined } = require("../../meta");
 const CompilationError = require("../error");
 
+function throwUnknownAST(type, location) {
+  throw new CompilationError(`[Internal] Unknown AST ${type}`, location);
+}
+
+function throwCantApply(callee, args, location) {
+  throw new CompilationError(`Can not apply ${callee} to (${args.join(", ")})`, location);
+}
+
+function throwCantNarrow(to, from, location) {
+  throw new CompilationError(`Can not narrow ${from} to ${to}`, location);
+}
+
 function throwNotDefined(name, location) {
   throw new CompilationError(`Not defined: ${name}`, location);
 }
@@ -195,7 +207,7 @@ function checkCall(ast, context) {
   const argTypes = args.map((arg) => arg.meta.type);
   const type = applyType(calleeType, argTypes, context);
   if (!type) {
-    throw new CompilationError(`Can not apply ${calleeType} to (${argTypes.join(", ")})`, ast.location);
+    throwCantApply(calleeType, argTypes, ast.location);
   }
   else {
     return {
@@ -261,7 +273,7 @@ function checkMatch(ast, context) {
       //const patternType = eval(pattern, context.global());
       const type = narrowType(patternType, nameType);
       if (!type) {
-        throw new CompilationError(`Can not narrow ${nameType} to ${patternType}`, pattern.location);
+        throwCantNarrow(nameType, patternType, pattern.location);
       }
       else {
         _context.define(name, { type });
@@ -378,7 +390,7 @@ function check(ast, context) {
     case "match": return checkMatch(ast, context);
     case "scope": return checkScope(ast, context);
     case "definition": return checkDefinition(ast, context);
-    default: throw new TypeError(`Internal error: unknown AST type ${ast.type}.`);
+    default: throwUnknownAST(ast.type, ast.location);
   }
 }
 
