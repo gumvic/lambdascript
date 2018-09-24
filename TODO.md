@@ -13,10 +13,11 @@ tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 repl>
 ```
 - keywords and fully qualified keywords
-- `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for aliases; maybe even `++@core.contrib`?
+- `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for destructuring aliases; maybe even `++@core.contrib`?
 - `define` should be safe and guarantee all the checks--simply by calling `check`
 - declaring should work differently -- should have a magic "Not Implemented" function for functions, and constants shouldn't be declared; or have `pass` value that has `typeNone` and is generated as `throw "Not Implemented"`
 - enable lambdas
+- dependencies
 - `js`'s `eval` executes in the local context and has access to the local vars; execute it from the global context
 - `compile` to throw and maybe ditch `{ type, value }`, let it return the value
 - stick to native js data structures for now, will need to implement `==` properly, but maybe `Immutable.is` will do

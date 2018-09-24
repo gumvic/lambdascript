@@ -227,11 +227,7 @@ function genCall({ callee, args }, context) {
   };
 }
 
-function genDeclarationDefinition(ast, context) {
-  return NOOP;
-}
-
-function genConstantDefinition({ name, value }, context) {
+function genDefinition({ name, value }, context) {
   if (context.isGlobal()) {
     return {
       type: "AssignmentExpression",
@@ -255,46 +251,8 @@ function genConstantDefinition({ name, value }, context) {
           init: generate(value, context)
         }
       ],
-      kind: "const"
+      kind: "var"
     };
-  }
-}
-
-function genFunctionDefinition({ name, args, body, location }, context) {
-  if (context.isGlobal()) {
-    return {
-      type: "AssignmentExpression",
-      operator: "=",
-      left: {
-        type: "MemberExpression",
-        object: GLOBAL,
-        property: generate(name, context),
-        computed: false
-      },
-      right: genFunction({ args, body, location }, context)
-    };
-  }
-  else {
-    return {
-      type: "VariableDeclaration",
-      declarations: [
-        {
-          type: "VariableDeclarator",
-          id: generate(name, context),
-          init: genFunction({ args, body, location }, context)
-        }
-      ],
-      kind: "const"
-    };
-  }
-}
-
-function genDefinition(ast, context) {
-  switch(ast.kind) {
-    case "declaration": return genDeclarationDefinition(ast, context);
-    case "constant": return genConstantDefinition(ast, context);
-    case "function": return genFunctionDefinition(ast, context);
-    default: throw new TypeError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
   }
 }
 
@@ -310,7 +268,7 @@ function generate(ast, context) {
     case "name": return genName(ast, context);
     case "list": return genList(ast, context);
     case "map":  return genMap(ast, context);
-    //case "function": return genFunction(ast, context);
+    case "function": return genFunction(ast, context);
     case "case": return genCase(ast, context);
     case "match": return genMatch(ast, context);
     case "scope": return genScope(ast, context);

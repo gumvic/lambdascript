@@ -186,25 +186,14 @@ funArgs =
   "(" _
   args:(first:name rest:(_ "," _ arg:name { return arg; })* { return [first].concat(rest); })? _
   _ ")" {
-  return {
-    args: args || [],
-    location: location()
-  };
+  return args || [];
 }
 
-function = args:funArgs _ "->" _ body:expression {
+lambdaFunction = wordFn _ args:funArgs _ "->" _ body:expression {
   return {
-    args: args.args,
-    body: body,
-    text: text()
-  };
-}
-
-lambdaFunction = wordFn _ fun:function {
-  return {
-    ...fun,
     type: "function",
-    text: "fn" + fun.text,
+    args: args,
+    body: body,
     location: location()
   };
 }
@@ -268,37 +257,30 @@ match "match" =
   };
 }
 
-declarationDefinition = name:name _ ":" _ typeAST:expression {
-  return {
-    type: "definition",
-    kind: "declaration",
-    name: name,
-    typeAST: typeAST,
-    location: location()
-  };
-}
-
 constantDefinition = name:name _ "=" _ value:expression {
   return {
     type: "definition",
-    kind: "constant",
     name: name,
     value: value,
     location: location()
   };
 }
 
-functionDefinition = name:name _ fun:function {
+functionDefinition = name:name _ args:funArgs _ "->" _ body:expression {
   return {
-    ...fun,
     type: "definition",
-    kind: "function",
     name: name,
+    value: {
+      type: "function",
+      args: args,
+      body: body,
+      location: location()
+    },
     location: location()
   };
 }
 
-definition = declarationDefinition / constantDefinition / functionDefinition
+definition = constantDefinition / functionDefinition
 
 scope "let" =
   wordLet _
@@ -349,17 +331,14 @@ callee = unary / atom
 callArgs = "(" _
   args:(first:expression rest:(_ "," _ arg:expression { return arg; })* { return [first].concat(rest); })?
 _ ")" {
-  return {
-    args: args || [],
-    location: location()
-  };
+  return args || [];
 }
 
 call = callee:callee __ chain:(args:callArgs __ { return args; })+ {
   return chain.reduce((callee, args) => ({
     type: "call",
     callee: callee,
-    args: args.args,
+    args: args,
     location: args.location
   }), callee);
 }

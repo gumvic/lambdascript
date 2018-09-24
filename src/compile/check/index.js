@@ -27,56 +27,30 @@ function throwCantCast(to, from, location) {
 
 class GlobalContext {
   constructor() {
-    this.definedName = null;
-    this.definedData = null;
-    this.dependencies = [];
-  }
-
-  isGlobal() {
-    return true;
+    this.defined = {};
   }
 
   define({ name, location }, data) {
-    const oldData = this.definedName === name ? this.definedData : getDefined(name);
-    if (oldData && oldData.constant) {
+    const oldData = this.defined[name] || getDefined(name) || {};
+    if (oldData.constant) {
       throwCantRedefine(name, location);
     }
+    else if (oldData.type && !castType(oldData.type, data.type)) {
+      throwCantCast(oldData.type, data.type, location);
+    }
     else {
-      this.definedName = name;
-      this.definedData = data;
-      if (oldData && !castType(oldData.type, data.type)) {
-        for(let dependantName of oldData.dependants) {
-          const dependant = this.getDefined({ name: dependantName, location});
-          const context = new GlobalContext();
-          context.definedName = this.definedName;
-          context.definedData = this.definedData;
-          check(dependant.ast, context);
-        }
-      }
-      return this.definedData;
+      return this.defined[name] = data;
     }
   }
 
   getDefined({ name, location }) {
-    if (this.definedName === name) {
-      return this.definedData;
+    const data = this.defined[name] || getDefined(name);
+    if (!data) {
+      throwNotDefined(name, location);
     }
     else {
-      const data = getDefined(name);
-      if (data) {
-        if (this.dependencies.indexOf(name) < 0) {
-          this.dependencies.push(name);
-        }
-        return data;
-      }
-      else {
-        throwNotDefined(name, location);
-      }
+      return data;
     }
-  }
-
-  getDependencies() {
-    return this.dependencies;
   }
 
   spawn() {
@@ -90,29 +64,21 @@ class LocalContext {
     this.defined = {};
   }
 
-  isGlobal() {
-    return false;
-  }
-
   define({ name, location }, data) {
     const oldData = this.defined[name] || {};
-    if (oldData && oldData.constant) {
+    if (oldData.constant) {
       throwCantRedefine(name, location);
     }
-    else if (oldData && !castType(oldData.type, data.type)) {
+    else if (oldData.type && !castType(oldData.type, data.type)) {
       throwCantCast(oldData.type, data.type, location);
     }
     else {
-      return this.defined[name] = { ...oldData, ...data };
+      return this.defined[name] = data;
     }
   }
 
   getDefined({ name, location }) {
     return this.defined[name] || this.parent.getDefined({ name, location });
-  }
-
-  getDependencies() {
-    return [];
   }
 
   spawn() {
@@ -190,35 +156,6 @@ function checkName(ast, context) {
     meta: {
       type: context.getDefined(ast).type
     }
-  };
-}
-
-// TODO copy all of the context's contents, then spawn off of that
-function checkFunction(ast, context) {
-  const args = ast.args.map((_) => typeNone);
-  const res = typeNone;
-  function fn(...args) {
-    try {
-      const _context = context.spawn();
-      for(let i = 0; i < args.length; i++) {
-        _context.define(ast.args[i], { type: args[i] });
-      }
-      return check(ast.body, _context).meta.type;
-    }
-    catch(e) {
-      if (e instanceof CompilationError) {
-        return undefined;
-      }
-      else {
-        throw e;
-      }
-    }
-  }
-  const readable = ast.text;
-  const type =  typeFunction(args, res, fn, readable);
-  return {
-    ...ast,
-    meta: { type }
   };
 }
 
@@ -327,7 +264,7 @@ function checkMatch(ast, context) {
         throw new CompilationError(`Can not narrow ${nameType} to ${patternType}`, pattern.location);
       }
       else {
-        _context.define(name, { type, constant: true });
+        _context.define(name, { type });
       }
     }
     value = check(value, _context);
@@ -348,6 +285,10 @@ function checkMatch(ast, context) {
   };
 }
 
+function checkFunction(ast, context) {
+
+}
+
 function checkScope(ast, context) {
   context = context.spawn();
   for(let definition of ast.definitions) {
@@ -361,32 +302,19 @@ function checkScope(ast, context) {
   };
 }
 
-function checkDeclarationDefinition(ast, context) {
-  // TODO check typeAST in global context
-  // typeAST = check(ast.typeAST)
-  // include into ...ast
-  const type = eval(generate(ast.typeAST));
+function checkDefinition(ast, context) {
+  const value = check(ast.value, context);
+  const type = value.meta.type;
   context.define(ast.name, { type });
   return {
     ...ast,
+    value,
     meta: { type }
   };
 }
 
-function checkConstantDefinition(ast, context) {
-  const value = check(ast.value, context);
-  const type = value.meta.type;
-  context.define(ast.name, { type, constant: !context.isGlobal() });
-  const dependencies = context.getDependencies();
-  return {
-    ...ast,
-    value,
-    meta: { type, dependencies }
-  };
-}
-
 // TODO refactor
-function _checkFunctionDefinition(declaredType, definition, context) {
+/*function _checkFunctionDefinition(declaredType, definition, context) {
   const { type, types, args: declaredArgs, res: declaredRes } = declaredType;
   const { args, body, location } = definition;
   switch(type) {
@@ -430,27 +358,7 @@ function _checkFunctionDefinition(declaredType, definition, context) {
     default:
       throw new CompilationError(`Declared type is not a function: ${declaredType}`, location);
   }
-}
-
-function checkFunctionDefinition(ast, context) {
-  const type = context.getDefined(ast.name).type;
-  _checkFunctionDefinition(type, ast, context);
-  context.define(ast.name, { type, constant: !context.isGlobal() });
-  const dependencies = context.getDependencies();
-  return {
-    ...ast,
-    meta: { type, dependencies }
-  };
-}
-
-function checkDefinition(ast, context) {
-  switch(ast.kind) {
-    case "declaration": return checkDeclarationDefinition(ast, context);
-    case "constant": return checkConstantDefinition(ast, context);
-    case "function": return checkFunctionDefinition(ast, context);
-    default: throw new TypeError(`Internal error: unknown AST definition kind ${ast.kind}.`, ast.location);
-  }
-}
+}*/
 
 function check(ast, context) {
   switch (ast.type) {
@@ -464,7 +372,7 @@ function check(ast, context) {
     case "name": return checkName(ast, context);
     case "list": return checkList(ast, context);
     case "map":  return checkMap(ast, context);
-    //case "function": return checkFunction(ast, context);
+    case "function": return checkFunction(ast, context);
     case "call": return checkCall(ast, context);
     case "case": return checkCase(ast, context);
     case "match": return checkMatch(ast, context);
