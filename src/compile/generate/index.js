@@ -231,19 +231,13 @@ function genCall({ callee, args }, context) {
   };
 }
 
-function genConstantDefinition({ name, value }, context) {
+function genConstantDefinition({ name, value, meta }, context) {
   if (context.isGlobal()) {
-    return {
-      type: "AssignmentExpression",
-      operator: "=",
-      left: {
-        type: "MemberExpression",
-        object: GLOBAL,
-        property: generate(name, context),
-        computed: false
-      },
-      right: generate(value, context)
-    };
+    define(name.name, {
+      ...meta,
+      value: eval(emit(generate(value, context)))
+    });
+    return generate(name, context);
   }
   else {
     return {
@@ -260,19 +254,13 @@ function genConstantDefinition({ name, value }, context) {
   }
 }
 
-function genFunctionDefinition({ name, args, body }, context) {
+function genFunctionDefinition({ name, args, body, meta }, context) {
   if (context.isGlobal()) {
-    return {
-      type: "AssignmentExpression",
-      operator: "=",
-      left: {
-        type: "MemberExpression",
-        object: GLOBAL,
-        property: generate(name, context),
-        computed: false
-      },
-      right: genFunction({ args, body }, context)
-    };
+    define(name.name, {
+      ...meta,
+      value: eval(emit(genFunction({ args, body }, context)))
+    });
+    return generate(name, context);
   }
   else {
     return {

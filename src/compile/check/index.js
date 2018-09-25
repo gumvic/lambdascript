@@ -2,6 +2,7 @@ const { generate } = require("../generate");
 const {
   castType,
   typeNone,
+  typeAny,
   typeUndefined,
   typeNull,
   typeBoolean,

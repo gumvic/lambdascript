@@ -40,8 +40,22 @@ function symbols() {
 }*/
 
 function define(name, data) {
-  // no globals, no namify
-  // byDependencyName
+  /*const dependants = symbols().byDependencyName[name];
+  Object.keys(dependants)
+    .map((name) => dependants[name].type)
+    .forEach();*/
+  /*for(let dependencyName of data.dependencies) {
+    let dependants = symbols().byDependencyName[dependencyName];
+    if (dependants.indexOf(name) < 0) {
+      dependants.push(name);
+    }
+  }*/
+  const oldData = symbols().byName[name] || {};
+  global[namify(name)] = data.value;
+  return symbols().byName[name] = {
+    ...oldData,
+    ...data
+  };
 }
 
 function getDefined(name) {
@@ -81,7 +95,8 @@ function load(name) {
 function init() {
   global.$monada = {
     symbols: {
-      byName: {}
+      byName: {},
+      byDependencyName: {}
     }
   };
 }

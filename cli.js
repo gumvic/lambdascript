@@ -2,9 +2,10 @@
 
 const { EOL } = require("os");
 const { terminal } = require("terminal-kit");
-const { load, compile } = require("./index");
+const { parse, check, generate } = require("./src/compile");
+const { load } = require("./src/meta");
 
-function formatError({ error }) {
+function formatError(error) {
   if (error.location) {
     const message = error.message;
     const { src, start: { line, column } } = error.location;
@@ -20,10 +21,6 @@ function formatError({ error }) {
   }
 }
 
-function formatSuccess({ type, value }) {
-  return `${value} : ${type}`;
-}
-
 function repl() {
   terminal.on("key", (key) => {
     if (key === "CTRL_C") {
@@ -33,13 +30,17 @@ function repl() {
   });
   function loop() {
     terminal("> ");
-    terminal.inputField((err, input) => {
+    terminal.inputField((err, src) => {
       terminal(EOL);
-      const compiled = compile(input);
-      const output = compiled.error ?
-        formatError(compiled) :
-        formatSuccess(compiled);
-      terminal(output);
+      try {
+        const ast = check(parse(src));
+        const type = ast.meta.type;
+        const value = eval(generate(ast));
+        terminal(`${value} : ${type}`);
+      }
+      catch(e) {
+        terminal(formatError(e));
+      }
       terminal(EOL);
       loop();
     });
