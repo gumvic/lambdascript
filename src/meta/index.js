@@ -1,10 +1,11 @@
 const { namify } = require("../utils");
 const { typeof: typeOf } = require("../type");
+
 function symbols() {
   return global.$monada.symbols;
 }
 
-function define(name, data) {
+/*function define(name, data) {
   const oldData = symbols().byName[name] || {
     dependencies: [],
     dependants: []
@@ -36,6 +37,11 @@ function define(name, data) {
   }
   symbols().byName[name] = { ...oldData, ...newData };
   return global[namify(name)] = newData.value;
+}*/
+
+function define(name, data) {
+  // no globals, no namify
+  // byDependencyName
 }
 
 function getDefined(name) {
