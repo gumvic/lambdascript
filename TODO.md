@@ -5,8 +5,8 @@
 tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
-- type checking declarations
-- dangling `declare`s -- check in `checkScope` and `endModule`
+- check `eval`ed types in global context, also check they are actually types
+- dangling `todo` definitions -- check in `checkScope` and `endModule`
 - modules
 - repl should show the current module, like
 ```
@@ -14,10 +14,11 @@ repl>
 ```
 - keywords and fully qualified keywords
 - `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for destructuring aliases; maybe even `++@core.contrib`?
+- `$` as a separator?
 - `define` should be safe and guarantee all the checks--simply by calling `check`
-- declaring should work differently -- should have a magic "Not Implemented" function for functions, and constants shouldn't be declared; or have `todo` value that has `typeNone` and is generated as `((() => throw "Not Implemented")())`
+- `todo` value that has `typeNone` and is generated as `((() => throw "Not Implemented")())`
 - dependencies
-- `js`'s `eval` executes in the local context and has access to the local vars; execute it from the global context
+- `evalType` should `eval` in global context
 - `compile` to throw and maybe ditch `{ type, value }`, let it return the value
 - stick to native js data structures for now, will need to implement `==` properly, but maybe `Immutable.is` will do
 - `typeof` overrides the native `typeof`
