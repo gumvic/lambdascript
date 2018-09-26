@@ -1,5 +1,29 @@
+const {
+  typeAny,
+  typeUndefined,
+  typeNull,
+  typeBoolean,
+  typeNumber,
+  typeString
+} = require("../utils");
 const { namify } = require("../utils");
-const { typeof: typeOf } = require("../type");
+
+function typeOf(x) {
+  switch(typeof x) {
+    case "undefined": return typeUndefined;
+    case "boolean": return typeBoolean(x);
+    case "number": return typeNumber(x);
+    case "string": return typeString(x);
+    case "function": return x.$type || typeAny;
+    default:
+    if (x === null) {
+      return typeNull;
+    }
+    else {
+      return typeAny;
+    }
+  }
+}
 
 function symbols() {
   return global.$monada.symbols;

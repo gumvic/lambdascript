@@ -147,10 +147,10 @@ function narrowType(to, from) {
   }
 }
 
-function typeOfFunction({ args, resTypeExpression }) {
+function typeOfFunction({ args, resTypeSignature }) {
   const argTypes = args
-    .map((arg) => (arg.typeExpression && evalType(arg.typeExpression)) || typeAny);
-  const resType = (resTypeExpression && evalType(resTypeExpression)) || typeAny;
+    .map((arg) => (arg.typeSignature && evalType(arg.typeSignature)) || typeAny);
+  const resType = (resTypeSignature && evalType(resTypeSignature)) || typeAny;
   return typeFunction(argTypes, resType);
 }
 
@@ -164,7 +164,11 @@ function checkUndefined(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeUndefined
+      type: typeUndefined,
+      /*typeAST: {
+        type: "name",
+        name: "typeUndefined"
+      }*/
     }
   };
 }
@@ -173,7 +177,11 @@ function checkNull(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeNull
+      type: typeNull,
+      /*typeAST: {
+        type: "name",
+        name: "typeNull"
+      }*/
     }
   };
 }
@@ -182,7 +190,17 @@ function checkFalse(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeBoolean(false)
+      type: typeBoolean(false),
+      /*typeAST: {
+        type: "call",
+        callee: {
+          type: "name",
+          name: "typeBoolean"
+        },
+        args: [{
+          type: "false"
+        }]
+      }*/
     }
   };
 }
@@ -191,7 +209,15 @@ function checkTrue(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeBoolean(true)
+      type: typeBoolean(true),
+      /*typeAST: {
+        type: "call",
+        callee: {
+          type: "name",
+          name: "typeBoolean"
+        },
+        args: [{ ...ast }]
+      }*/
     }
   };
 }
@@ -200,7 +226,15 @@ function checkNumber(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeNumber(parseFloat(ast.value))
+      type: typeNumber(parseFloat(ast.value)),
+      /*typeAST: {
+        type: "call",
+        callee: {
+          type: "name",
+          name: "typeNumber"
+        },
+        args: [{ ...ast }]
+      }*/
     }
   };
 }
@@ -209,7 +243,15 @@ function checkString(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeString(ast.value)
+      type: typeString(ast.value),
+      /*typeAST: {
+        type: "call",
+        callee: {
+          type: "name",
+          name: "typeString"
+        },
+        args: [{ ...ast }]
+      }*/
     }
   };
 }
@@ -342,7 +384,7 @@ function checkScope(ast, context) {
 
 function checkConstantDefinition(ast, context) {
   const value = check(ast.value, context);
-  const declaredType = ast.typeExpression && evalType(ast.typeExpression);
+  const declaredType = ast.typeSignature && evalType(ast.typeSignature);
   if (declaredType && !castType(declaredType, value.meta.type)) {
     throwCantCast(declaredType, value.meta.type, value.location);
   }

@@ -1,5 +1,3 @@
-const $type = Symbol("type");
-
 function castType(to, from) {
   if (to.type === "none" ||
       from.type === "none") {
@@ -96,23 +94,6 @@ function matchType(type, value) {
       }
       return false;
     default: return false;
-  }
-}
-
-function typeOf(x) {
-  switch(typeof x) {
-    case "undefined": return typeUndefined;
-    case "boolean": return typeBoolean(x);
-    case "number": return typeNumber(x);
-    case "string": return typeString(x);
-    case "function": return x[$type] || typeAny;
-    default:
-    if (x === null) {
-      return typeNull;
-    }
-    else {
-      return typeAny;
-    }
   }
 }
 
@@ -230,10 +211,8 @@ function typeOr(types) {
 }
 
 module.exports = {
-  $type,
   castType,
   matchType,
-  typeof: typeOf,
   typeNone,
   typeAny,
   typeUndefined,

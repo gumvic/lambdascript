@@ -15,14 +15,19 @@ repl>
 - keywords and fully qualified keywords
 - `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for destructuring aliases; maybe even `++@core.contrib`?
 - `$` as a separator? like `core$+`
-- the ditch smart `typeof`, that logic, along with `$type`, is a `save`/`load` concern
+- `generate` should generate the call to `define`?
+- hardcoded `$type` is bad
 - `define` should be safe and guarantee all the checks--simply by calling `check`
 - `todo` value that has `typeNone` and is generated as `((() => throw "Not Implemented")())`
 - dependencies
+- type dependencies:
+```
+t = ...
+f(x: t) = ...
+t = ... # f should be checked
+```
 - all `eval` should be in global context -- search globally
-- `compile` to throw and maybe ditch `{ type, value }`, let it return the value
 - stick to native js data structures for now, will need to implement `==` properly, but maybe `Immutable.is` will do
-- `typeof` overrides the native `typeof`
 - nothing should throw, instead return `either`s
 - disallow `match`ing on functions? or make use of `$type`? but consider this:
 ```

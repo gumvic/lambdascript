@@ -1,5 +1,4 @@
 const {
-  $type,
   typeNumber,
   typeString,
   typeFunction,
@@ -50,7 +49,7 @@ function $plus(x, y) {
   return x + y;
 }
 
-$plus[$type] = typeAnd([
+$plus.$type = typeAnd([
   typeFunction([typeNumber, typeNumber], typeNumber),
   typeFunction([typeString, typeString], typeString)]);
 
