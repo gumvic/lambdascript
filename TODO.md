@@ -6,25 +6,26 @@ tFunction([tNumber], tNumber, fn(_) -> tNumber) # ok
 tFunction([tNumber], tNumber, fn(_) -> tAny) # doesn't pass the type check
 ```
 - check `eval`ed types in global context, also check they are actually types
-- dangling `todo` definitions -- check in `checkScope` and `endModule`
 - modules
 - repl should show the current module, like
 ```
 repl>
 ```
 - keywords and fully qualified keywords
-- `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for destructuring aliases; maybe even `++@core.contrib`?
-- `$` as a separator? like `core$+`
+- `@` as a separator -- `core@+`, `core.contrib@++`, and then use `as` for destructuring aliases; maybe even `++@core.contrib`? or `core__+`, `core__get`? `$` as a separator? like `core$+`; or `core.+`, `core.get` etc
 - `generate` should generate the call to `define`?
 - hardcoded `$type` is bad
+- docstrings
 - `define` should be safe and guarantee all the checks--simply by calling `check`
-- `todo` value that has `typeNone` and is generated as `((() => throw "Not Implemented")())`
+- `_` value that has `typeNone` and is generated as `((() => throw "Not Implemented")())`
+- `_` as a name, too, like `fn(_, _, z) -> z` doesn't complain about duplicates
+- dangling `_` definitions -- check in `checkScope` and `endModule`
 - dependencies
 - type dependencies:
 ```
 t = ...
 f(x: t) = ...
-t = ... # f should be checked
+t = ... # f should be checked; or should it?
 ```
 - all `eval` should be in global context -- search globally
 - stick to native js data structures for now, will need to implement `==` properly, but maybe `Immutable.is` will do
@@ -43,7 +44,6 @@ end
 - `checkCall` should understand `typeNone`
 - `typeOr` should flatten and deduplicate its `types`; also, `typeOr` of one is just that one; same for `typeAnd`
 - `not` type, like `!undefined`
-- `_` should be typed, too
 - why have access syntax if we can have an operator? like `point ~> :x`
 - lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`, and for sure:
 ```
