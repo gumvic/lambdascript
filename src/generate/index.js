@@ -1,5 +1,6 @@
 const { generate: emit } = require("astring");
-const { namify } = require("../../utils");
+const { namify } = require("../utils");
+const Error = require("../error");
 
 const NOOP = {
   type: "EmptyStatement"
@@ -50,7 +51,7 @@ class LocalContext {
 }
 
 function throwUnknownAST(type, location) {
-  throw new CompilationError(`[Internal] Unknown AST ${type}`, location);
+  throw new Error(`[Internal] Unknown AST ${type}`, location);
 }
 
 function genSkip(ast, context) {

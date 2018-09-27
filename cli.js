@@ -2,7 +2,9 @@
 
 const { EOL } = require("os");
 const { terminal } = require("terminal-kit");
-const { parse, check, generate } = require("./src/compile");
+const { parse } = require("./src/parse");
+const { check } = require("./src/check");
+const { generate } = require("./src/generate");
 const { load } = require("./src/meta");
 
 function formatError(error) {

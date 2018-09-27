@@ -10,9 +10,9 @@ const {
   typeString,
   typeFunction,
   typeOr
-} = require("../../type");
-const { getDefined } = require("../../meta");
-const CompilationError = require("../error");
+} = require("../type");
+const { getDefined } = require("../meta");
+const Error = require("../error");
 
 class GlobalContext {
   constructor() {
@@ -76,27 +76,27 @@ class LocalContext {
 }
 
 function throwUnknownAST(type, location) {
-  throw new CompilationError(`[Internal] Unknown AST ${type}`, location);
+  throw new Error(`[Internal] Unknown AST ${type}`, location);
 }
 
 function throwCantApply(callee, args, location) {
-  throw new CompilationError(`Can not apply ${callee} to (${args.join(", ")})`, location);
+  throw new Error(`Can not apply ${callee} to (${args.join(", ")})`, location);
 }
 
 function throwCantNarrow(to, from, location) {
-  throw new CompilationError(`Can not narrow ${from} to ${to}`, location);
+  throw new Error(`Can not narrow ${from} to ${to}`, location);
 }
 
 function throwNotDefined(name, location) {
-  throw new CompilationError(`Not defined: ${name}`, location);
+  throw new Error(`Not defined: ${name}`, location);
 }
 
 function throwCantRedefine(name, location) {
-  throw new CompilationError(`Can not redefine: ${name}`, location);
+  throw new Error(`Can not redefine: ${name}`, location);
 }
 
 function throwCantCast(to, from, location) {
-  throw new CompilationError(`Can not cast ${from} to ${to}`, location);
+  throw new Error(`Can not cast ${from} to ${to}`, location);
 }
 
 function applyType(callee, args, context) {
