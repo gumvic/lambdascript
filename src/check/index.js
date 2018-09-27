@@ -156,7 +156,7 @@ function typeOfFunction({ args, resTypeSignature }) {
 }
 
 function evalType(ast) {
-  // check(ast, new GlobalContext());
+  // check(ast, new GlobalContext()); or context.global()?
   // check it's a type
   return eval(generate(ast));
 }
