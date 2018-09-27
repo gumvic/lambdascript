@@ -12,6 +12,7 @@ const {
   typeOr
 } = require("../type");
 const { getDefined } = require("../meta");
+const { eval } = require("../eval");
 const Error = require("../error");
 
 class GlobalContext {

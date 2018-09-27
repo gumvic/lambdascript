@@ -5,6 +5,7 @@ const { terminal } = require("terminal-kit");
 const { parse } = require("./src/parse");
 const { check } = require("./src/check");
 const { generate } = require("./src/generate");
+const { eval } = require("./src/eval");
 const { load } = require("./src/meta");
 
 function formatError(error) {
@@ -51,6 +52,7 @@ function repl() {
 }
 
 function init() {
+  // TODO this is awful
   load(__dirname);
 }
 

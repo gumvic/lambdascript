@@ -234,11 +234,17 @@ function genCall({ callee, args }, context) {
 
 function genConstantDefinition({ name, value, meta }, context) {
   if (context.isGlobal()) {
-    define(name.name, {
-      ...meta,
-      value: eval(emit(generate(value, context)))
-    });
-    return generate(name, context);
+    return {
+      type: "AssignmentExpression",
+      left: {
+        type: "MemberExpression",
+        object: GLOBAL,
+        property: generate(name, context),
+        computed: false
+      },
+      right: generate(value, context),
+      operator: "="
+    };
   }
   else {
     return {
@@ -257,11 +263,17 @@ function genConstantDefinition({ name, value, meta }, context) {
 
 function genFunctionDefinition({ name, args, body, meta }, context) {
   if (context.isGlobal()) {
-    define(name.name, {
-      ...meta,
-      value: eval(emit(genFunction({ args, body }, context)))
-    });
-    return generate(name, context);
+    return {
+      type: "AssignmentExpression",
+      left: {
+        type: "MemberExpression",
+        object: GLOBAL,
+        property: generate(name, context),
+        computed: false
+      },
+      right: genFunction({ args, body }, context),
+      operator: "="
+    };
   }
   else {
     return {
@@ -369,5 +381,8 @@ function generate(ast, context) {
 }
 
 module.exports = {
-  generate: (ast) => emit(generate(ast, new GlobalContext()))
+  generate: (ast) => ({
+    ast,
+    js: emit(generate(ast, new GlobalContext()))
+  })
 };
