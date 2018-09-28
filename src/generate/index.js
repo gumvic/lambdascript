@@ -108,16 +108,6 @@ function genName({ name }, context) {
 }
 
 function genList({ items }, context) {
-  /*return {
-    type: "CallExpression",
-    callee: LIST,
-    arguments: [
-      {
-        type: "ArrayExpression",
-        elements: items.map((item) => generate(item, context))
-      }
-    ]
-  };*/
   return {
     type: "ArrayExpression",
     elements: items.map((item) => generate(item, context))
@@ -126,17 +116,13 @@ function genList({ items }, context) {
 
 function genMap({ items }, context) {
   return {
-    type: "CallExpression",
-    callee: MAP,
-    arguments: [
-      {
-        type: "ArrayExpression",
-        elements: items.map(({ key, value }) => ({
-          type: "ArrayExpression",
-          elements: [generate(key, context), generate(value, context)]
-        }))
-      }
-    ]
+    type: "ObjectExpression",
+    properties: items.map(({ key, value }) => ({
+      type: "Property",
+      key: generate(key, context),
+      value: generate(value, context),
+      kind: "init"
+    }))
   };
 }
 

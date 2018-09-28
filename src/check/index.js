@@ -8,6 +8,7 @@ const {
   typeBoolean,
   typeNumber,
   typeString,
+  typeMap,
   typeFunction,
   typeOr
 } = require("../type");
@@ -165,11 +166,7 @@ function checkUndefined(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeUndefined,
-      /*typeAST: {
-        type: "name",
-        name: "typeUndefined"
-      }*/
+      type: typeUndefined
     }
   };
 }
@@ -178,11 +175,7 @@ function checkNull(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeNull,
-      /*typeAST: {
-        type: "name",
-        name: "typeNull"
-      }*/
+      type: typeNull
     }
   };
 }
@@ -191,17 +184,7 @@ function checkFalse(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeBoolean(false),
-      /*typeAST: {
-        type: "call",
-        callee: {
-          type: "name",
-          name: "typeBoolean"
-        },
-        args: [{
-          type: "false"
-        }]
-      }*/
+      type: typeBoolean(false)
     }
   };
 }
@@ -210,15 +193,7 @@ function checkTrue(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeBoolean(true),
-      /*typeAST: {
-        type: "call",
-        callee: {
-          type: "name",
-          name: "typeBoolean"
-        },
-        args: [{ ...ast }]
-      }*/
+      type: typeBoolean(true)
     }
   };
 }
@@ -227,15 +202,7 @@ function checkNumber(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeNumber(parseFloat(ast.value)),
-      /*typeAST: {
-        type: "call",
-        callee: {
-          type: "name",
-          name: "typeNumber"
-        },
-        args: [{ ...ast }]
-      }*/
+      type: typeNumber(parseFloat(ast.value))
     }
   };
 }
@@ -244,27 +211,37 @@ function checkString(ast, context) {
   return {
     ...ast,
     meta: {
-      type: typeString(ast.value),
-      /*typeAST: {
-        type: "call",
-        callee: {
-          type: "name",
-          name: "typeString"
-        },
-        args: [{ ...ast }]
-      }*/
+      type: typeString(ast.value)
     }
   };
 }
 
 function checkList(ast, context) {
-  // TODO
-  return ast;
+  const items = ast.items.map((item) => check(item, context));
+  const itemTypes = items.map((item) => item.meta.type);
+  const type = typeList(itemTypes);
+  return {
+    ...ast,
+    ...items,
+    meta: { type }
+  };
 }
 
 function checkMap(ast, context) {
-  // TODO
-  return ast;
+  const items = ast.items.map(({ key, value }) => ({
+    key: check(key, context),
+    value: check(value, context)
+  }));
+  const itemTypes = items.map(({ key, value }) => ({
+    key: key.meta.type,
+    value: value.meta.type
+  }));
+  const type = typeMap(itemTypes);
+  return {
+    ...ast,
+    ...items,
+    meta: { type }
+  };
 }
 
 function checkName(ast, context) {

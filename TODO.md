@@ -7,6 +7,9 @@ typeFunction([typeNumber], typeNumber, fn(_) -> typeString) # won't pass, can't 
 - `typeOr` should flatten and deduplicate its `types`; also, `typeOr` of one is just that one; same for `typeAnd`
 - `not` type, like `!(typeUndefined | typeNull)`
 - type the types
+- when `update`ing a `map` with `key` and `value`:
+-- if `key` casts to an existing item's key, that existing key's value is now `typeOr(existingValue, value)`
+-- otherwise, just add to the items
 
 ## Meta
 - hardcoded `$type` is bad

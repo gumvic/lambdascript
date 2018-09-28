@@ -57,6 +57,30 @@ function castType(to, from) {
       (to.type === from.type && to.value === from.value);
   }
   else if (
+    to.type === "list" &&
+    from.type === "list") {
+    for(let i = 0; i < to.length; i++) {
+      const _to = to.items[i];
+      const _from = from.items[i];
+      if (!_from || !castType(_to, _from)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  else if (
+    to.type === "map" &&
+    from.type === "map") {
+    for (let key of Object.keys(to.items)) {
+      const _to = to.items[key];
+      const _from = from.items[key];
+      if (!_from || !castType(_to, _from)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  else if (
     to.type === "function" &&
     from.type === "function") {
     const fromRes = from.fn(...to.args);
@@ -161,6 +185,26 @@ function typeString(value) {
 typeString.type = "string";
 typeString.toString = () => "string";
 
+function typeList(items) {
+  return {
+    type: "list",
+    items,
+    toString() {
+      return `[${items.join(", ")}]`;
+    }
+  };
+}
+
+function typeMap(items) {
+  return {
+    type: "map",
+    items,
+    toString() {
+      return `{ ${items.map(({ key, value }) => `${key}: ${value}`).join(", ")} }`;
+    }
+  };
+}
+
 function typeFunction(args, res, fn, readable) {
   fn = fn || ((..._) => res);
   return {
@@ -220,6 +264,8 @@ module.exports = {
   typeBoolean,
   typeNumber,
   typeString,
+  typeList,
+  typeMap,
   typeFunction,
   typeAnd,
   typeOr
