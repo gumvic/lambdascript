@@ -205,8 +205,10 @@ function typeMap(items) {
   };
 }
 
-function typeFunction(args, res, fn, readable) {
-  fn = fn || ((..._) => res);
+// TODO check against the specs, including the default spec of args => res on creation
+function typeFunction(args, res, fn, specs) {
+  fn = fn || () => res;
+  specs = specs || [];
   return {
     type: "function",
     args,
@@ -222,8 +224,9 @@ function typeFunction(args, res, fn, readable) {
       }
       return fn(..._args);
     },
+    specs,
     toString() {
-      return readable || `fn(${args.join(", ")}) -> ${res}`;
+      return `fn(${args.join(", ")}) -> ${res}`;
     }
   };
 }
