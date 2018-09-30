@@ -14,7 +14,7 @@ function $instanceof(x, constructor) {
 
 function $new(constructor) {
   let args = [];
-  for(let i = 1; i < arguments.length; i++) {
+  for (let i = 1; i < arguments.length; i++) {
     args.push(arguments[i]);
   }
   // TODO

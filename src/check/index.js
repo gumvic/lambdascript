@@ -299,7 +299,7 @@ function checkMatch(ast, context) {
   const branches = ast.branches.map(({ patterns, value }) => {
     // TODO check patterns in global context
     const _context = context.spawn();
-    for(let i = 0; i < names.length; i++) {
+    for (let i = 0; i < names.length; i++) {
       const name = names[i];
       const pattern = patterns[i];
       const nameType = nameTypes[i];

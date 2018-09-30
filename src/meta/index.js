@@ -49,7 +49,7 @@ function symbols() {
       }
     }
   }
-  for(let dependencyName of newData.dependencies) {
+  for (let dependencyName of newData.dependencies) {
     if (dependencyName !== name &&
         oldData.dependencies.indexOf(dependencyName) < 0) {
       const dependency = getDefined(dependencyName);
@@ -68,7 +68,7 @@ function define(name, data) {
   Object.keys(dependants)
     .map((name) => dependants[name].type)
     .forEach();*/
-  /*for(let dependencyName of data.dependencies) {
+  /*for (let dependencyName of data.dependencies) {
     let dependants = symbols().byDependencyName[dependencyName];
     if (dependants.indexOf(name) < 0) {
       dependants.push(name);

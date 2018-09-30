@@ -255,7 +255,7 @@ match "match" =
   branches:(branch:matchBranch _ { return branch; })+
   otherwise:matchOtherwise _
   wordEnd {
-  for(let { patterns, location } of branches) {
+  for (let { patterns, location } of branches) {
     if (patterns.length !== names.length) {
       error("Wrong amount of patterns", patterns[0].location);
     }

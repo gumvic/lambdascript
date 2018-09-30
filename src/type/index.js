@@ -59,7 +59,7 @@ function castType(to, from) {
   else if (
     to.type === "list" &&
     from.type === "list") {
-    for(let i = 0; i < to.length; i++) {
+    for (let i = 0; i < to.length; i++) {
       const _to = to.items[i];
       const _from = from.items[i];
       if (!_from || !castType(_to, _from)) {
@@ -83,7 +83,7 @@ function castType(to, from) {
   else if (
     to.type === "function" &&
     from.type === "function") {
-    for(let [toArgs, toRes] of to.specs) {
+    for (let [toArgs, toRes] of to.specs) {
       const fromRes = from.fn(...toArgs);
       if (!fromRes || !castType(toRes, fromRes)) {
         return false;
