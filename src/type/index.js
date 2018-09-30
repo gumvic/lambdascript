@@ -207,7 +207,7 @@ function typeMap(items) {
 
 // TODO check against the specs, including the default spec of args => res on creation
 function typeFunction(args, res, fn, specs) {
-  fn = fn || () => res;
+  fn = fn || (() => res);
   specs = specs || [];
   return {
     type: "function",

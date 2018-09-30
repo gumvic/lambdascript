@@ -351,7 +351,7 @@ call = callee:callee __ chain:(args:callArgs __ { return args; })+ {
     type: "call",
     callee,
     args,
-    location: args.location
+    location: callee.location
   }), callee);
 }
 

@@ -477,7 +477,7 @@ function peg$parse(input, options) {
           type: "call",
           callee,
           args,
-          location: args.location
+          location: callee.location
         }), callee);
       },
       peg$c173 = function(first, operator, right) { return { operator, right }; },
