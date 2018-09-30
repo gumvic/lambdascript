@@ -231,10 +231,7 @@ function checkMap(ast, context) {
     key: check(key, context),
     value: check(value, context)
   }));
-  const itemTypes = items.map(({ key, value }) => ({
-    key: key.meta.type,
-    value: value.meta.type
-  }));
+  const itemTypes = items.map(({ key, value }) => [key.meta.type, value.meta.type]);
   const type = typeMap(itemTypes);
   return {
     ...ast,

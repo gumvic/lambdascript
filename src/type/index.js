@@ -147,11 +147,12 @@ function typeBoolean(value) {
     type: "boolean",
     value,
     toString() {
-      return value ? `boolean(${value})` : "boolean";
+      return value !== undefined ? `boolean(${value})` : "boolean";
     }
   };
 }
 typeBoolean.type = "boolean";
+typeBoolean.value = undefined;
 typeBoolean.toString = () => "boolean";
 
 function typeNumber(value) {
@@ -159,11 +160,12 @@ function typeNumber(value) {
     type: "number",
     value,
     toString() {
-      return value ? `number(${value})` : "number";
+      return value !== undefined ? `number(${value})` : "number";
     }
   };
 }
 typeNumber.type = "number";
+typeNumber.value = undefined;
 typeNumber.toString = () => "number";
 
 function typeString(value) {
@@ -171,11 +173,12 @@ function typeString(value) {
     type: "string",
     value,
     toString() {
-      return value ? `string(${value})` : "string";
+      return value !== undefined ? `string(${value})` : "string";
     }
   };
 }
 typeString.type = "string";
+typeString.value = undefined;
 typeString.toString = () => "string";
 
 function typeList(items) {
@@ -187,17 +190,24 @@ function typeList(items) {
     }
   };
 }
+typeList.type = "list";
+typeList.items = [];
+typeList.toString = () => "[]";
 
 function typeMap(items) {
   return {
     type: "map",
     items,
     toString() {
-      return `{ ${items.map(({ key, value }) => `${key}: ${value}`).join(", ")} }`;
+      return `{ ${items.map(([key, value]) => `${key}: ${value}`).join(", ")} }`;
     }
   };
 }
+typeMap.type = "map";
+typeMap.items = [];
+typeMap.toString = () => "{}";
 
+// TODO maybe check if fn passes the specs right on creation
 function typeFunction(specs, fn) {
   return {
     type: "function",
@@ -231,7 +241,6 @@ function typeFunction(specs, fn) {
     }
   };
 }
-// TODO typeFunction that represents any function?
 
 function typeAnd(types) {
   return {
