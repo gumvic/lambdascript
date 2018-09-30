@@ -83,8 +83,13 @@ function castType(to, from) {
   else if (
     to.type === "function" &&
     from.type === "function") {
-    const fromRes = from.fn(...to.args);
-    return fromRes && castType(to.res, fromRes);
+    for(let [toArgs, toRes] of to.specs) {
+      const fromRes = from.fn(...toArgs);
+      if (!fromRes || !castType(toRes, fromRes)) {
+        return false;
+      }
+    }
+    return true;
   }
   else {
     return false;
@@ -205,28 +210,36 @@ function typeMap(items) {
   };
 }
 
-// TODO check against the specs, including the default spec of args => res on creation
-function typeFunction(args, res, fn, specs) {
-  fn = fn || (() => res);
-  specs = specs || [];
+function typeFunction(specs, fn) {
   return {
     type: "function",
-    args,
-    res,
-    fn(..._args) {
-      if (_args.length !== args.length) {
-        return undefined;
-      }
-      for (let i = 0; i < _args.length; i++) {
-        if (!castType(args[i], _args[i])) {
-          return undefined;
+    specs,
+    fn(...args) {
+      nextSpec:
+      for (let [specArgs, specRes] of specs) {
+        if (specArgs.length !== args.length) {
+          continue;
+        }
+        for (let i = 0; i < specArgs.length; i++) {
+          const specArg = specArgs[i];
+          const arg = args[i];
+          if (!castType(specArg, arg)) {
+            continue nextSpec;
+          }
+        }
+        if (fn) {
+          const res = fn(...args);
+          return res && castType(specRes, res) && res;
+        }
+        else {
+          return specRes;
         }
       }
-      return fn(..._args);
+      return undefined;
     },
-    specs,
     toString() {
-      return `fn(${args.join(", ")}) -> ${res}`;
+      const specToString = ([args, res]) => `(${args.join(", ")}) -> ${res}`;
+      return `fn(${specs.map(specToString).join(", ")})`;
     }
   };
 }

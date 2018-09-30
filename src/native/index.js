@@ -1,8 +1,7 @@
 const {
   typeNumber,
   typeString,
-  typeFunction,
-  typeAnd
+  typeFunction
 } = require("../type");
 
 function $typeof(x) {
@@ -49,9 +48,9 @@ function $plus(x, y) {
   return x + y;
 }
 
-$plus.$type = typeAnd([
-  typeFunction([typeNumber, typeNumber], typeNumber),
-  typeFunction([typeString, typeString], typeString)]);
+$plus.$type = typeFunction([
+  [[typeNumber, typeNumber], typeNumber],
+  [[typeString, typeString], typeString]]);
 
 // -
 function $dash(x, y) {

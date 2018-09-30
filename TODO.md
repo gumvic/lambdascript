@@ -38,6 +38,7 @@ end
 - template strings
 
 ## Misc
+- local scope definitions should be scanned at once, not one by one, and redefinitions should be disabled
 - nothing should throw, instead return `either`s
 - `_` value that has `typeNone` and is generated as `((() => throw "Not Implemented")())`
 - `_` as a name, too, like `fn(_, _, z) -> z` doesn't complain about duplicates
