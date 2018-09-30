@@ -1,9 +1,5 @@
 function castType(to, from) {
-  if (to.type === "none" ||
-      from.type === "none") {
-    return true;
-  }
-  else if (to.type === "any") {
+  if (to.type === "any") {
     return true;
   }
   else if (to.type === "and") {
@@ -99,7 +95,6 @@ function castType(to, from) {
 // TODO better name
 function matchType(type, value) {
   switch(type.type) {
-    case "none": return true;
     case "any": return true;
     case "undefined": return value === undefined;
     case "null": return value === null;
@@ -125,13 +120,6 @@ function matchType(type, value) {
     default: return false;
   }
 }
-
-const typeNone = {
-  type: "none",
-  toString() {
-    return "?";
-  }
-};
 
 const typeAny = {
   type: "any",
@@ -243,12 +231,7 @@ function typeFunction(specs, fn) {
     }
   };
 }
-// TODO typeFunction should represent any function?
-// or simply let cast deal with the fact that args/res/fn might be empty, like for typeNumber a value might be empty?
-//typeFunction.type = FUNCTION;
-//typeFunction.args = ?
-//typeFunction.res = typeNone;
-//typeFunction.fn = (..._) => typeNone;
+// TODO typeFunction that represents any function?
 
 function typeAnd(types) {
   return {
@@ -273,7 +256,6 @@ function typeOr(types) {
 module.exports = {
   castType,
   matchType,
-  typeNone,
   typeAny,
   typeUndefined,
   typeNull,
