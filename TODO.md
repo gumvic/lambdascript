@@ -36,7 +36,7 @@ end
 ## Misc
 - local scope definitions should be scanned at once, not one by one, and redefinitions should be disabled
 - nothing should throw, instead return `either`s
-- `_` value that has `typeAny` and is generated as `((() => throw "Not Implemented")())`
+- `_` value that has `typeAny` and is generated as `((() => throw "Not Implemented")())`; or how about having `panic` function that just throws its argument, and has the type of `? -> ?`?
 - `_` as a name, too, like `fn(_, _, z) -> z` doesn't complain about duplicates
 - `eval` should be in global context, to prevent local vars leaking in
 - stick to native js data structures for now, will need to implement `==` properly, but maybe `Immutable.is` will do
