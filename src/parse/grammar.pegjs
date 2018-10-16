@@ -182,30 +182,18 @@ map "map" =
     };
   }
 
-typeSignature = ":" _ typeSignature:expression {
-  return typeSignature;
-}
-
-funArg = name:name _ typeSignature:typeSignature? {
-  return {
-    ...name,
-    typeSignature
-  };
-}
-
 funArgs =
   "(" _
-  args:(first:funArg rest:(_ "," _ arg:funArg { return arg; })* { return [first].concat(rest); })? _
+  args:(first:name rest:(_ "," _ arg:name { return arg; })* { return [first].concat(rest); })? _
   _ ")" {
   return args || [];
 }
 
-function = wordFn _ args:funArgs _ resTypeSignature:typeSignature? _ "->" _ body:expression {
+function = wordFn _ args:funArgs _ "->" _ body:expression {
   return {
     type: "function",
     args,
     body,
-    resTypeSignature,
     location: location()
   };
 }
@@ -269,25 +257,23 @@ match "match" =
   };
 }
 
-constantDefinition = name:name _ typeSignature:typeSignature? _ "=" _ value:expression {
+constantDefinition = name:name _ "=" _ value:expression {
   return {
     type: "definition",
     kind: "constant",
     name,
     value,
-    typeSignature,
     location: location()
   };
 }
 
-functionDefinition = name:name _ args:funArgs _ resTypeSignature:typeSignature? _ "->" _ body:expression {
+functionDefinition = name:name _ args:funArgs _ "->" _ body:expression {
   return {
     type: "definition",
     kind: "function",
     name,
     args,
     body,
-    resTypeSignature,
     location: location()
   };
 }

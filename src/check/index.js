@@ -1,91 +1,9 @@
 const { generate } = require("../generate");
-const {
-  castType,
-  typeAny,
-  typeUndefined,
-  typeNull,
-  typeBoolean,
-  typeNumber,
-  typeString,
-  typeMap,
-  typeFunction,
-  typeOr
-} = require("../type");
-const { getDefined } = require("../meta");
-const { eval } = require("../eval");
+const { symbol } = require("../meta");
 const Error = require("../error");
-
-class GlobalContext {
-  constructor() {
-    this.defined = {};
-  }
-
-  define({ name, location }, data) {
-    const oldData = this.defined[name] || getDefined(name) || {};
-    if (oldData.constant) {
-      throwCantRedefine(name, location);
-    }
-    else if (oldData.type && !castType(oldData.type, data.type)) {
-      throwCantCast(oldData.type, data.type, location);
-    }
-    else {
-      return this.defined[name] = data;
-    }
-  }
-
-  getDefined({ name, location }) {
-    const data = this.defined[name] || getDefined(name);
-    if (!data) {
-      throwNotDefined(name, location);
-    }
-    else {
-      return data;
-    }
-  }
-
-  spawn() {
-    return new LocalContext(this);
-  }
-}
-
-class LocalContext {
-  constructor(parent) {
-    this.parent = parent;
-    this.defined = {};
-  }
-
-  define({ name, location }, data) {
-    const oldData = this.defined[name] || {};
-    if (oldData.constant) {
-      throwCantRedefine(name, location);
-    }
-    else if (oldData.type && !castType(oldData.type, data.type)) {
-      throwCantCast(oldData.type, data.type, location);
-    }
-    else {
-      return this.defined[name] = data;
-    }
-  }
-
-  getDefined({ name, location }) {
-    return this.defined[name] || this.parent.getDefined({ name, location });
-  }
-
-  spawn() {
-    return new LocalContext(this);
-  }
-}
 
 function throwUnknownAST(type, location) {
   throw new Error(`[Internal] Unknown AST ${type}`, location);
-}
-
-function throwCantApply(callee, args, location) {
-  throw new Error(`Can not apply ${callee} to (${args.join(", ")})`, location);
-}
-
-function throwCantNarrow(to, from, location) {
-  throw new Error(`Can not narrow ${from} to ${to}`, location);
 }
 
 function throwNotDefined(name, location) {
@@ -96,285 +14,181 @@ function throwCantRedefine(name, location) {
   throw new Error(`Can not redefine: ${name}`, location);
 }
 
-function throwCantCast(to, from, location) {
-  throw new Error(`Can not cast ${from} to ${to}`, location);
-}
+class GlobalContext {
+  constructor() {
+    this.symbols = {};
+  }
 
-function applyType(callee, args, context) {
-  switch(callee.type) {
-    case "or":
-      let types = [];
-      for (let _callee of callee.types) {
-        const res = applyType(_callee, args, context);
-        if (!res) {
-          return undefined;
-        }
-        else {
-          types.push(res);
-        }
+  symbol({ name, location }, data) {
+    if (data === undefined) {
+      return this.symbols[name] || symbol(name) || throwNotDefined(name, location);
+    }
+    else {
+      const oldData = this.symbols[name] || symbol(name) || {};
+      if (oldData.constant) {
+        throwCantRedefine(name, location);
       }
-      return typeOr(types);
-    case "and":
-      for (let _callee of callee.types) {
-        const res = applyType(_callee, args, context);
-        if (res) {
-          return res;
-        }
+      else {
+        return this.symbols[name] = {
+          ...oldData,
+          ...data
+        };
       }
-      return undefined;
-    case "function":
-      return callee.fn(...args);
-    default:
-      return undefined;
+    }
+  }
+
+  spawn() {
+    return new LocalContext(this);
+  }
+
+  isGlobal() {
+    return true;
   }
 }
 
-function narrowType(to, from) {
-  switch(from.type) {
-    case "or":
-      const types = from.types
-        .map((from) => narrowType(to, from))
-        .filter((type) => !!type);
-      return types.length && typeOr([types]);
-    case "and":
-      const types = from.types
-        .map((from) => narrowType(to, from))
-        .filter((type) => !!type);
-      return types.length && typeAnd([types]);
-    default:
-      return (
-        (castType(to, from) && from) ||
-        (castType(from, to) && to));
+class LocalContext {
+  constructor(parent) {
+    this.parent = parent;
+    this.symbols = {};
   }
-}
 
-function typeOfFunction({ args, resTypeSignature }) {
-  const argTypes = args
-    .map((arg) => (arg.typeSignature && evalType(arg.typeSignature)) || typeAny);
-  const resType = (resTypeSignature && evalType(resTypeSignature)) || typeAny;
-  return typeFunction(argTypes, resType);
-}
+  symbol({ name, location }, data) {
+    if (data === undefined) {
+      return this.symbols[name] || this.parent.symbol({name, location}) || throwNotDefined(name, location);
+    }
+    else {
+      if (this.symbols[name]) {
+        throwCantRedefine(name, location);
+      }
+      else {
+        return this.symbols[name] = data;
+      }
+    }
+  }
 
-function evalType(ast) {
-  // check(ast, new GlobalContext()); or context.global()?
-  // check it's a type
-  return eval(generate(ast));
+  spawn() {
+    return new LocalContext(this);
+  }
+
+  isGlobal() {
+    return false;
+  }
 }
 
 function checkUndefined(ast, context) {
-  return {
-    ...ast,
-    meta: {
-      type: typeUndefined
-    }
-  };
+  return ast;
 }
 
 function checkNull(ast, context) {
-  return {
-    ...ast,
-    meta: {
-      type: typeNull
-    }
-  };
+  return ast;
 }
 
 function checkFalse(ast, context) {
-  return {
-    ...ast,
-    meta: {
-      type: typeBoolean(false)
-    }
-  };
+  return ast;
 }
 
 function checkTrue(ast, context) {
-  return {
-    ...ast,
-    meta: {
-      type: typeBoolean(true)
-    }
-  };
+  return ast;
 }
 
 function checkNumber(ast, context) {
-  return {
-    ...ast,
-    meta: {
-      type: typeNumber(parseFloat(ast.value))
-    }
-  };
+  return ast;
 }
 
 function checkString(ast, context) {
-  return {
-    ...ast,
-    meta: {
-      type: typeString(ast.value)
-    }
-  };
+  return ast;
 }
 
 function checkList(ast, context) {
-  const items = ast.items.map((item) => check(item, context));
-  const itemTypes = items.map((item) => item.meta.type);
-  const type = typeList(itemTypes);
   return {
     ...ast,
-    ...items,
-    meta: { type }
+    items: ast.items.map((item) => check(item, context))
   };
 }
 
 function checkMap(ast, context) {
-  const items = ast.items.map(({ key, value }) => ({
-    key: check(key, context),
-    value: check(value, context)
-  }));
-  const itemTypes = items.map(({ key, value }) => [key.meta.type, value.meta.type]);
-  const type = typeMap(itemTypes);
   return {
     ...ast,
-    ...items,
-    meta: { type }
+    items: ast.items.map(({ key, value }) => ({
+      key: check(key, context),
+      value: check(value, context)
+    }))
   };
 }
 
 function checkName(ast, context) {
-  return {
-    ...ast,
-    meta: {
-      type: context.getDefined(ast).type
-    }
-  };
+  context.symbol(ast);
+  return ast;
 }
 
 function checkCall(ast, context) {
-  const callee = check(ast.callee, context);
-  const args = ast.args.map((arg) => check(arg, context));
-  const calleeType = callee.meta.type;
-  const argTypes = args.map((arg) => arg.meta.type);
-  const type = applyType(calleeType, argTypes, context);
-  if (!type) {
-    throwCantApply(calleeType, argTypes, ast.location);
-  }
-  else {
-    return {
-      ...ast,
-      callee,
-      args,
-      meta: {
-        type
-      }
-    };
-  }
-}
-
-function checkCase(ast, context) {
-  const branches = ast.branches.map(({ condition, value }) => ({
-    condition: check(condition, context),
-    value: check(value, context)
-  }));
-  const otherwise = check(ast.otherwise, context);
-  const branchTypes = branches.map((branch) => branch.value.meta.type);
-  const otherwiseType = otherwise.meta.type;
-  const type = typeOr([...branchTypes, otherwiseType]);
   return {
     ...ast,
-    branches,
-    otherwise,
-    meta: { type }
+    callee: check(ast.callee, context),
+    args: ast.args.map((arg) => check(arg, context))
   };
 }
 
-function checkMatch(ast, context) {
-  const names = ast.names;
-  const nameTypes = ast.names.map((name) => {
-    const type = context.getDefined(name).type;
-  });
-  const branches = ast.branches.map(({ patterns, value }) => {
-    // TODO check patterns in global context
-    const _context = context.spawn();
-    for (let i = 0; i < names.length; i++) {
-      const name = names[i];
-      const pattern = patterns[i];
-      const nameType = nameTypes[i];
-      // TODO
-      //const patternType = evalType(pattern, context.global());
-      const type = narrowType(patternType, nameType);
-      if (!type) {
-        throwCantNarrow(nameType, patternType, pattern.location);
-      }
-      else {
-        _context.define(name, { type });
-      }
-    }
-    value = check(value, _context);
-    return {
-      patterns,
-      value
-    };
-  });
-  const otherwise = check(ast.otherwise, context);
-  const branchTypes = branches.map((branch) => branch.value.meta.type);
-  const otherwiseType = otherwise.meta.type;
-  const type = typeOr([...branchTypes, otherwiseType]);
+function checkCase(ast, context) {
   return {
     ...ast,
-    branches,
-    otherwise,
-    meta: { type }
+    branches: ast.branches.map(({ condition, value }) => ({
+      condition: check(condition, context),
+      value: check(value, context)
+    })),
+    otherwise: check(ast.otherwise, context)
   };
 }
 
 function checkFunction(ast, context) {
-  const type = typeOfFunction(ast);
   context = context.spawn();
-  ast.args.forEach((arg, i) => {
-    context.define(arg, { type: type.args[i], constant: true });
-  });
-  const body = check(ast.body, context);
-  if (!castType(type.res, body.meta.type)) {
-    throwCantCast(type.res, body.meta.type, body.location);
+  for(let arg of ast.args) {
+    context.symbol(arg, {});
   }
   return {
     ...ast,
-    body,
-    meta: { type }
+    body: check(ast.body, context)
   };
 }
 
+// TODO
 function checkScope(ast, context) {
   context = context.spawn();
-  const definitions = ast.definitions.map((definition) => checkDefinition(definition, context));
-  const body = check(ast.body, context);
-  const type = body.meta.type;
+  for(let { name, type } of ast.definitions) {
+    if (type === "function") {
+      context.symbol(name, {});
+    }
+  }
   return {
     ...ast,
-    definitions,
-    meta: { type }
+    definitions: ast.definitions.map((definition) => checkDefinition(definition, context)),
+    body: check(ast.body, context)
   };
 }
 
 function checkConstantDefinition(ast, context) {
-  const value = check(ast.value, context);
-  const declaredType = ast.typeSignature && evalType(ast.typeSignature);
-  if (declaredType && !castType(declaredType, value.meta.type)) {
-    throwCantCast(declaredType, value.meta.type, value.location);
+  if (context.isGlobal()) {
+    return {
+      ...ast,
+      value: check(ast.value, context)
+    };
   }
-  const type = declaredType || value.meta.type;
-  context.define(ast.name, { type });
-  return {
-    ...ast,
-    value,
-    meta: { type }
-  };
+  else {
+    return {
+      ...ast,
+      value: check(ast.value, context)
+    };
+  }
 }
 
 function checkFunctionDefinition(ast, context) {
-  const type = typeOfFunction(ast);
-  context.define(ast.name, { type });
-  return checkFunction(ast, context);
+  if (context.isGlobal()) {
+    context.symbol(ast.name, {});
+    return checkFunction(ast, context);
+  }
+  else {
+    return checkFunction(ast, context);
+  }
 }
 
 function checkDefinition(ast, context) {
@@ -400,7 +214,6 @@ function check(ast, context) {
     case "function": return checkFunction(ast, context);
     case "call": return checkCall(ast, context);
     case "case": return checkCase(ast, context);
-    case "match": return checkMatch(ast, context);
     case "scope": return checkScope(ast, context);
     case "definition": return checkDefinition(ast, context);
     default: throwUnknownAST(ast.type, ast.location);

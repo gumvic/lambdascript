@@ -1,24 +1,7 @@
 # Features
-## Types
-- `typeOr` should flatten and deduplicate its `types`; also, `typeOr` of one is just that one; same for `typeAnd`
-- `not` type, like `!(typeUndefined | typeNull)`
-- type the types
-- when `update`ing a `map` with `key` and `value`:
--- if `key` casts to an existing item's key, that existing key's value is now `typeOr(existingValue, value)`
--- otherwise, just add to the items
-
 ## Meta
-- hardcoded `$type` is bad
 - docstrings
-- `define` should be safe and guarantee all the checks?
-- dangling `_` definitions -- check in `checkScope` and `endModule`
 - dependencies
-- type dependencies:
-```
-t = ...
-f(x: t) = ...
-t = ... # f should be checked; or should it?
-```
 
 ## Syntax
 - lighter call syntax, `foo(a, b)` is ok, and also `foo a, b`, and obviously `run do ... end`, and for sure:
@@ -27,6 +10,7 @@ it "should pass", do
   assert(42 == 42)
 end
 ```
+- get rid of `match`
 - syntax for defining operators
 - `.` as a separator: `core.+`, `core.contrib.++`; in grammar, fully qualified names can't be lvalues, only `atom`s
 - keywords and fully qualified keywords
@@ -36,7 +20,7 @@ end
 ## Misc
 - local scope definitions should be scanned at once, not one by one, and redefinitions should be disabled
 - nothing should throw, instead return `either`s
-- `_` value that has `typeAny` and is generated as `((() => throw "Not Implemented")())`; or how about having `panic` function that just throws its argument, and has the type of `? -> ?`?
+- `_` that is generated as `((() => throw "Not Implemented")())`; or how about having `panic` function that just throws its argument?
 - `_` as a name, too, like `fn(_, _, z) -> z` doesn't complain about duplicates
 - `eval` should be in global context, to prevent local vars leaking in
 - stick to native js data structures for now, will need to implement `==` properly, but maybe `Immutable.is` will do
@@ -44,9 +28,7 @@ end
 ```
 repl>
 ```
-- check `eval`ed types in global context, also check they are actually types
-- `match`ing on functions?
-- `checkMatch` `else` should narrow, too, -- track the combinations in `when`, and assume the combinations that were left out
+- check `eval`ed types in global context
 
 # Bugs
 - `ReferenceError: a is not defined`:

@@ -21,10 +21,9 @@ const MAP = {
   name: "map"
 };
 
-const MATCH = {
-  type: "Identifier",
-  name: "match"
-};
+function throwUnknownAST(type, location) {
+  throw new Error(`[Internal] Unknown AST ${type}`, location);
+}
 
 class GlobalContext {
   isGlobal() {
@@ -48,10 +47,6 @@ class LocalContext {
   spawn() {
     return new LocalContext(this);
   }
-}
-
-function throwUnknownAST(type, location) {
-  throw new Error(`[Internal] Unknown AST ${type}`, location);
 }
 
 function genSkip(ast, context) {
@@ -155,37 +150,6 @@ function genCase({ branches, otherwise }, context) {
   return _generate(branches, context);
 }
 
-function genMatch({ names, branches, otherwise }, context) {
-  function _generate(branches, context) {
-    if (!branches.length) {
-      return generate(otherwise, context);
-    }
-    const { patterns, value } = branches[0];
-    const rest = branches.slice(1);
-    const condition = patterns
-      .map((pattern, i) => ({
-        type: "CallExpression",
-        callee: MATCH,
-        arguments: [generate(pattern, context), generate(names[i], context)]
-      }))
-      .reduce((left, right) => ({
-        type: "LogicalExpression",
-        operator: "&&",
-        left,
-        right
-      }));
-    const ifTrue = generate(value, context);
-    const ifFalse = _generate(rest, context);
-    return {
-      type: "ConditionalExpression",
-      test: condition,
-      consequent: ifTrue,
-      alternate: ifFalse
-    };
-  }
-  return _generate(branches, context);
-}
-
 function genScope({ definitions, body }, context) {
   context = context.spawn();
   definitions = definitions.map((definition) => genDefinition(definition, context));
@@ -218,7 +182,7 @@ function genCall({ callee, args }, context) {
   };
 }
 
-function genConstantDefinition({ name, value, meta }, context) {
+function genConstantDefinition({ name, value }, context) {
   if (context.isGlobal()) {
     return {
       type: "AssignmentExpression",
@@ -247,7 +211,7 @@ function genConstantDefinition({ name, value, meta }, context) {
   }
 }
 
-function genFunctionDefinition({ name, args, body, meta }, context) {
+function genFunctionDefinition({ name, args, body }, context) {
   if (context.isGlobal()) {
     return {
       type: "AssignmentExpression",
@@ -298,7 +262,6 @@ function generate(ast, context) {
     case "map":  return genMap(ast, context);
     case "function": return genFunction(ast, context);
     case "case": return genCase(ast, context);
-    case "match": return genMatch(ast, context);
     case "scope": return genScope(ast, context);
     case "call": return genCall(ast, context);
     case "definition": return genDefinition(ast, context);

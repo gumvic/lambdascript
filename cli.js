@@ -36,10 +36,7 @@ function repl() {
     terminal.inputField((err, src) => {
       terminal(EOL);
       try {
-        const ast = check(parse(src));
-        const type = ast.meta.type;
-        const value = eval(generate(ast));
-        terminal(`${value} : ${type}`);
+        terminal(eval(generate(check(parse(src)))));
       }
       catch(e) {
         terminal(formatError(e));

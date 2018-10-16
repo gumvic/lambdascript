@@ -1,14 +1,4 @@
 const immutable = require("immutable");
-const {
-  castType,
-  typeUndefined,
-  typeAny,
-  typeBoolean,
-  typeNumber,
-  typeString,
-  typeMap,
-  typeFunction
-} = require("../type");
 
 function $typeof(x) {
   return typeof x;
@@ -53,10 +43,6 @@ function $throw(e) {
 function $plus(x, y) {
   return x + y;
 }
-
-$plus.$type = typeFunction([
-  [[typeNumber, typeNumber], typeNumber],
-  [[typeString, typeString], typeString]]);
 
 // -
 function $dash(x, y) {
@@ -149,19 +135,6 @@ function $and$and(x, y) {
 }
 
 const get = immutable.get;
-get.$type = typeFunction([
-  [[typeMap, typeAny], typeAny],
-  [[typeMap([[typeString("foo"), typeString("bar")]]), typeString("foo")], typeString("bar")],
-  [[typeMap([[typeString("fooz"), typeString("bar")]]), typeString("foo")], typeUndefined]],
-  ({ items }, key) => {
-    for (let [k, v] of items) {
-      if (castType(k, key)) {
-        return v;
-      }
-    }
-    return typeUndefined;
-  });
-
 module.exports = {
   "+": $plus,
   get
