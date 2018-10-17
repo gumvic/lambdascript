@@ -1,15 +1,12 @@
 const { generate: emit } = require("astring");
+const { symbol } = require("../meta");
 const { namify } = require("../utils");
 const Error = require("../error");
 
-const NOOP = {
-  type: "EmptyStatement"
-};
-
-const GLOBAL = {
+/*const GLOBAL = {
   type: "Identifier",
   name: "global"
-};
+};*/
 
 const LIST = {
   type: "Identifier",
@@ -184,17 +181,10 @@ function genCall({ callee, args }, context) {
 
 function genConstantDefinition({ name, value }, context) {
   if (context.isGlobal()) {
-    return {
-      type: "AssignmentExpression",
-      left: {
-        type: "MemberExpression",
-        object: GLOBAL,
-        property: generate(name, context),
-        computed: false
-      },
-      right: generate(value, context),
-      operator: "="
-    };
+    symbol(name.name, {
+      value: eval(emit(generate(value, context)))
+    });
+    return generate(name, context);
   }
   else {
     return {
@@ -213,17 +203,10 @@ function genConstantDefinition({ name, value }, context) {
 
 function genFunctionDefinition({ name, args, body }, context) {
   if (context.isGlobal()) {
-    return {
-      type: "AssignmentExpression",
-      left: {
-        type: "MemberExpression",
-        object: GLOBAL,
-        property: generate(name, context),
-        computed: false
-      },
-      right: genFunction({ args, body }, context),
-      operator: "="
-    };
+    symbol(name.name, {
+      value: eval(emit(genFunction({ args, body }, context)))
+    });
+    return generate(name, context);
   }
   else {
     return {
@@ -330,8 +313,5 @@ function generate(ast, context) {
 }
 
 module.exports = {
-  generate: (ast) => ({
-    ast,
-    js: emit(generate(ast, new GlobalContext()))
-  })
+  generate: (ast) => emit(generate(ast, new GlobalContext()))
 };
