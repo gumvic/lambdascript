@@ -23,18 +23,17 @@ reservedWord "special word" =
   / wordIn
   / wordEnd
 
-wordWildcard "_" = "_" !beginNameChar
-wordCase "case" = "case" !beginNameChar
-wordWhen "when" = "when" !beginNameChar
-wordElse "else" = "else" !beginNameChar
-wordMatch "match" = "match" !beginNameChar
-wordDo "do" = "do" !beginNameChar
-wordLet "let" = "let" !beginNameChar
-wordFn "fn" = "fn" !beginNameChar
-wordIn "in" = "in" !beginNameChar
-wordEnd "end" = "end" !beginNameChar
+wordCase "case" = "case" ![a-zA-Z_]
+wordWhen "when" = "when" ![a-zA-Z_]
+wordElse "else" = "else" ![a-zA-Z_]
+wordMatch "match" = "match" ![a-zA-Z_]
+wordDo "do" = "do" ![a-zA-Z_]
+wordLet "let" = "let" ![a-zA-Z_]
+wordFn "fn" = "fn" ![a-zA-Z_]
+wordIn "in" = "in" ![a-zA-Z_]
+wordEnd "end" = "end" ![a-zA-Z_]
 
-beginNameChar = [a-zA-Z_]
+beginNameChar = [a-z_]
 nameChar = [a-zA-Z_0-9]
 name "name" =
   !reservedWord
@@ -56,41 +55,6 @@ operator "operator" =
   return {
     type: "name",
     name: chars.join(""),
-    location: location()
-  };
-}
-
-skip "_" = wordWildcard {
-  return {
-    type: "skip",
-    location: location()
-  };
-}
-
-undefined "undefined" = "undefined" !beginNameChar {
-  return {
-    type: "undefined",
-    location: location()
-  };
-}
-
-null "null" = "null" !beginNameChar {
-  return {
-    type: "null",
-    location: location()
-  };
-}
-
-false "false" = "false" !beginNameChar {
-  return {
-    type: "false",
-    location: location()
-  };
-}
-
-true "true" = "true" !beginNameChar {
-  return {
-    type: "true",
     location: location()
   };
 }
@@ -142,57 +106,70 @@ string "string" = quotation_mark chars:char* quotation_mark {
   };
 }
 
-listItem = expression
+beginSymbolChar = [A-Z]
+symbolChar = [a-zA-Z_0-9]
+symbol "symbol" =
+  !reservedWord
+  first:beginSymbolChar
+  rest:(symbolChar+)?
+  {
+    return {
+      type: "symbol",
+      name: [first].concat(rest || []).join(""),
+      location: location()
+    };
+  }
 
-list "list" =
+tupleItem = expression
+
+tuple "tuple" =
   "[" _
-  items:(first:listItem rest:(_ "," _ item:listItem { return item; })* { return [first].concat(rest); })?
+  items:(first:tupleItem rest:(_ "," _ item:tupleItem { return item; })* { return [first].concat(rest); })?
   _ "]" {
     return {
-      type: "list",
+      type: "tuple",
       items: items || [],
       location: location()
     };
   }
 
-mapKeyValueItem = key:expression _ ":" _ value:expression {
+recordItem = key:name _ ":" _ value:expression {
   return {
     key,
     value
   };
 }
 
-mapKeyItem = key:name {
-  return {
-    key,
-    value: key
-  };
-}
-
-mapItem = mapKeyValueItem / mapKeyItem
-
-map "map" =
+record "record" =
   "{" _
-  items:(first:mapItem rest:(_ "," _ item:mapItem { return item; })* { return [first].concat(rest); })?
+  items:(first:recordItem rest:(_ "," _ item:recordItem { return item; })* { return [first].concat(rest); })?
   _ "}" {
     return {
-      type: "map",
+      type: "record",
       items: items || [],
       location: location()
     };
   }
 
-funArgs =
-  "(" _
-  args:(first:name rest:(_ "," _ arg:name { return arg; })* { return [first].concat(rest); })? _
-  _ ")" {
-  return args || [];
+forall =
+  "[" _
+  types:(first:name rest:(_ "," _ type:name { return type; })* { return [first].concat(rest); })? _
+  _ "]" {
+  return types || [];
 }
 
-function = wordFn _ args:funArgs _ "->" _ body:expression {
+params =
+  "(" _
+  params:(first:name rest:(_ "," _ param:name { return param; })* { return [first].concat(rest); })? _
+  _ ")" {
+  return params || [];
+}
+
+function = wordFn _ forall:forall? _ params:params _ "->" _ body:expression {
   return {
     type: "function",
-    args,
+    forall: forall || [],
+    params,
     body,
     location: location()
   };
@@ -212,8 +189,7 @@ caseOtherwise = wordElse _ otherwise:expression {
 case "case" =
   wordCase _
   branches:(branch:caseBranch _ { return branch; })+
-  otherwise:caseOtherwise _
-  wordEnd {
+  otherwise:caseOtherwise {
   return {
     type: "case",
     branches,
@@ -241,8 +217,7 @@ match "match" =
   wordMatch _
   names:(first:name rest:(_ "," _ name:name { return name; })* { return [first].concat(rest); }) _
   branches:(branch:matchBranch _ { return branch; })+
-  otherwise:matchOtherwise _
-  wordEnd {
+  otherwise:matchOtherwise {
   for (let { patterns, location } of branches) {
     if (patterns.length !== names.length) {
       error("Wrong amount of patterns", patterns[0].location);
@@ -267,12 +242,13 @@ constantDefinition = name:name _ "=" _ value:expression {
   };
 }
 
-functionDefinition = name:name _ args:funArgs _ "->" _ body:expression {
+functionDefinition = name:name _ forall:forall? _ params:params _ "=" _ body:expression {
   return {
     type: "definition",
     kind: "function",
     name,
-    args,
+    forall,
+    params,
     body,
     location: location()
   };
@@ -284,8 +260,7 @@ scope "let" =
   wordLet _
   definitions:(definition:definition _ { return definition; })+ _
   wordIn _
-  body:expression _
-  wordEnd {
+  body:expression {
   return {
     type: "scope",
     definitions,
@@ -299,16 +274,12 @@ subExpression "sub-expression" = "(" _ expression:expression _ ")" {
 }
 
 atom =
-  undefined
-  / null
-  / false
-  / true
-  / number
+  number
   / string
-  / skip
+  / symbol
   / name
-  / list
-  / map
+  / tuple
+  / record
   / function
   / case
   / match

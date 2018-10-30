@@ -1,6 +1,5 @@
-const { generate } = require("../generate");
-const { symbol } = require("../meta");
-const Error = require("../error");
+const { generate } = require("./generate");
+const Error = require("./error");
 
 function throwUnknownAST(type, location) {
   throw new Error(`[Internal] Unknown AST ${type}`, location);

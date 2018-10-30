@@ -1,7 +1,6 @@
 const { generate: emit } = require("astring");
-const { symbol } = require("../meta");
-const { namify } = require("../utils");
-const Error = require("../error");
+const { namify } = require("./utils");
+const Error = require("./error");
 
 /*const GLOBAL = {
   type: "Identifier",
